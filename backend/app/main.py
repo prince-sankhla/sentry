@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes import companies, dashboard, graph, tenders
 from app.core.config import get_settings
 from app.db.connection import verify_database_connection
 
@@ -37,3 +38,9 @@ def health() -> dict[str, str]:
         "service": "Sentry Backend",
         "version": settings.app_version,
     }
+
+
+app.include_router(tenders.router)
+app.include_router(companies.router)
+app.include_router(dashboard.router)
+app.include_router(graph.router)
