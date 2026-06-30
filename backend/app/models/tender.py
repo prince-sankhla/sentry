@@ -30,6 +30,10 @@ class Tender(Base):
     closing_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     estimated_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
+    source_name: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    source_record_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

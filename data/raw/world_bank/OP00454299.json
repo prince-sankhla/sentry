@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454299",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454299",
+  "retrieved_at": "2026-06-30T08:59:25.197288+00:00",
+  "data": {
+    "id": "OP00454299",
+    "notice_type": "Contract Award",
+    "noticedate": "28-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Uzbekistan",
+    "project_id": "P168233",
+    "project_name": "Rural Infrastructure Development Project",
+    "bid_reference_no": "MOEI-RIDP-AND-W-2616032100312001",
+    "bid_description": "Asphalt paving of internal roads in Sarbontapa MFY – 0.7 km, in Raish MFY – 3.5 km, and in Navoi MFY – 8.3 km, Buloqboshi District.",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-28T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P168233-Rural Infrastructure Development Project<br/><b>Loan/Credit/TF Info:</b>COFN-C1750; IDA-65020<br/><b>Bid/Contract Reference No:</b>MOEI-RIDP-AND-W-2616032100312001<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Asphalt paving of internal roads in Sarbontapa MFY  0.7 km, in Raish MFY  3.5 km, and in Navoi MFY  8.3 km, Buloqboshi District.</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/04/08<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>80 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>XOJAOBOD TRANS LIDER (768503)</b><br/>Andijan region, Khojaabad district, Khojaabad city, Yetmishmergan neighborhood<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 4983517198.15</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>UZS 4983517198.15</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>SHANS (1019322)</b><br/>Andijan region, Khojaabad district, Khidirsha town, Khidirsha neighborhood<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 4983517198.15</div></br></div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>STROYDORGIDROMASHSERVIS (1102631)</b><br/>Andijan region, Andijan city, Soy street, house 151<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS<br/><br/>Reason for Rejection<br/>Failure to meet minimum technical score<br/></div></br></div><br/></div></div>"
+  }
+}

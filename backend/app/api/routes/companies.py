@@ -27,11 +27,23 @@ router = APIRouter(prefix="/api/companies", tags=["companies"])
 def list_companies(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None, min_length=1, max_length=200, description="Search company name and registration number."),
     db: Session = Depends(get_db),
 ) -> CompanyListResponse:
-    total = db.scalar(select(func.count()).select_from(Company)) or 0
+    filters = []
+    if q:
+        search_term = f"%{q.strip()}%"
+        filters.append(or_(Company.name.ilike(search_term), Company.registration_number.ilike(search_term)))
+
+    total_statement = select(func.count()).select_from(Company)
+    company_statement = select(Company)
+    if filters:
+        total_statement = total_statement.where(*filters)
+        company_statement = company_statement.where(*filters)
+
+    total = db.scalar(total_statement) or 0
     companies = db.scalars(
-        select(Company).order_by(Company.created_at.desc(), Company.name.asc()).limit(limit).offset(offset)
+        company_statement.order_by(Company.created_at.desc(), Company.name.asc()).limit(limit).offset(offset)
     ).all()
 
     return CompanyListResponse(

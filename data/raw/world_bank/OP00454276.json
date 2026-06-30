@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454276",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454276",
+  "retrieved_at": "2026-06-30T08:59:25.190606+00:00",
+  "data": {
+    "id": "OP00454276",
+    "notice_type": "Contract Award",
+    "noticedate": "28-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Uzbekistan",
+    "project_id": "P168233",
+    "project_name": "Rural Infrastructure Development Project",
+    "bid_reference_no": "MOEI-RIDP-AND-W-2516032100210004",
+    "bid_description": "Construction of 1 new drinking water well and installation of a 2.0 km drinking water supply network in Qaqir MCA, Buloqboshi District, and construction of a 4.0 km drinking water supply network in Zarg‘aldoq MCA, Buloqboshi District.",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-28T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P168233-Rural Infrastructure Development Project<br/><b>Loan/Credit/TF Info:</b>COFN-C1750; IDA-65020<br/><b>Bid/Contract Reference No:</b>MOEI-RIDP-AND-W-2516032100210004<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Construction of 1 new drinking water well and installation of a 2.0 km drinking water supply network in Qaqir MCA, Buloqboshi District, and construction of a 4.0 km drinking water supply network in Za</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/05/29<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>30 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>VODIY QURILISH HOLDING (1102598)</b><br/>Andijan region, Altynkul district, AyshahonimMCA, 283, Altynkul street<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 1891064282.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>UZS 1891064282.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>ALFA BUILDING LUX (1102599)</b><br/>Andijan region, Bostan district, Boz town, A.Ikromov street<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 1950782102.00</div></br></div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>SKY LINE BUILDING (1102235)</b><br/>Namangan region, Namangan city, Sardoba MCA, A.Navoiy street, 19-house, room 10<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS<br/><br/>Reason for Rejection<br/>Failure to meet minimum technical score<br/></div></br></div><br/></div></div>"
+  }
+}

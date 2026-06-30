@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -25,12 +25,20 @@ class ParsedTender:
     published_date: date | None
     estimated_value: Decimal | None
     currency: str
+    source_name: str | None = None
+    source_record_id: str | None = None
+    source_url: str | None = None
+    retrieved_at: datetime | None = None
 
 
 @dataclass(frozen=True)
 class ParsedCompany:
     name: str
     registration_number: str | None
+    source_name: str | None = None
+    source_record_id: str | None = None
+    source_url: str | None = None
+    retrieved_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -41,6 +49,10 @@ class ParsedAward:
     award_date: date | None
     award_value: Decimal | None
     currency: str
+    source_name: str | None = None
+    source_record_id: str | None = None
+    source_url: str | None = None
+    retrieved_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -68,10 +80,12 @@ class ProzorroImporter:
         self.batch_size = batch_size
 
     def import_directory(self, directory: Path) -> ImportStats:
-        stats = ImportStats()
         files = sorted(directory.glob("*.json"))
         logger.info("Found %s Prozorro JSON files in %s", len(files), directory)
+        return self.import_files(files)
 
+    def import_files(self, files: list[Path]) -> ImportStats:
+        stats = ImportStats()
         batch: list[ParsedProzorroTender] = []
         for path in files:
             try:
@@ -108,6 +122,10 @@ class ProzorroImporter:
                 published_date=parsed.tender.published_date,
                 estimated_value=parsed.tender.estimated_value,
                 currency=parsed.tender.currency,
+                source_name=parsed.tender.source_name,
+                source_record_id=parsed.tender.source_record_id,
+                source_url=parsed.tender.source_url,
+                retrieved_at=parsed.tender.retrieved_at,
             )
             for parsed in tenders
             if parsed.tender.reference_number not in existing_tenders
@@ -125,7 +143,14 @@ class ProzorroImporter:
         existing_companies = self._get_existing_companies(parsed_companies)
 
         new_companies = [
-            Company(name=company.name, registration_number=company.registration_number)
+            Company(
+                name=company.name,
+                registration_number=company.registration_number,
+                source_name=company.source_name,
+                source_record_id=company.source_record_id,
+                source_url=company.source_url,
+                retrieved_at=company.retrieved_at,
+            )
             for key, company in parsed_companies.items()
             if key not in existing_companies
         ]
@@ -181,6 +206,10 @@ class ProzorroImporter:
                         award_date=award.award_date,
                         award_value=award.award_value,
                         currency=award.currency,
+                        source_name=award.source_name,
+                        source_record_id=award.source_record_id,
+                        source_url=award.source_url,
+                        retrieved_at=award.retrieved_at,
                     )
                 )
 
@@ -236,11 +265,20 @@ def parse_tender_file(path: Path) -> ParsedProzorroTender:
     if not isinstance(payload, dict):
         raise ProzorroImportError("Tender JSON root must be an object.")
 
-    return parse_tender(payload)
+    source_url = _optional_string(payload.get("source_url")) if isinstance(payload, dict) else None
+    retrieved_at = _parse_datetime(payload.get("retrieved_at")) if isinstance(payload, dict) else None
+    if isinstance(payload.get("data"), dict):
+        envelope = payload
+        payload = envelope["data"]
+        source_url = _optional_string(envelope.get("source_url")) or source_url
+        retrieved_at = _parse_datetime(envelope.get("retrieved_at")) or retrieved_at
+
+    return parse_tender(payload, source_url=source_url, retrieved_at=retrieved_at)
 
 
-def parse_tender(payload: dict[str, Any]) -> ParsedProzorroTender:
+def parse_tender(payload: dict[str, Any], source_url: str | None = None, retrieved_at: datetime | None = None) -> ParsedProzorroTender:
     reference_number = _required_string(payload, "tenderID")
+    tender_id = _optional_string(payload.get("id")) or reference_number
     title = _required_string(payload, "title")
     value = _object(payload.get("value"))
     procuring_entity = _object(payload.get("procuringEntity"))
@@ -253,6 +291,10 @@ def parse_tender(payload: dict[str, Any]) -> ParsedProzorroTender:
         published_date=_parse_date(payload.get("date") or payload.get("dateCreated")),
         estimated_value=_parse_decimal(value.get("amount")),
         currency=_currency(value.get("currency")),
+        source_name="prozorro",
+        source_record_id=tender_id,
+        source_url=source_url or f"https://prozorro.gov.ua/tender/{reference_number}",
+        retrieved_at=retrieved_at,
     )
 
     companies: list[ParsedCompany] = []
@@ -270,6 +312,10 @@ def parse_tender(payload: dict[str, Any]) -> ParsedProzorroTender:
                 company = ParsedCompany(
                     name=_required_string(supplier_object, "name"),
                     registration_number=_optional_string(identifier.get("id")),
+                    source_name="prozorro",
+                    source_record_id=_optional_string(identifier.get("id")),
+                    source_url=source_url,
+                    retrieved_at=retrieved_at,
                 )
                 companies.append(company)
                 awards.append(
@@ -280,6 +326,10 @@ def parse_tender(payload: dict[str, Any]) -> ParsedProzorroTender:
                         award_date=_parse_date(award.get("date")),
                         award_value=_parse_decimal(award_value.get("amount")),
                         currency=_currency(award_value.get("currency")),
+                        source_name="prozorro",
+                        source_record_id=_optional_string(award.get("id")) or f"{tender_id}:award:{company.registration_number or company.name}",
+                        source_url=source_url,
+                        retrieved_at=retrieved_at,
                     )
                 )
             except Exception:
@@ -345,6 +395,18 @@ def _parse_date(value: Any) -> date | None:
             return date.fromisoformat(value[:10])
         except ValueError:
             return None
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def _currency(value: Any) -> str:

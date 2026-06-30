@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454291",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454291",
+  "retrieved_at": "2026-06-30T08:59:25.216647+00:00",
+  "data": {
+    "id": "OP00454291",
+    "notice_type": "Contract Award",
+    "noticedate": "28-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Indonesia",
+    "project_id": "P166672",
+    "project_name": "ID: Jambi Sustainable Landscape Management Project (J-SLMP)",
+    "bid_reference_no": "2026_BKSDA_01_AC",
+    "bid_description": "Return of 1 air conditioner unit at the Jambi Provincial BKSDA office",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-28T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P166672-ID: Jambi Sustainable Landscape Management Project (J-SLMP)<br/><b>Loan/Credit/TF Info:</b>TF-B3999<br/><b>Bid/Contract Reference No:</b>2026_BKSDA_01_AC<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Purchase order - AC</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/12<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>1 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>GRUNDIG JAYA PERKASA (1102622)</b><br/>Jambi<br/>Country: Indonesia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>IDR 14763000<br/><br/>Evaluated Bid Price<br/>IDR 12600000</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>IDR 12600000</div><br/></div></div>"
+  }
+}

@@ -3,6 +3,7 @@ fastapi
 httpx
 pydantic-settings
 psycopg[binary]
+rapidfuzz
 sqlalchemy
 tenacity
 uvicorn[standard]

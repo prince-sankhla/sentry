@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import companies, dashboard, graph, tenders
+from app.api.routes import companies, dashboard, entities, graph, tenders, web
 from app.core.config import get_settings
 from app.db.connection import verify_database_connection
 
@@ -26,7 +26,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.backend_cors_origins,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -42,5 +42,7 @@ def health() -> dict[str, str]:
 
 app.include_router(tenders.router)
 app.include_router(companies.router)
+app.include_router(entities.router)
 app.include_router(dashboard.router)
 app.include_router(graph.router)
+app.include_router(web.router)

@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454298",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454298",
+  "retrieved_at": "2026-06-30T08:59:25.181410+00:00",
+  "data": {
+    "id": "OP00454298",
+    "notice_type": "Contract Award",
+    "noticedate": "28-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Uzbekistan",
+    "project_id": "P168233",
+    "project_name": "Rural Infrastructure Development Project",
+    "bid_reference_no": "MOEI-RIDP-AND-W-2516032320312001",
+    "bid_description": "Repair of 3 km of internal streets in Navbahor MFY, Pakhtaobod District.",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-28T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P168233-Rural Infrastructure Development Project<br/><b>Loan/Credit/TF Info:</b>COFN-C1750; IDA-65020<br/><b>Bid/Contract Reference No:</b>MOEI-RIDP-AND-W-2516032320312001<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Repair of 3 km of internal streets in Navbahor MFY, Pakhtaobod District.</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/04/13<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>70 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>BUNYODKOR SANOAT RIVOJI (1102579)</b><br/>Andijan region<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 1120974699.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>UZS 1120974699.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>WILLPRINT (1017905)</b><br/>Andijan region, Bulakbashi district, Tinchlik MCA, Rohat street, 95th<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 1179973367.00</div></br></div><br/></div></div>"
+  }
+}

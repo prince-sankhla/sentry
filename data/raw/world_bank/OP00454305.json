@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454305",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454305",
+  "retrieved_at": "2026-06-30T08:59:25.203446+00:00",
+  "data": {
+    "id": "OP00454305",
+    "notice_type": "Contract Award",
+    "noticedate": "28-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Uzbekistan",
+    "project_id": "P168233",
+    "project_name": "Rural Infrastructure Development Project",
+    "bid_reference_no": "MOEI-RIDP-AND-W-2616032320312004",
+    "bid_description": "Asphalt paving of 4.0 km of internal roads in Olmazor MFY and 10.5 km of internal roads in Hayotbakhsh MFY, Pakhtaobod District.",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-28T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P168233-Rural Infrastructure Development Project<br/><b>Loan/Credit/TF Info:</b>COFN-C1750; IDA-65020<br/><b>Bid/Contract Reference No:</b>MOEI-RIDP-AND-W-2616032320312004<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Asphalt paving of 4.0 km of internal roads in Olmazor MCA and 10.5 km of internal roads in Hayotbakhsh MCA , Pakhtaobod District.</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/04/08<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>80 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>ABDUPATTO SERVIS (769337)</b><br/>Andijan Region, Andijan Sh., Khortum Street, 32<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 4762411913.4</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>UZS 4762411913.40</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>HAMJIXAT YAGOHA QURILISH (997677)</b><br/>Andijan region, Pakhtaabad district, Pakhtakor rural municipality, Boytopi neighborhood<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS 4762411914.00</div></br></div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>SHANS (1019322)</b><br/>Andijan region, Khojaabad district, Khidirsha town, Khidirsha neighborhood<br/>Country: Uzbekistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>UZS<br/><br/>Evaluated Bid Price<br/>UZS<br/><br/>Reason for Rejection<br/>Failure to meet minimum technical score<br/></div></br></div><br/></div></div>"
+  }
+}
