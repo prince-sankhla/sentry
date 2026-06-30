@@ -3,19 +3,22 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
-  BarChart3,
   Bell,
+  BookOpen,
   Building2,
   ChevronLeft,
   ChevronRight,
   FileText,
   FolderSearch,
   GitBranch,
-  LayoutDashboard,
+  Landmark,
+  Library,
   Menu,
+  PackageOpen,
   Search,
   Settings,
   Shield,
+  SlidersHorizontal,
   UserCircle
 } from "lucide-react";
 import Link from "next/link";
@@ -24,13 +27,16 @@ import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
 
 const navItems = [
-  { href: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/graph", icon: GitBranch, label: "Graph" },
-  { href: "/tenders", icon: FileText, label: "Tenders" },
+  { href: "/", icon: FolderSearch, label: "Workspace" },
+  { href: "/investigations", icon: BookOpen, label: "Investigations" },
   { href: "/companies", icon: Building2, label: "Companies" },
-  { href: "/awards", icon: Award, label: "Awards" },
-  { href: "/investigations", icon: FolderSearch, label: "Investigations" },
-  { href: "/reports", icon: BarChart3, label: "Reports" },
+  { href: "/tenders", icon: FileText, label: "Tenders" },
+  { href: "/buyers", icon: Landmark, label: "Buyers" },
+  { href: "/documents", icon: Library, label: "Documents" },
+  { href: "/graph", icon: GitBranch, label: "Graph" },
+  { href: "/evidence", icon: Shield, label: "Evidence" },
+  { href: "/sources", icon: PackageOpen, label: "Sources" },
+  { href: "/imports", icon: Award, label: "Imports" },
   { href: "/settings", icon: Settings, label: "Settings" }
 ];
 
@@ -56,30 +62,33 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F14] text-[#E6E8EB]">
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center border-b border-[#2A3441] bg-[#0B0F14]">
-        <button className="mx-3 text-[#9AA4AF] lg:hidden" onClick={() => setMobileOpen((value) => !value)} type="button" aria-label="Toggle navigation">
+    <div className="min-h-screen bg-[#090909] text-[#F7F7F7]">
+      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center border-b border-[#2A2A2A] bg-[#090909]">
+        <button className="mx-3 text-[#A3A3A3] lg:hidden" onClick={() => setMobileOpen((value) => !value)} type="button" aria-label="Toggle navigation">
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex h-full min-w-0 flex-1 items-center gap-4 px-4">
-          <div className="hidden items-center gap-2 text-sm font-semibold text-[#E6E8EB] sm:flex">
-            <Shield className="h-4 w-4 text-[#C58B2A]" />
+          <div className="hidden items-center gap-2 text-sm font-semibold text-[#F7F7F7] sm:flex">
+            <Shield className="h-4 w-4 text-[#A3A3A3]" />
             {title}
           </div>
           <form className="relative max-w-2xl flex-1" onSubmit={onSearch}>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA4AF]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" />
             <input
-              className="h-9 w-full border border-[#2A3441] bg-[#121821] pl-9 pr-3 text-sm text-[#E6E8EB] outline-none placeholder:text-[#6f7a86] focus:border-[#C58B2A]"
+              className="h-9 w-full border border-[#2A2A2A] bg-[#111111] pl-9 pr-3 text-sm text-[#F7F7F7] outline-none placeholder:text-[#737373] focus:border-[#B59A5B]"
               name="globalSearch"
               placeholder="Global search company, tender, buyer, award"
               type="search"
             />
           </form>
-          <button className="border border-[#2A3441] bg-[#121821] p-2 text-[#9AA4AF] hover:text-[#E6E8EB]" type="button" aria-label="Notifications">
+          <button className="border border-[#2A2A2A] bg-[#111111] p-2 text-[#A3A3A3] hover:text-[#F7F7F7]" type="button" aria-label="Filters">
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
+          <button className="border border-[#2A2A2A] bg-[#111111] p-2 text-[#A3A3A3] hover:text-[#F7F7F7]" type="button" aria-label="Notifications">
             <Bell className="h-4 w-4" />
           </button>
-          <button className="hidden items-center gap-2 border border-[#2A3441] bg-[#121821] px-3 py-2 text-sm text-[#E6E8EB] md:flex" type="button">
-            <UserCircle className="h-4 w-4 text-[#9AA4AF]" />
+          <button className="hidden items-center gap-2 border border-[#2A2A2A] bg-[#111111] px-3 py-2 text-sm text-[#F7F7F7] md:flex" type="button">
+            <UserCircle className="h-4 w-4 text-[#A3A3A3]" />
             Analyst
           </button>
         </div>
@@ -89,14 +98,14 @@ export function AppShell({
         {(mobileOpen || true) && (
           <motion.aside
             animate={{ width: collapsed ? 72 : 232 }}
-            className={`fixed bottom-0 left-0 top-14 z-30 border-r border-[#2A3441] bg-[#0B0F14] ${mobileOpen ? "block" : "hidden lg:block"}`}
+            className={`fixed bottom-0 left-0 top-14 z-30 border-r border-[#2A2A2A] bg-[#090909] ${mobileOpen ? "block" : "hidden lg:block"}`}
             initial={false}
-            transition={{ duration: 0.16 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
           >
             <div className="flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-[#2A3441] p-3">
-                {!collapsed ? <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9AA4AF]">Navigation</div> : null}
-                <button className="border border-[#2A3441] p-1 text-[#9AA4AF] hover:text-[#E6E8EB]" onClick={() => setCollapsed((value) => !value)} type="button" aria-label="Collapse sidebar">
+              <div className="flex items-center justify-between border-b border-[#2A2A2A] p-3">
+                {!collapsed ? <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#737373]">Navigation</div> : null}
+                <button className="border border-[#2A2A2A] p-1 text-[#A3A3A3] hover:text-[#F7F7F7]" onClick={() => setCollapsed((value) => !value)} type="button" aria-label="Collapse sidebar">
                   {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
               </div>
@@ -108,8 +117,8 @@ export function AppShell({
                     <Link
                       className={`flex h-10 items-center gap-3 border px-3 text-sm transition ${
                         active
-                          ? "border-[#C58B2A] bg-[#171F2A] text-[#E6E8EB]"
-                          : "border-transparent text-[#9AA4AF] hover:border-[#2A3441] hover:bg-[#121821] hover:text-[#E6E8EB]"
+                          ? "border-[#2A2A2A] bg-[#181818] text-[#F7F7F7]"
+                          : "border-transparent text-[#A3A3A3] hover:border-[#2A2A2A] hover:bg-[#111111] hover:text-[#F7F7F7]"
                       }`}
                       href={item.href}
                       key={item.href}

@@ -27,6 +27,11 @@ import type { GraphEdgeType, GraphNodeType, RelationshipGraph, RelationshipGraph
 
 type SelectedItem = { kind: "node"; id: string } | { kind: "edge"; id: string } | null;
 
+export type RelationshipGraphSelection =
+  | { kind: "node"; node: RelationshipGraphNode }
+  | { kind: "edge"; edge: RelationshipGraph["edges"][number] }
+  | null;
+
 type FlowNodeData = {
   graphNode: RelationshipGraphNode;
   selected: boolean;
@@ -61,6 +66,19 @@ const nodeStyles: Record<GraphNodeType, { border: string; fill: string; accent: 
   category: { border: "#7A705F", fill: "#1D1A16", accent: "#C8CDD3" }
 };
 
+const nodeThemeClasses: Record<GraphNodeType, { border: string; fill: string; accent: string }> = {
+  company: { border: "border-[#667A52]", fill: "bg-[#141D1A]", accent: "text-[#8DA175]" },
+  tender: { border: "border-[#8B939E]", fill: "bg-[#14191F]", accent: "text-[#E6E8EB]" },
+  award: { border: "border-[#7A705F]", fill: "bg-[#1D1A16]", accent: "text-[#C8CDD3]" },
+  buyer: { border: "border-[#2A3441]", fill: "bg-[#171F2A]", accent: "text-[#C8CDD3]" },
+  indicator: { border: "border-[#C58B2A]", fill: "bg-[#1F1A12]", accent: "text-[#F3D59A]" },
+  evidence: { border: "border-[#8B939E]", fill: "bg-[#15191D]", accent: "text-[#C8CDD3]" },
+  document: { border: "border-[#5F6975]", fill: "bg-[#14191F]", accent: "text-[#C8CDD3]" },
+  web_evidence: { border: "border-[#5F6975]", fill: "bg-[#111A1A]", accent: "text-[#C8CDD3]" },
+  organization: { border: "border-[#667A52]", fill: "bg-[#141D1A]", accent: "text-[#8DA175]" },
+  category: { border: "border-[#7A705F]", fill: "bg-[#1D1A16]", accent: "text-[#C8CDD3]" }
+};
+
 const edgeColors: Record<GraphEdgeType, string> = {
   company_tender: "#667A52",
   tender_award: "#C58B2A",
@@ -85,15 +103,31 @@ const nodeTypes = {
   investigation: InvestigationNode
 };
 
-export function RelationshipGraphExplorer({ graph }: { graph: RelationshipGraph }) {
+export function RelationshipGraphExplorer({
+  graph,
+  onSelectionChange,
+  showDetailsPanel = true
+}: {
+  graph: RelationshipGraph;
+  onSelectionChange?: (selection: RelationshipGraphSelection) => void;
+  showDetailsPanel?: boolean;
+}) {
   return (
     <ReactFlowProvider>
-      <RelationshipGraphCanvas graph={graph} />
+      <RelationshipGraphCanvas graph={graph} onSelectionChange={onSelectionChange} showDetailsPanel={showDetailsPanel} />
     </ReactFlowProvider>
   );
 }
 
-function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
+function RelationshipGraphCanvas({
+  graph,
+  onSelectionChange,
+  showDetailsPanel = true
+}: {
+  graph: RelationshipGraph;
+  onSelectionChange?: (selection: RelationshipGraphSelection) => void;
+  showDetailsPanel?: boolean;
+}) {
   const [enabledTypes, setEnabledTypes] = useState<Set<GraphNodeType>>(() => new Set(filterTypes));
   const visibleGraph = useMemo(() => filterGraphByType(graph, enabledTypes), [enabledTypes, graph]);
   const initialNodes = useMemo(() => toFlowNodes(visibleGraph), [visibleGraph]);
@@ -111,6 +145,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
     setNodes(initialNodes);
     setEdges(initialEdges);
     setSelectedItem(null);
+    onSelectionChange?.(null);
   }, [initialEdges, initialNodes, setEdges, setNodes]);
 
   function applySelection(nextSelection: SelectedItem, matches = new Set<string>()) {
@@ -118,6 +153,16 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
     const connectedNodeIds = getConnectedNodeIds(visibleGraph, nextSelection);
     setNodes((current) => applyNodeHighlights(current, nextSelection?.kind === "node" ? nextSelection.id : null, connectedNodeIds, matches));
     setEdges((current) => applyEdgeHighlights(current, visibleGraph, nextSelection));
+
+    if (nextSelection?.kind === "node") {
+      const node = visibleGraph.nodes.find((candidate) => candidate.id === nextSelection.id) ?? null;
+      onSelectionChange?.(node ? { kind: "node", node } : null);
+    } else if (nextSelection?.kind === "edge") {
+      const edge = visibleGraph.edges.find((candidate) => candidate.id === nextSelection.id) ?? null;
+      onSelectionChange?.(edge ? { kind: "edge", edge } : null);
+    } else {
+      onSelectionChange?.(null);
+    }
   }
 
   function selectNode(nodeId: string) {
@@ -165,7 +210,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-112px)] gap-4 xl:grid-cols-[1fr_380px]">
+    <div className={`grid min-h-[calc(100vh-112px)] gap-4 ${showDetailsPanel ? "xl:grid-cols-[1fr_380px]" : "grid-cols-1"}`}>
       <section className="overflow-hidden rounded-[6px] border border-[#2A3441] bg-[#121821]">
         <div className="flex flex-col gap-3 border-b border-[#2A3441] bg-[#171F2A]/45 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -237,32 +282,34 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
         </div>
       </section>
 
-      <aside className="rounded-[6px] border border-[#2A3441] bg-[#121821]">
-        <div className="border-b border-[#2A3441] bg-[#171F2A]/45 px-4 py-3">
-          <h2 className="text-base font-semibold text-[#E6E8EB]">Details</h2>
-          <p className="mt-1 text-xs text-[#9AA4AF]">Overview, metadata, relationships, evidence, and statistics</p>
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.div
-            animate={{ opacity: 1, y: 0 }}
-            className="p-4"
-            exit={{ opacity: 0, y: 4 }}
-            initial={{ opacity: 0, y: 4 }}
-            key={selectedItem ? `${selectedItem.kind}-${selectedItem.id}` : "empty"}
-            transition={{ duration: 0.14 }}
-          >
-            {selectedNode ? (
-              <DetailsPanel badge={typeLabels[selectedNode.type]} graph={visibleGraph} itemId={selectedNode.id} nodeType={selectedNode.type} fields={selectedNode.data} label={selectedNode.label} />
-            ) : selectedEdge ? (
-              <DetailsPanel badge="Relationship" graph={visibleGraph} itemId={selectedEdge.id} fields={selectedEdge.data} label={selectedEdge.label} meta={`${selectedEdge.source} -> ${selectedEdge.target}`} />
-            ) : (
-              <div className="rounded-[4px] border border-dashed border-[#2A3441] p-5 text-sm text-[#9AA4AF]">
-                Select a node or relationship to inspect connected entities, metadata, evidence, and statistics.
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </aside>
+      {showDetailsPanel ? (
+        <aside className="rounded-[6px] border border-[#2A3441] bg-[#121821]">
+          <div className="border-b border-[#2A3441] bg-[#171F2A]/45 px-4 py-3">
+            <h2 className="text-base font-semibold text-[#E6E8EB]">Details</h2>
+            <p className="mt-1 text-xs text-[#9AA4AF]">Overview, metadata, relationships, evidence, and statistics</p>
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4"
+              exit={{ opacity: 0, y: 4 }}
+              initial={{ opacity: 0, y: 4 }}
+              key={selectedItem ? `${selectedItem.kind}-${selectedItem.id}` : "empty"}
+              transition={{ duration: 0.14 }}
+            >
+              {selectedNode ? (
+                <DetailsPanel badge={typeLabels[selectedNode.type]} graph={visibleGraph} itemId={selectedNode.id} nodeType={selectedNode.type} fields={selectedNode.data} label={selectedNode.label} />
+              ) : selectedEdge ? (
+                <DetailsPanel badge="Relationship" graph={visibleGraph} itemId={selectedEdge.id} fields={selectedEdge.data} label={selectedEdge.label} meta={`${selectedEdge.source} -> ${selectedEdge.target}`} />
+              ) : (
+                <div className="rounded-[4px] border border-dashed border-[#2A3441] p-5 text-sm text-[#9AA4AF]">
+                  Select a node or relationship to inspect connected entities, metadata, evidence, and statistics.
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </aside>
+      ) : null}
     </div>
   );
 }
@@ -270,7 +317,10 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
 function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
   const graphNode = data.graphNode;
   const style = nodeStyles[graphNode.type];
+  const theme = nodeThemeClasses[graphNode.type];
   const Icon = nodeIcon(graphNode.type);
+  const isEmphasized = data.selected || data.matched;
+  const isConnected = data.connected;
 
   return (
     <motion.div
@@ -278,19 +328,13 @@ function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
       transition={{ duration: 0.14 }}
     >
       <div
-        className="rounded-[6px] border p-3 shadow-[0_16px_40px_rgba(0,0,0,0.28)]"
-        style={{
-          backgroundColor: style.fill,
-          borderColor: data.selected || data.matched ? "#C58B2A" : data.connected ? style.border : "#2A3441",
-          boxShadow: data.selected || data.matched ? "0 0 0 2px rgba(197,139,42,0.36), 0 18px 48px rgba(0,0,0,0.36)" : undefined,
-          width: 280
-        }}
+        className={`w-[280px] rounded-[6px] border p-3 shadow-[0_16px_40px_rgba(0,0,0,0.28)] ${theme.fill} ${isEmphasized ? "border-[#C58B2A] shadow-[0_0_0_2px_rgba(197,139,42,0.36),0_18px_48px_rgba(0,0,0,0.36)]" : isConnected ? theme.border : "border-[#2A3441]"}`}
       >
         <Handle className="!h-2 !w-2 !border-[#2A3441] !bg-[#C58B2A]" position={Position.Left} type="target" />
         <Handle className="!h-2 !w-2 !border-[#2A3441] !bg-[#C58B2A]" position={Position.Right} type="source" />
         <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4" style={{ color: style.accent }} aria-hidden="true" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: style.accent }}>
+          <Icon className={`h-4 w-4 ${theme.accent}`} aria-hidden="true" />
+          <span className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${theme.accent}`}>
           {typeLabels[graphNode.type]}
           </span>
           {data.connected ? <Crosshair className="ml-auto h-3.5 w-3.5 text-[#C58B2A]" aria-hidden="true" /> : null}

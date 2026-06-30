@@ -2,16 +2,16 @@
 
 :root {
   color-scheme: dark;
-  --bg: #0b0f14;
-  --bg-2: #121821;
-  --surface: #171f2a;
-  --border: #2a3441;
-  --accent: #c58b2a;
-  --success: #667a52;
-  --warning: #a56a1f;
-  --danger: #8f3a3a;
-  --text: #e6e8eb;
-  --muted: #9aa4af;
+  --bg: #090909;
+  --panel: #111111;
+  --card: #181818;
+  --border: #2a2a2a;
+  --text: #f7f7f7;
+  --muted: #a3a3a3;
+  --muted-2: #737373;
+  --success: #71816d;
+  --warning: #b59a5b;
+  --danger: #9a5a5a;
 }
 
 html,
@@ -21,9 +21,7 @@ body {
 
 body {
   margin: 0;
-  background:
-    linear-gradient(180deg, rgba(197, 139, 42, 0.035), transparent 220px),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -45,21 +43,21 @@ a,
 input,
 select,
 textarea {
-  outline-color: var(--accent);
+  outline-color: var(--warning);
 }
 
 :focus-visible {
-  outline: 2px solid rgba(197, 139, 42, 0.72);
+  outline: 2px solid rgba(181, 154, 91, 0.72);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: rgba(197, 139, 42, 0.32);
+  background: rgba(181, 154, 91, 0.28);
   color: var(--text);
 }
 
 * {
-  scrollbar-color: #3a4655 #0b0f14;
+  scrollbar-color: #3a3a3a #090909;
 }
 
 .react-flow__attribution {
@@ -67,16 +65,37 @@ textarea {
 }
 
 .react-flow__controls-button {
-  background: #121821 !important;
-  border-color: #2a3441 !important;
-  color: #e6e8eb !important;
+  background: #111111 !important;
+  border-color: #2a2a2a !important;
+  color: #f7f7f7 !important;
 }
 
 .react-flow__controls-button:hover {
-  background: #171f2a !important;
+  background: #181818 !important;
 }
 
 .react-flow__minimap {
-  background: #0b0f14 !important;
-  border: 1px solid #2a3441;
+  background: #090909 !important;
+  border: 1px solid #2a2a2a;
+}
+
+.sentry-mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.sentry-scrollbar::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.sentry-scrollbar::-webkit-scrollbar-track {
+  background: #090909;
+}
+
+.sentry-scrollbar::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+}
+
+.sentry-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
 }
