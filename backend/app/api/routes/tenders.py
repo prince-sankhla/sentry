@@ -14,6 +14,7 @@ from app.schemas.tenders import (
     TenderListResponse,
     TenderSummary,
 )
+from app.services.procurement_intelligence import build_tender_intelligence
 
 router = APIRouter(prefix="/api/tenders", tags=["tenders"])
 
@@ -87,4 +88,5 @@ def get_tender(tender_id: UUID, db: Session = Depends(get_db)) -> TenderDetail:
         buyer=BuyerInfo(name=tender.procuring_entity),
         awards=tender.awards,
         participating_companies=[CompanySummary.model_validate(company) for company in companies],
+        intelligence=build_tender_intelligence(db, tender),
     )

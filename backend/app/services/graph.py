@@ -293,16 +293,16 @@ def _add_procurement_indicators(
                 )
 
         tender_awards = awards_by_tender.get(tender.id, [])
-        if len({award.company_id for award in tender_awards}) == 1 and len(tender_awards) > 1:
+        if len({award.company_id for award in tender_awards}) == 1 and tender_awards:
             company = tender_awards[0].company
             if company is not None:
                 _add_indicator(
                     nodes,
                     edges,
-                    indicator_key=f"single_awarded_supplier:{tender.id}",
-                    title="Single Awarded Supplier",
-                    finding="All available award records for this tender point to one supplier.",
-                    supporting_evidence=f"{len(tender_awards)} award records link tender {tender.reference_number} to {company.name}.",
+                    indicator_key=f"single_bidder:{tender.id}",
+                    title="Single Bidder Detection",
+                    finding="Only one supplier is recorded against this tender.",
+                    supporting_evidence=f"Tender {tender.reference_number} links to {company.name} as the only recorded supplier.",
                     source=tender.source_name or "procurement_record",
                     source_url=tender.source_url,
                     tender=tender,

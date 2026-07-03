@@ -19,6 +19,36 @@ from app.webintel.utils import canonicalize_url
 
 logger = logging.getLogger(__name__)
 
+PROCUREMENT_HINTS = (
+    "procurement",
+    "tender",
+    "rfp",
+    "bid",
+    "award",
+    "contract",
+    "buyer",
+    "supplier",
+    "vendor",
+    "public procurement",
+    "openprocurement",
+    "notice",
+    "request for proposal",
+)
+
+UNRELATED_HINTS = (
+    "stock",
+    "share price",
+    "investor relations",
+    "annual report",
+    "earnings",
+    "careers",
+    "jobs",
+    "hiring",
+    "press release",
+    "newsroom",
+    "generic news",
+)
+
 router = APIRouter(prefix="/api/web", tags=["web-intelligence"])
 
 
@@ -46,12 +76,19 @@ def search_web(request: SearchRequest, db: Session = Depends(get_db)) -> WebSear
             continue
         downloaded_pages += 1
 
+        if not _is_procurement_page(query, page.title or result.title, page.url, page.content):
+            duplicates_skipped += 1
+            continue
+
         existing = db.scalar(
             select(WebEvidence).where(
                 (WebEvidence.content_hash == page.content_hash) | (WebEvidence.url == page.url)
             )
         )
         if existing is not None:
+            if not _has_procurement_signals(existing, query):
+                duplicates_skipped += 1
+                continue
             ensure_procurement_evidence(db, existing)
             db.commit()
             db.refresh(existing)
@@ -75,6 +112,10 @@ def search_web(request: SearchRequest, db: Session = Depends(get_db)) -> WebSear
         db.add(evidence)
         try:
             db.flush()
+            if not _has_procurement_signals(evidence, query):
+                db.rollback()
+                duplicates_skipped += 1
+                continue
             ensure_procurement_evidence(db, evidence)
             db.commit()
         except IntegrityError:
@@ -82,6 +123,8 @@ def search_web(request: SearchRequest, db: Session = Depends(get_db)) -> WebSear
             duplicates_skipped += 1
             existing = db.scalar(select(WebEvidence).where(WebEvidence.content_hash == page.content_hash))
             if existing is not None:
+                if not _has_procurement_signals(existing, query):
+                    continue
                 ensure_procurement_evidence(db, existing)
                 db.commit()
                 db.refresh(existing)
@@ -101,6 +144,68 @@ def search_web(request: SearchRequest, db: Session = Depends(get_db)) -> WebSear
         stored_pages=stored_pages,
         duplicates_skipped=duplicates_skipped,
     )
+
+
+def _is_procurement_page(query: str, title: str | None, url: str, content: str) -> bool:
+    haystack = " ".join(part for part in [query, title or "", url, content[:8000]] if part).casefold()
+    if any(hint in haystack for hint in UNRELATED_HINTS):
+        return False
+    if any(hint in haystack for hint in PROCUREMENT_HINTS):
+        return True
+
+    extraction = extract_evidence(content)
+    procurement_text = " ".join(
+        value
+        for value in [
+            query,
+            title or "",
+            extraction.organization_names[0] if extraction.organization_names else "",
+        ]
+        if value
+    ).casefold()
+    return any(keyword in procurement_text for keyword in PROCUREMENT_HINTS)
+
+
+def _has_procurement_signals(evidence: WebEvidence, query: str) -> bool:
+    extraction = evidence.extraction if isinstance(evidence.extraction, dict) else {}
+    if not isinstance(extraction, dict):
+        extraction = {}
+
+    signal_values = [
+        _text_value(evidence.title),
+        _text_value(evidence.query),
+        _text_value(query),
+        _text_value(extraction.get("company_name")),
+        _text_value(extraction.get("normalized_company_name")),
+        _text_value(extraction.get("government_buyer")),
+        _text_value(extraction.get("tender_title")),
+        _text_value(extraction.get("contract_title")),
+        _text_value(extraction.get("procurement_sector")),
+        _text_value(extraction.get("tender_category")),
+        _text_value(extraction.get("contract_number")),
+        _text_value(extraction.get("tender_number")),
+        _text_value(extraction.get("contract_value")),
+    ]
+    signal_count = sum(1 for value in signal_values if value)
+    if signal_count >= 2:
+        return True
+
+    if any(
+        _text_value(extraction.get(field))
+        for field in ("tender_title", "contract_title", "government_buyer", "contract_number", "tender_number")
+    ):
+        return True
+
+    haystack = " ".join(value for value in signal_values if value).casefold()
+    return any(hint in haystack for hint in PROCUREMENT_HINTS)
+
+
+def _text_value(value: object | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
 
 
 @router.get("/procurement-evidence", response_model=ProcurementEvidenceResponse)

@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import companies, dashboard, entities, graph, tenders, web
+from app.api.routes import companies, dashboard, entities, graph, investigations, tenders, web
 from app.core.config import get_settings
 from app.db.connection import verify_database_connection
 
@@ -45,4 +45,5 @@ app.include_router(companies.router)
 app.include_router(entities.router)
 app.include_router(dashboard.router)
 app.include_router(graph.router)
+app.include_router(investigations.router)
 app.include_router(web.router)

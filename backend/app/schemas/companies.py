@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import Pagination
+from app.schemas.procurement_intelligence import ProcurementIntelligence
 
 
 class CompanySummary(BaseModel):
@@ -72,6 +73,7 @@ class CompanyOverview(BaseModel):
     average_award_value: Decimal
     first_procurement_date: date | None
     latest_procurement_date: date | None
+    intelligence: ProcurementIntelligence
 
 
 class CompanyTenderHistoryItem(BaseModel):

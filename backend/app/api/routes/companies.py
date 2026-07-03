@@ -19,6 +19,7 @@ from app.schemas.companies import (
     CompanyTenderHistoryResponse,
     RelatedTender,
 )
+from app.services.procurement_intelligence import build_company_intelligence
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -108,6 +109,7 @@ def get_company_overview(company_id: UUID, db: Session = Depends(get_db)) -> Com
         average_award_value=average_value,
         first_procurement_date=min(procurement_dates) if procurement_dates else None,
         latest_procurement_date=max(procurement_dates) if procurement_dates else None,
+        intelligence=build_company_intelligence(db, company),
     )
 
 

@@ -41,6 +41,35 @@ export type AwardSummary = {
   company: CompanySummary;
 };
 
+export type ProcurementIntelligenceSignal = {
+  type: "single_bidder" | "repeat_supplier" | "buyer_supplier_relationship";
+  severity: "low" | "medium" | "high";
+  title: string;
+  summary: string;
+  score: number;
+  evidence: string[];
+  tender_id: string | null;
+  company_id: string | null;
+  buyer: string | null;
+};
+
+export type BuyerSupplierRelationshipScore = {
+  buyer: string | null;
+  supplier_id: string;
+  supplier_name: string;
+  score: number;
+  awards_to_supplier: number;
+  total_buyer_awards: number;
+  supplier_award_share: string;
+  total_award_value: string;
+  latest_award_date: string | null;
+};
+
+export type ProcurementIntelligence = {
+  signals: ProcurementIntelligenceSignal[];
+  relationship_scores: BuyerSupplierRelationshipScore[];
+};
+
 export type TenderListResponse = {
   items: TenderSummary[];
   pagination: Pagination;
@@ -62,6 +91,7 @@ export type TenderDetail = TenderSummary & {
   };
   awards: AwardSummary[];
   participating_companies: CompanySummary[];
+  intelligence: ProcurementIntelligence;
 };
 
 export type DashboardSummary = {
@@ -111,6 +141,7 @@ export type CompanyOverview = {
   average_award_value: string;
   first_procurement_date: string | null;
   latest_procurement_date: string | null;
+  intelligence: ProcurementIntelligence;
 };
 
 export type CompanyTenderSort = "latest" | "published_date" | "value" | "title" | "award_value";

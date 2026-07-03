@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
-  --bg: #0b0f14;
-  --bg-2: #121821;
-  --surface: #171f2a;
-  --border: #2a3441;
-  --accent: #c58b2a;
+  color-scheme: light;
+  --bg: #faf8f5;
+  --bg-2: #f5f1eb;
+  --surface: #ffffff;
+  --border: #eccb84;
+  --accent: #d4a74b;
   --success: #667a52;
   --warning: #a56a1f;
   --danger: #8f3a3a;
-  --text: #e6e8eb;
-  --muted: #9aa4af;
+  --text: #333333;
+  --muted: #6b7280;
 }
 
 html,
@@ -22,7 +22,7 @@ body {
 body {
   margin: 0;
   background:
-    linear-gradient(180deg, rgba(197, 139, 42, 0.035), transparent 220px),
+    linear-gradient(180deg, rgba(212, 167, 75, 0.035), transparent 220px),
     var(--bg);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -49,17 +49,17 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid rgba(197, 139, 42, 0.72);
+  outline: 2px solid rgba(212, 167, 75, 0.72);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: rgba(197, 139, 42, 0.32);
+  background: rgba(212, 167, 75, 0.32);
   color: var(--text);
 }
 
 * {
-  scrollbar-color: #3a4655 #0b0f14;
+  scrollbar-color: #a3a3a3 #ffffff;
 }
 
 .react-flow__attribution {
@@ -67,16 +67,16 @@ textarea {
 }
 
 .react-flow__controls-button {
-  background: #121821 !important;
-  border-color: #2a3441 !important;
-  color: #e6e8eb !important;
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
 }
 
 .react-flow__controls-button:hover {
-  background: #171f2a !important;
+  background: var(--bg-2) !important;
 }
 
 .react-flow__minimap {
-  background: #0b0f14 !important;
-  border: 1px solid #2a3441;
+  background: var(--bg) !important;
+  border: 1px solid var(--border);
 }

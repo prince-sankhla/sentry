@@ -49,34 +49,34 @@ const typeLabels: Record<GraphNodeType, string> = {
 };
 
 const nodeStyles: Record<GraphNodeType, { border: string; fill: string; accent: string }> = {
-  company: { border: "#667A52", fill: "#141D1A", accent: "#8DA175" },
-  tender: { border: "#8B939E", fill: "#14191F", accent: "#E6E8EB" },
-  award: { border: "#7A705F", fill: "#1D1A16", accent: "#C8CDD3" },
-  buyer: { border: "#2A3441", fill: "#171F2A", accent: "#C8CDD3" },
-  indicator: { border: "#C58B2A", fill: "#1F1A12", accent: "#F3D59A" },
-  evidence: { border: "#8B939E", fill: "#15191D", accent: "#C8CDD3" },
-  document: { border: "#5F6975", fill: "#14191F", accent: "#C8CDD3" },
-  web_evidence: { border: "#5F6975", fill: "#111A1A", accent: "#C8CDD3" },
-  organization: { border: "#667A52", fill: "#141D1A", accent: "#8DA175" },
-  category: { border: "#7A705F", fill: "#1D1A16", accent: "#C8CDD3" }
+  company: { border: "#1E3A8A", fill: "#EAF1FF", accent: "#1E3A8A" },
+  tender: { border: "#D97706", fill: "#FFF6E8", accent: "#B45309" },
+  award: { border: "#EA580C", fill: "#FFF4EC", accent: "#C2410C" },
+  buyer: { border: "#0F766E", fill: "#E6FFFB", accent: "#0F766E" },
+  indicator: { border: "#DC2626", fill: "#FEF2F2", accent: "#DC2626" },
+  evidence: { border: "#9CA3AF", fill: "#F3F4F6", accent: "#6B7280" },
+  document: { border: "#64748B", fill: "#F8FAFC", accent: "#475569" },
+  web_evidence: { border: "#64748B", fill: "#F8FAFC", accent: "#475569" },
+  organization: { border: "#7C3AED", fill: "#F5F3FF", accent: "#7C3AED" },
+  category: { border: "#D97706", fill: "#FFF7ED", accent: "#B45309" }
 };
 
 const edgeColors: Record<GraphEdgeType, string> = {
-  company_tender: "#667A52",
-  tender_award: "#C58B2A",
-  award_company: "#A56A1F",
-  buyer_tender: "#9AA4AF",
-  buyer_company: "#9AA4AF",
-  tender_indicator: "#C58B2A",
-  company_indicator: "#C58B2A",
-  evidence_indicator: "#C58B2A",
-  tender_evidence: "#C8CDD3",
-  web_evidence_company: "#C8CDD3",
-  web_evidence_tender: "#C8CDD3",
-  web_evidence_award: "#C8CDD3",
-  document_tender: "#C8CDD3",
-  category_tender: "#9AA4AF",
-  organization_evidence: "#9AA4AF"
+  company_tender: "#94A3B8",
+  tender_award: "#94A3B8",
+  award_company: "#94A3B8",
+  buyer_tender: "#94A3B8",
+  buyer_company: "#94A3B8",
+  tender_indicator: "#94A3B8",
+  company_indicator: "#94A3B8",
+  evidence_indicator: "#94A3B8",
+  tender_evidence: "#CBD5E1",
+  web_evidence_company: "#CBD5E1",
+  web_evidence_tender: "#CBD5E1",
+  web_evidence_award: "#CBD5E1",
+  document_tender: "#CBD5E1",
+  category_tender: "#CBD5E1",
+  organization_evidence: "#CBD5E1"
 };
 
 const filterTypes: GraphNodeType[] = ["company", "buyer", "tender", "award", "indicator", "evidence", "document", "web_evidence", "organization", "category"];
@@ -166,18 +166,18 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
 
   return (
     <div className="grid min-h-[calc(100vh-112px)] gap-4 xl:grid-cols-[1fr_380px]">
-      <section className="overflow-hidden rounded-[6px] border border-[#2A3441] bg-[#121821]">
-        <div className="flex flex-col gap-3 border-b border-[#2A3441] bg-[#171F2A]/45 p-4 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-[16px] border border-[#E8D8B1] bg-white shadow-[0_20px_50px_rgba(87,63,14,0.06)]">
+        <div className="flex flex-col gap-3 border-b border-[#F0E4C8] bg-[#FBF7F0] p-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-[#E6E8EB]">Investigation Graph</h2>
-            <p className="mt-1 text-xs text-[#9AA4AF]">{visibleGraph.nodes.length} nodes / {visibleGraph.edges.length} relationships</p>
+            <h2 className="text-base font-semibold text-[#2F2F2F]">Investigation Graph</h2>
+            <p className="mt-1 text-xs text-[#6B7280]">{visibleGraph.nodes.length} nodes / {visibleGraph.edges.length} relationships</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="relative block">
               <span className="sr-only">Search graph nodes</span>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA4AF]" aria-hidden="true" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" aria-hidden="true" />
               <input
-                className="h-10 w-full rounded-[4px] border border-[#2A3441] bg-[#0B0F14] pl-9 pr-3 text-sm text-[#E6E8EB] outline-none placeholder:text-[#6f7a86] focus:border-[#C58B2A] sm:w-80"
+                className="h-10 w-full rounded-[14px] border border-[#E8D8B1] bg-white pl-9 pr-3 text-sm text-[#2F2F2F] outline-none placeholder:text-[#8C919A] focus:border-[#D4A74B] sm:w-80"
                 onChange={(event) => onSearch(event.target.value)}
                 placeholder="Search graph nodes"
                 type="search"
@@ -185,7 +185,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
               />
             </label>
             <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[#2A3441] bg-[#121821] px-3 text-sm font-semibold text-[#E6E8EB] transition hover:border-[#C58B2A]"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] border border-[#E8D8B1] bg-white px-3 text-sm font-semibold text-[#2F2F2F] transition hover:border-[#D4A74B] hover:shadow-[0_12px_28px_rgba(87,63,14,0.06)]"
               onClick={() => fitView({ duration: 420, padding: 0.24 })}
               type="button"
             >
@@ -194,14 +194,14 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 border-b border-[#2A3441] bg-[#0B0F14] px-4 py-3">
-          <div className="flex items-center gap-2 pr-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#9AA4AF]">
+        <div className="flex flex-wrap gap-2 border-b border-[#F0E4C8] bg-[#FFFDF8] px-4 py-3">
+          <div className="flex items-center gap-2 pr-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#6B7280]">
             <Filter className="h-3.5 w-3.5" aria-hidden="true" />
             Filters
           </div>
           {filterTypes.map((type) => (
             <button
-              className={`h-8 rounded-[4px] border px-2.5 text-xs font-semibold transition ${enabledTypes.has(type) ? "border-[#C58B2A] bg-[#1F1A12] text-[#F3D59A]" : "border-[#2A3441] bg-[#121821] text-[#9AA4AF]"}`}
+              className={`h-8 rounded-[14px] border px-2.5 text-xs font-semibold transition ${enabledTypes.has(type) ? "border-[#D4A74B] bg-[#FFF5DD] text-[#8A6412]" : "border-[#E8D8B1] bg-white text-[#6B7280]"}`}
               key={type}
               onClick={() => toggleType(type)}
               type="button"
@@ -210,7 +210,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             </button>
           ))}
         </div>
-        <div className="h-[720px]">
+        <div className="h-[720px] bg-[#FCFAF5]">
           <ReactFlow
             edges={edges}
             fitView
@@ -224,11 +224,11 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             onNodesChange={onNodesChange}
             proOptions={{ hideAttribution: true }}
           >
-            <Background color="#2A3441" gap={34} lineWidth={0.35} variant={BackgroundVariant.Lines} />
+            <Background color="#E8D8B1" gap={34} lineWidth={0.35} variant={BackgroundVariant.Lines} />
             <Controls position="bottom-left" />
             <MiniMap
-              maskColor="rgba(11, 15, 20, 0.78)"
-              nodeColor={(node) => nodeStyles[(node.data as unknown as FlowNodeData).graphNode.type]?.border ?? "#9AA4AF"}
+              maskColor="rgba(250, 248, 245, 0.84)"
+              nodeColor={(node) => nodeStyles[(node.data as unknown as FlowNodeData).graphNode.type]?.border ?? "#94A3B8"}
               pannable
               position="bottom-right"
               zoomable
@@ -237,10 +237,10 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
         </div>
       </section>
 
-      <aside className="rounded-[6px] border border-[#2A3441] bg-[#121821]">
-        <div className="border-b border-[#2A3441] bg-[#171F2A]/45 px-4 py-3">
-          <h2 className="text-base font-semibold text-[#E6E8EB]">Details</h2>
-          <p className="mt-1 text-xs text-[#9AA4AF]">Overview, metadata, relationships, evidence, and statistics</p>
+      <aside className="rounded-[16px] border border-[#E8D8B1] bg-white shadow-[0_20px_50px_rgba(87,63,14,0.06)]">
+        <div className="border-b border-[#F0E4C8] bg-[#FBF7F0] px-4 py-3">
+          <h2 className="text-base font-semibold text-[#2F2F2F]">Details</h2>
+          <p className="mt-1 text-xs text-[#6B7280]">Overview, metadata, relationships, evidence, and statistics</p>
         </div>
         <AnimatePresence mode="wait">
           <motion.div
@@ -256,7 +256,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             ) : selectedEdge ? (
               <DetailsPanel badge="Relationship" graph={visibleGraph} itemId={selectedEdge.id} fields={selectedEdge.data} label={selectedEdge.label} meta={`${selectedEdge.source} -> ${selectedEdge.target}`} />
             ) : (
-              <div className="rounded-[4px] border border-dashed border-[#2A3441] p-5 text-sm text-[#9AA4AF]">
+              <div className="rounded-[16px] border border-dashed border-[#E8D8B1] p-5 text-sm text-[#6B7280]">
                 Select a node or relationship to inspect connected entities, metadata, evidence, and statistics.
               </div>
             )}
@@ -278,29 +278,29 @@ function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
       transition={{ duration: 0.14 }}
     >
       <div
-        className="rounded-[6px] border p-3 shadow-[0_16px_40px_rgba(0,0,0,0.28)]"
+        className="rounded-[16px] border p-3 shadow-[0_16px_40px_rgba(87,63,14,0.08)]"
         style={{
           backgroundColor: style.fill,
-          borderColor: data.selected || data.matched ? "#C58B2A" : data.connected ? style.border : "#2A3441",
-          boxShadow: data.selected || data.matched ? "0 0 0 2px rgba(197,139,42,0.36), 0 18px 48px rgba(0,0,0,0.36)" : undefined,
+          borderColor: data.selected || data.matched ? "#3B82F6" : data.connected ? style.border : "#D6D3D1",
+          boxShadow: data.selected || data.matched ? "0 0 0 2px rgba(59,130,246,0.28), 0 18px 48px rgba(87,63,14,0.12)" : undefined,
           width: 280
         }}
       >
-        <Handle className="!h-2 !w-2 !border-[#2A3441] !bg-[#C58B2A]" position={Position.Left} type="target" />
-        <Handle className="!h-2 !w-2 !border-[#2A3441] !bg-[#C58B2A]" position={Position.Right} type="source" />
+        <Handle className="!h-2 !w-2 !border-[#D6D3D1] !bg-[#3B82F6]" position={Position.Left} type="target" />
+        <Handle className="!h-2 !w-2 !border-[#D6D3D1] !bg-[#3B82F6]" position={Position.Right} type="source" />
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4" style={{ color: style.accent }} aria-hidden="true" />
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: style.accent }}>
           {typeLabels[graphNode.type]}
           </span>
-          {data.connected ? <Crosshair className="ml-auto h-3.5 w-3.5 text-[#C58B2A]" aria-hidden="true" /> : null}
+          {data.connected ? <Crosshair className="ml-auto h-3.5 w-3.5 text-[#3B82F6]" aria-hidden="true" /> : null}
         </div>
-        <div className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-[#E6E8EB]">{graphNode.label}</div>
-        <div className="mt-3 space-y-1 text-[11px] text-[#9AA4AF]">
+        <div className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-[#2F2F2F]">{graphNode.label}</div>
+        <div className="mt-3 space-y-1 text-[11px] text-[#6B7280]">
           {renderNodeFacts(graphNode).map((fact) => (
             <div className="flex justify-between gap-3" key={fact.label}>
               <span>{fact.label}</span>
-              <span className="max-w-[150px] truncate text-right tabular-nums text-[#C8CDD3]">{fact.value}</span>
+              <span className="max-w-[150px] truncate text-right tabular-nums text-[#374151]">{fact.value}</span>
             </div>
           ))}
         </div>
@@ -334,11 +334,11 @@ function DetailsPanel({
     .filter((node): node is RelationshipGraphNode => Boolean(node));
   return (
     <div>
-      <div className="inline-flex rounded-[4px] border border-[#C58B2A] bg-[#2A2115] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#F3D59A]">
+      <div className="inline-flex rounded-[14px] border border-[#E8D8B1] bg-[#FFF5DD] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#8A6412]">
         {badge}
       </div>
-      <h3 className="mt-3 text-lg font-semibold text-[#E6E8EB]">{label}</h3>
-      {meta ? <p className="mt-2 break-all text-xs text-[#9AA4AF]">{meta}</p> : null}
+      <h3 className="mt-3 text-lg font-semibold text-[#2F2F2F]">{label}</h3>
+      {meta ? <p className="mt-2 break-all text-xs text-[#6B7280]">{meta}</p> : null}
 
       <DetailSection title="Overview">
         <Field label="Summary" value={stringValue(fields.summary) || label} />
@@ -398,8 +398,8 @@ function DetailsPanel({
 function DetailSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section className="mt-5">
-      <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#C58B2A]">{title}</h4>
-      <div className="mt-3 divide-y divide-[#2A3441] rounded-[4px] border border-[#2A3441] bg-[#171F2A]">{children}</div>
+      <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#B88927]">{title}</h4>
+      <div className="mt-3 divide-y divide-[#F0E4C8] rounded-[16px] border border-[#E8D8B1] bg-[#FFFDF8]">{children}</div>
     </section>
   );
 }
@@ -407,8 +407,8 @@ function DetailSection({ children, title }: { children: ReactNode; title: string
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="p-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9AA4AF]">{label}</div>
-      <div className="mt-1 break-words text-sm text-[#E6E8EB]">{value}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7280]">{label}</div>
+      <div className="mt-1 break-words text-sm text-[#2F2F2F]">{value}</div>
     </div>
   );
 }
@@ -443,7 +443,7 @@ function toFlowEdges(graph: RelationshipGraph): Edge[] {
     markerEnd: { type: MarkerType.ArrowClosed, color: edgeColors[edge.type] },
     style: { stroke: edgeColors[edge.type], strokeWidth: edge.type.includes("indicator") ? 2.2 : 1.8 },
     labelStyle: { fill: "#C8CDD3", fontSize: 11, fontWeight: 600 },
-    labelBgStyle: { fill: "#0B0F14", fillOpacity: 0.9 },
+    labelBgStyle: { fill: "#FAF8F5", fillOpacity: 0.96 },
     type: "smoothstep"
   }));
 }

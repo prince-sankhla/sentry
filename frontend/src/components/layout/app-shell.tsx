@@ -56,30 +56,30 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F14] text-[#E6E8EB]">
+    <div className="min-h-screen bg-bg text-text">
       <header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center border-b border-[#2A3441] bg-[#0B0F14]">
         <button className="mx-3 text-[#9AA4AF] lg:hidden" onClick={() => setMobileOpen((value) => !value)} type="button" aria-label="Toggle navigation">
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex h-full min-w-0 flex-1 items-center gap-4 px-4">
-          <div className="hidden items-center gap-2 text-sm font-semibold text-[#E6E8EB] sm:flex">
-            <Shield className="h-4 w-4 text-[#C58B2A]" />
+          <div className="hidden items-center gap-2 text-sm font-semibold text-text sm:flex">
+            <Shield className="h-4 w-4 text-accent" />
             {title}
           </div>
           <form className="relative max-w-2xl flex-1" onSubmit={onSearch}>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA4AF]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
-              className="h-9 w-full border border-[#2A3441] bg-[#121821] pl-9 pr-3 text-sm text-[#E6E8EB] outline-none placeholder:text-[#6f7a86] focus:border-[#C58B2A]"
+              className="h-9 w-full rounded-md border border-border bg-bg-2 pl-9 pr-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent"
               name="globalSearch"
               placeholder="Global search company, tender, buyer, award"
               type="search"
             />
           </form>
-          <button className="border border-[#2A3441] bg-[#121821] p-2 text-[#9AA4AF] hover:text-[#E6E8EB]" type="button" aria-label="Notifications">
+          <button className="rounded-md border border-border bg-bg-2 p-2 text-muted hover:text-text" type="button" aria-label="Notifications">
             <Bell className="h-4 w-4" />
           </button>
-          <button className="hidden items-center gap-2 border border-[#2A3441] bg-[#121821] px-3 py-2 text-sm text-[#E6E8EB] md:flex" type="button">
-            <UserCircle className="h-4 w-4 text-[#9AA4AF]" />
+          <button className="hidden items-center gap-2 rounded-md border border-border bg-bg-2 px-3 py-2 text-sm text-text md:flex" type="button">
+            <UserCircle className="h-4 w-4 text-muted" />
             Analyst
           </button>
         </div>
@@ -94,9 +94,9 @@ export function AppShell({
             transition={{ duration: 0.16 }}
           >
             <div className="flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-[#2A3441] p-3">
-                {!collapsed ? <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9AA4AF]">Navigation</div> : null}
-                <button className="border border-[#2A3441] p-1 text-[#9AA4AF] hover:text-[#E6E8EB]" onClick={() => setCollapsed((value) => !value)} type="button" aria-label="Collapse sidebar">
+              <div className="flex items-center justify-between border-b border-border p-3">
+                {!collapsed ? <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Navigation</div> : null}
+                <button className="rounded-md border border-border p-1 text-muted hover:text-text" onClick={() => setCollapsed((value) => !value)} type="button" aria-label="Collapse sidebar">
                   {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
               </div>
@@ -108,8 +108,8 @@ export function AppShell({
                     <Link
                       className={`flex h-10 items-center gap-3 border px-3 text-sm transition ${
                         active
-                          ? "border-[#C58B2A] bg-[#171F2A] text-[#E6E8EB]"
-                          : "border-transparent text-[#9AA4AF] hover:border-[#2A3441] hover:bg-[#121821] hover:text-[#E6E8EB]"
+                          ? "border-accent bg-bg-2 text-text shadow-sm"
+                          : "border-transparent text-muted hover:border-border hover:bg-bg-2 hover:text-text"
                       }`}
                       href={item.href}
                       key={item.href}

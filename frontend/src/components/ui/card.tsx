@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 export function SurfaceCard({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <section
-      className={`rounded-[6px] border border-[#2A3441] bg-[#121821] shadow-[0_18px_50px_rgba(0,0,0,0.22)] ${className}`}
+      className={`overflow-hidden rounded-[24px] border border-[#E8D8B1] bg-white shadow-[0_20px_60px_rgba(87,63,14,0.08)] ${className}`}
     >
       {children}
     </section>
@@ -23,14 +23,14 @@ export function Section({
 }) {
   return (
     <SurfaceCard>
-      <div className="flex items-center justify-between gap-4 border-b border-[#2A3441] bg-[#171F2A]/45 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 border-b border-[#F0E4C8] bg-[#FBF7F0] px-5 py-4">
         <div>
-          {eyebrow ? <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#C58B2A]">{eyebrow}</div> : null}
-          <h2 className="text-sm font-semibold text-[#E6E8EB]">{title}</h2>
+          {eyebrow ? <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#B88927]">{eyebrow}</div> : null}
+          <h2 className="text-sm font-semibold text-[#2F2F2F]">{title}</h2>
         </div>
         {action}
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </SurfaceCard>
   );
 }
@@ -47,18 +47,18 @@ export function StatCard({
   meta?: string;
 }) {
   const tones = {
-    neutral: "border-[#2A3441]",
-    accent: "border-[#C58B2A]",
-    success: "border-[#667A52]",
-    warning: "border-[#A56A1F]",
-    danger: "border-[#8F3A3A]"
+    neutral: "border-[#E8D8B1]",
+    accent: "border-[#D4A74B]",
+    success: "border-[#8DA175]",
+    warning: "border-[#D18A2B]",
+    danger: "border-[#C97A7A]"
   };
 
   return (
-    <SurfaceCard className={`p-4 transition duration-150 hover:-translate-y-0.5 hover:bg-[#171F2A] ${tones[tone]}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9AA4AF]">{label}</div>
-      <div className="mt-3 text-2xl font-semibold tabular-nums text-[#E6E8EB]">{value}</div>
-      {meta ? <div className="mt-2 text-xs text-[#9AA4AF]">{meta}</div> : null}
+    <SurfaceCard className={`p-5 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_24px_70px_rgba(87,63,14,0.1)] ${tones[tone]}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7A7F87]">{label}</div>
+      <div className="mt-3 break-words text-3xl font-semibold leading-tight tabular-nums text-[#2F2F2F]">{value}</div>
+      {meta ? <div className="mt-2 text-xs text-[#6B7280]">{meta}</div> : null}
     </SurfaceCard>
   );
 }

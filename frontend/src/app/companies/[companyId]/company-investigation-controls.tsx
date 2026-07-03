@@ -56,13 +56,13 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
   }
 
   return (
-    <div className="rounded-[6px] border border-[#2A3441] bg-[#121821] p-4">
+    <div className="rounded-[16px] border border-[#E8D8B1] bg-white p-4 shadow-[0_16px_40px_rgba(87,63,14,0.05)]">
       <form className="grid gap-3 lg:grid-cols-[1fr_190px_auto]" onSubmit={onSearch}>
         <label className="relative block">
           <span className="sr-only">Search procurement history</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA4AF]" aria-hidden="true" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" aria-hidden="true" />
           <input
-            className="h-11 w-full rounded-[4px] border border-[#2A3441] bg-[#0B0F14] pl-9 pr-3 text-sm text-[#E6E8EB] outline-none transition placeholder:text-[#6f7a86] focus:border-[#C58B2A]"
+            className="h-11 w-full rounded-[14px] border border-[#E8D8B1] bg-white pl-9 pr-3 text-sm text-[#2F2F2F] outline-none transition placeholder:text-[#8C919A] focus:border-[#D4A74B]"
             defaultValue={query}
             name="q"
             placeholder="Search procurement history"
@@ -70,7 +70,7 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
           />
         </label>
         <select
-          className="h-11 rounded-[4px] border border-[#2A3441] bg-[#0B0F14] px-3 text-sm text-[#E6E8EB] outline-none transition focus:border-[#C58B2A]"
+          className="h-11 rounded-[14px] border border-[#E8D8B1] bg-white px-3 text-sm text-[#2F2F2F] outline-none transition focus:border-[#D4A74B]"
           onChange={(event) => updateParams({ sort: event.target.value, offset: 0 })}
           value={sort}
         >
@@ -81,7 +81,7 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
           ))}
         </select>
         <button
-          className="h-11 rounded-[4px] border border-[#C58B2A] bg-[#2A2115] px-5 text-sm font-semibold text-[#F3D59A] transition hover:bg-[#332719] disabled:cursor-not-allowed disabled:opacity-45"
+          className="h-11 rounded-[14px] border border-[#D4A74B] bg-[#FFF5DD] px-5 text-sm font-semibold text-[#8A6412] transition hover:bg-[#F9E7B8] disabled:cursor-not-allowed disabled:opacity-45"
           disabled={isPending}
           type="submit"
         >
@@ -89,11 +89,11 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
         </button>
       </form>
 
-      <div className="mt-4 flex flex-col gap-3 text-sm text-[#9AA4AF] sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 text-sm text-[#6B7280] sm:flex-row sm:items-center sm:justify-between">
         <div aria-live="polite">{isPending ? "Loading procurement history..." : `Page ${page} of ${pages}`}</div>
         <div className="flex gap-2">
           <button
-            className="inline-flex items-center gap-2 rounded-[4px] border border-[#2A3441] px-3 py-2 font-medium text-[#E6E8EB] transition hover:bg-[#171F2A] disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex items-center gap-2 rounded-[14px] border border-[#E8D8B1] px-3 py-2 font-medium text-[#2F2F2F] transition hover:bg-[#FCFAF5] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!hasPrevious || isPending}
             onClick={() => updateParams({ offset: Math.max(0, offset - limit) })}
             type="button"
@@ -102,7 +102,7 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
             Previous
           </button>
           <button
-            className="inline-flex items-center gap-2 rounded-[4px] border border-[#2A3441] px-3 py-2 font-medium text-[#E6E8EB] transition hover:bg-[#171F2A] disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex items-center gap-2 rounded-[14px] border border-[#E8D8B1] px-3 py-2 font-medium text-[#2F2F2F] transition hover:bg-[#FCFAF5] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!hasNext || isPending}
             onClick={() => updateParams({ offset: offset + limit })}
             type="button"
