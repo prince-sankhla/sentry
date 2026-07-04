@@ -17,9 +17,9 @@ def plan_investigation(request: InvestigationPlanRequest) -> InvestigationPlan:
 
 
 @router.post("/execute")
-def execute_investigation(request: InvestigationExecutionRequest) -> InvestigationExecutionRequest:
+async def execute_investigation(request: InvestigationExecutionRequest) -> InvestigationExecutionRequest:
     executor = InvestigationExecutor()
-    package = executor.execute_plan(request)
+    package = await executor.execute(request)
     return InvestigationExecutionRequest(
         plan=request.plan,
         limit_per_connector=request.limit_per_connector,

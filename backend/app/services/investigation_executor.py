@@ -58,7 +58,7 @@ class InvestigationExecutor:
 
         if step.module in {"company_connectors", "tender_connectors", "buyer_connectors", "source_connectors"}:
             for connector_name in step.connectors:
-                records = await self.source_manager.search(
+                records =  self.source_manager.search(
                     query=step.inputs["query"],
                     source_names=[connector_name],
                     limit=limit_per_connector,
