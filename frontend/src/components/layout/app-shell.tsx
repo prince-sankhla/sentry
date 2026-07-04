@@ -86,13 +86,16 @@ export function AppShell({
       </header>
 
       <AnimatePresence>
-        {(mobileOpen || true) && (
-          <motion.aside
-            animate={{ width: collapsed ? 72 : 232 }}
-            className={`fixed bottom-0 left-0 top-14 z-30 border-r border-[#2A3441] bg-[#0B0F14] ${mobileOpen ? "block" : "hidden lg:block"}`}
-            initial={false}
-            transition={{ duration: 0.16 }}
-          >
+  {(mobileOpen || true) && (
+    <motion.aside
+      animate={{ width: collapsed ? 72 : 232 }}
+      className={`fixed bottom-0 left-0 top-14 z-30 border-r border-[#2A3441] bg-[#0B0F14] ${
+        mobileOpen ? "block" : "hidden lg:block"
+      }`}
+      initial={false}
+      transition={{ duration: 0.16 }}
+    >
+          
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-border p-3">
                 {!collapsed ? <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Navigation</div> : null}

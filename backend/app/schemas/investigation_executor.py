@@ -11,6 +11,11 @@ from app.schemas.investigation_planner import InvestigationPlan
 class InvestigationExecutionRequest(BaseModel):
     plan: InvestigationPlan
     limit_per_connector: int = Field(default=25, ge=1, le=100)
+    package: InvestigationPackage | None = None
+
+    class Config:
+        from_attributes = True
+        arbitrary_types_allowed = True
 
 
 class InvestigationSourceMetadata(BaseModel):
@@ -116,3 +121,6 @@ class InvestigationPackage(BaseModel):
     timeline: list[InvestigationTimelineEvent] = Field(default_factory=list)
     graph_seeds: list[InvestigationGraphSeed] = Field(default_factory=list)
     step_results: list[InvestigationStepResult] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
