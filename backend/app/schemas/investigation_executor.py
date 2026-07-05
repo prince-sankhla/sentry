@@ -40,6 +40,11 @@ class InvestigationTenderResult(BaseModel):
 class InvestigationCompanyResult(BaseModel):
     name: str
     registration_number: str | None
+    tax_id: str | None = None
+    company_identifier: str | None = None
+    address: str | None = None
+    website: str | None = None
+    canonical_company_id: str | None = None
     metadata: InvestigationSourceMetadata
 
 
@@ -47,6 +52,11 @@ class InvestigationAwardResult(BaseModel):
     tender_reference_number: str
     company_name: str
     company_registration_number: str | None
+    company_tax_id: str | None = None
+    company_identifier: str | None = None
+    company_address: str | None = None
+    company_website: str | None = None
+    canonical_company_id: str | None = None
     award_date: date | None
     award_value: Decimal | None
     currency: str
@@ -65,6 +75,27 @@ class InvestigationProcurementRecord(BaseModel):
     companies: list[InvestigationCompanyResult] = Field(default_factory=list)
     awards: list[InvestigationAwardResult] = Field(default_factory=list)
     documents: list[InvestigationDocumentResult] = Field(default_factory=list)
+    canonical_company_ids: list[str] = Field(default_factory=list)
+
+
+class CanonicalCompanyMatchedSource(BaseModel):
+    source_type: str
+    source_id: str
+    source_name: str
+    source_record_id: str
+    alias: str
+    confidence: float
+    match_reason: str
+    tender_reference_number: str | None = None
+
+
+class CanonicalCompany(BaseModel):
+    id: str
+    canonical_name: str
+    aliases: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0, le=1)
+    matched_sources: list[CanonicalCompanyMatchedSource] = Field(default_factory=list)
+    matched_procurement_records: list[str] = Field(default_factory=list)
 
 
 class InvestigationEntity(BaseModel):
@@ -116,6 +147,7 @@ class InvestigationStepResult(BaseModel):
 class InvestigationPackage(BaseModel):
     plan: InvestigationPlan
     records: list[InvestigationProcurementRecord] = Field(default_factory=list)
+    canonical_companies: list[CanonicalCompany] = Field(default_factory=list)
     entities: list[InvestigationEntity] = Field(default_factory=list)
     evidence: list[InvestigationEvidence] = Field(default_factory=list)
     timeline: list[InvestigationTimelineEvent] = Field(default_factory=list)

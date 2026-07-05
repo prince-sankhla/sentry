@@ -352,6 +352,153 @@ export type GraphParams = {
   depth?: number;
 };
 
+export type InvestigationPlanRequest = {
+  query: string;
+  source_names?: string[] | null;
+};
+
+export type InvestigationPlanStep = {
+  order: number;
+  module: string;
+  action: string;
+  connectors: string[];
+  inputs: Record<string, string>;
+  depends_on: string[];
+  status: "planned";
+};
+
+export type InvestigationPlan = {
+  query: string;
+  investigation_type: "company" | "supplier" | "buyer" | "tender" | "director" | "contract" | "ministry" | "location";
+  confidence: number;
+  connectors: string[];
+  modules: string[];
+  steps: InvestigationPlanStep[];
+};
+
+export type InvestigationSourceMetadata = {
+  source_name: string;
+  source_record_id: string;
+  source_url: string | null;
+  retrieved_at: string | null;
+};
+
+export type InvestigationTenderResult = {
+  reference_number: string;
+  title: string;
+  description: string | null;
+  procuring_entity: string | null;
+  published_date: string | null;
+  closing_date: string | null;
+  estimated_value: string | null;
+  currency: string;
+  metadata: InvestigationSourceMetadata;
+};
+
+export type InvestigationCompanyResult = {
+  name: string;
+  registration_number: string | null;
+  tax_id: string | null;
+  company_identifier: string | null;
+  address: string | null;
+  website: string | null;
+  canonical_company_id: string | null;
+  metadata: InvestigationSourceMetadata;
+};
+
+export type InvestigationAwardResult = {
+  tender_reference_number: string;
+  company_name: string;
+  company_registration_number: string | null;
+  company_tax_id: string | null;
+  company_identifier: string | null;
+  company_address: string | null;
+  company_website: string | null;
+  canonical_company_id: string | null;
+  award_date: string | null;
+  award_value: string | null;
+  currency: string;
+  metadata: InvestigationSourceMetadata;
+};
+
+export type InvestigationDocumentResult = {
+  title: string;
+  url: string | null;
+  document_type: string;
+  metadata: InvestigationSourceMetadata;
+};
+
+export type InvestigationProcurementRecord = {
+  tender: InvestigationTenderResult;
+  companies: InvestigationCompanyResult[];
+  awards: InvestigationAwardResult[];
+  documents: InvestigationDocumentResult[];
+  canonical_company_ids: string[];
+};
+
+export type InvestigationCanonicalCompany = {
+  id: string;
+  canonical_name: string;
+  aliases: string[];
+  confidence: number;
+  matched_sources: Array<{
+    source_type: string;
+    source_id: string;
+    source_name: string;
+    source_record_id: string;
+    alias: string;
+    confidence: number;
+    match_reason: string;
+    tender_reference_number: string | null;
+  }>;
+  matched_procurement_records: string[];
+};
+
+export type InvestigationStepResult = {
+  order: number;
+  module: string;
+  action: string;
+  connectors: string[];
+  records_added: number;
+  entities_added: number;
+  evidence_added: number;
+  status: string;
+};
+
+export type InvestigationTimelineEvent = {
+  label: string;
+  event_date: string;
+  source_name: string;
+  source_record_id: string;
+  related_tender: string | null;
+  related_entity: string | null;
+};
+
+export type InvestigationGraphSeed = {
+  source: string;
+  target: string;
+  relationship: string;
+  source_name: string;
+  source_record_id: string;
+};
+
+export type InvestigationPackage = {
+  plan: InvestigationPlan;
+  records: InvestigationProcurementRecord[];
+  canonical_companies: InvestigationCanonicalCompany[];
+  entities: unknown[];
+  evidence: unknown[];
+  timeline: InvestigationTimelineEvent[];
+  graph_seeds: InvestigationGraphSeed[];
+  step_results: InvestigationStepResult[];
+};
+
+export type InvestigationExecutionRequest = {
+  plan: InvestigationPlan;
+  limit_per_connector: number;
+  package: InvestigationPackage | null;
+};
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -476,6 +623,18 @@ export function getRelationshipGraph({ companyId, tenderId, depth = 2 }: GraphPa
   }
 
   return apiGet<RelationshipGraph>(`/api/graph?${params.toString()}`);
+}
+
+export function planInvestigation(request: InvestigationPlanRequest): Promise<InvestigationPlan> {
+  return apiPost<InvestigationPlan>("/api/investigations/plan", request);
+}
+
+export function executeInvestigation(plan: InvestigationPlan, limitPerConnector = 25): Promise<InvestigationExecutionRequest> {
+  return apiPost<InvestigationExecutionRequest>("/api/investigations/execute", {
+    plan,
+    limit_per_connector: limitPerConnector,
+    package: null
+  });
 }
 
 export function searchWebEvidence(query: string): Promise<WebSearchResponse> {

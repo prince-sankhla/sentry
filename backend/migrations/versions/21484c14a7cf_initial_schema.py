@@ -38,7 +38,7 @@ def upgrade() -> None:
     )
 
     op.create_table(
-        "tenders",
+dir C:\projects\sentry\data\raw\world_bank        "tenders",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("reference_number", sa.String(length=100), nullable=False),
         sa.Column("title", sa.String(length=500), nullable=False),

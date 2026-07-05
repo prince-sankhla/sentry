@@ -29,26 +29,21 @@ import { Section, StatCard, SurfaceCard } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState, ErrorState, SkeletonBlock } from "@/components/ui/states";
 import {
+  executeInvestigation,
   getRelationshipGraph,
-  getCompanies,
-  getCanonicalCompany,
-  getCompanyAwards,
-  getCompanyOverview,
-  getCompanyTenders,
   getDashboardRecent,
   getDashboardSummary,
   getProcurementEvidence,
-  getTender,
-  getTenders,
+  planInvestigation,
   searchWebEvidence,
-  type CanonicalCompany,
   type CompanyAwardHistoryItem,
   type CompanyOverview,
   type CompanySearchSummary,
   type CompanyTenderHistoryItem,
   type DashboardRecent,
-  type DashboardTender,
   type DashboardSummary,
+  type InvestigationPackage,
+  type InvestigationProcurementRecord,
   type ProcurementEvidence,
   type RelationshipGraph,
   type StoredWebPage,
@@ -79,9 +74,10 @@ type InvestigationData = {
   companyOverviews: CompanyOverview[];
   companyTenderHistory: CompanyTenderHistoryItem[];
   companyAwardHistory: CompanyAwardHistoryItem[];
-  canonicalCompanies: CanonicalCompany[];
+  canonicalCompanies: InvestigationPackage["canonical_companies"];
   dashboardSummary: DashboardSummary | null;
   dashboardRecent: DashboardRecent | null;
+  investigationPackage: InvestigationPackage | null;
   webResults: WebSearchResult[];
   webPages: StoredWebPage[];
   graph: RelationshipGraph | null;
@@ -102,7 +98,7 @@ type CompanyProfileCard = {
   href: string;
   awards: number;
   aliases?: string[];
-  confidence?: string;
+  confidence?: number | string;
   sources?: number;
   procurementRecords?: number;
   webEvidence?: number;
@@ -177,6 +173,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
       canonicalCompanies: [],
       dashboardSummary: null,
       dashboardRecent: null,
+      investigationPackage: null,
       webResults: [],
       webPages: [],
       graph: null,
@@ -187,85 +184,31 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
 
     try {
       await runStep("Searching Procurement Sources", async () => {
-        const [tenders, companies, dashboardSummary, dashboardRecent] = await Promise.all([
-          getTenders({ q: normalized, limit: 25, sort: "newest" }),
-          getCompanies({ q: normalized, limit: 10 }),
+        const [plan, dashboardSummary, dashboardRecent] = await Promise.all([
+          planInvestigation({ query: normalized }),
           getDashboardSummary().catch(() => null),
           getDashboardRecent(10).catch(() => null)
         ]);
+        const execution = await executeInvestigation(plan, 25);
+        const investigationPackage = execution.package;
+
         investigation.dashboardSummary = dashboardSummary;
         investigation.dashboardRecent = dashboardRecent;
-        investigation.totalTenders = tenders.pagination.total;
+        investigation.investigationPackage = investigationPackage;
+        applyInvestigationPackage(investigation, investigationPackage, normalized);
 
-        const primaryCompany = selectPrimaryCompany(companies.items, normalized);
-        const primaryTender = selectPrimaryTender(tenders.items, normalized);
-
-        if (primaryCompany) {
-          investigation.scope = { kind: "company", id: primaryCompany.id, label: primaryCompany.name };
-          investigation.companies = [primaryCompany];
-
-          const [overview, companyTenders, awards, canonical] = await Promise.all([
-            getCompanyOverview(primaryCompany.id).catch(() => null),
-            getCompanyTenders(primaryCompany.id, { limit: 25 }).catch(() => null),
-            getCompanyAwards(primaryCompany.id, 25).catch(() => null),
-            getCanonicalCompany(primaryCompany.id).catch(() => null)
-          ]);
-
-          investigation.companyOverviews = overview ? [overview] : [];
-          investigation.totalTenders = companyTenders?.pagination.total ?? investigation.totalTenders;
-          const companyTenderHistory = companyTenders?.items ?? [];
-          investigation.tenderDetails = await Promise.all(
-            companyTenderHistory.slice(0, 8).map((tender) => getTender(tender.id).catch(() => null))
-          ).then((items) => items.filter((item): item is TenderDetail => item !== null));
-          investigation.tenders = investigation.tenderDetails.map(toTenderSummary);
-          investigation.companyTenderHistory = companyTenderHistory;
-          investigation.companyAwardHistory = awards?.items ?? [];
-          investigation.canonicalCompanies = canonical ? [canonical] : [];
-          return {
-            recordsFound: (companyTenders?.pagination.total ?? 0) + (awards?.pagination.total ?? 0),
-            detail: `${primaryCompany.name} company investigation loaded`
-          };
-        }
-
-        if (primaryTender) {
-          investigation.scope = { kind: "tender", id: primaryTender.id, label: primaryTender.title };
-          investigation.tenders = [primaryTender];
-          const tenderDetail = await getTender(primaryTender.id).catch(() => null);
-          investigation.tenderDetails = tenderDetail ? [tenderDetail] : [];
-          investigation.companies = companies.items.filter((item) => matchesQuery([item.name, item.registration_number ?? ""], normalized));
-          investigation.companyOverviews = [];
-          investigation.companyTenderHistory = [];
-          investigation.companyAwardHistory = tenderDetail?.awards.map((award) => ({
-            id: award.id,
-            award_amount: award.award_value,
-            award_date: award.award_date,
-            currency: award.currency,
-            tender_id: primaryTender.id,
-            tender_title: primaryTender.title,
-            tender_reference_number: primaryTender.reference_number
-          })) ?? [];
-          investigation.canonicalCompanies = [];
-          return {
-            recordsFound: tenderDetail ? tenderDetail.awards.length + 1 : 1,
-            detail: `${primaryTender.title} tender investigation loaded`
-          };
-        }
-
-        investigation.companies = companies.items.slice(0, 5);
-        investigation.tenders = tenders.items.slice(0, 5);
-        investigation.tenderDetails = await Promise.all(
-          investigation.tenders.slice(0, 3).map((tender) => getTender(tender.id).catch(() => null))
-        ).then((items) => items.filter((item): item is TenderDetail => item !== null));
         return {
-          recordsFound: tenders.pagination.total + companies.pagination.total,
-          detail: `${tenders.items.length} tenders and ${companies.items.length} companies loaded`
+          recordsFound: investigationPackage?.records.length ?? 0,
+          detail: `${investigationPackage?.records.length ?? 0} procurement records loaded from InvestigationPackage`
         };
       });
 
       await runStep("Searching Web", async () => {
         const web = await searchWebEvidence(normalized);
         const storedProcurement = await getProcurementEvidence(normalized).catch(() => ({ items: [] }));
-        investigation.webResults = web.search_results;
+        investigation.webResults = web.search_results.filter((result) =>
+          mergeWebPages(web.stored_pages, storedProcurement.items).some((page) => page.url === result.url && page.procurement_evidence)
+        );
         investigation.webPages = filterWebPages(
           mergeWebPages(web.stored_pages, storedProcurement.items),
           investigation.scope,
@@ -294,7 +237,10 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
         const primaryCompanyId = investigation.scope.kind === "company" ? investigation.scope.id : evidence.find((item) => item.company_id)?.company_id ?? undefined;
         const primaryTenderId = investigation.scope.kind === "tender" ? investigation.scope.id : investigation.tenders[0]?.id ?? evidence.find((item) => item.tender_id)?.tender_id ?? undefined;
 
-        investigation.graph = primaryCompanyId
+        const packageGraph = buildPackageGraph(investigation.investigationPackage);
+        investigation.graph = packageGraph.nodes.length > 0
+          ? packageGraph
+          : primaryCompanyId
           ? await getRelationshipGraph({ companyId: primaryCompanyId, depth: 2 }).catch(() => null)
           : primaryTenderId
             ? await getRelationshipGraph({ tenderId: primaryTenderId, depth: 2 }).catch(() => null)
@@ -454,14 +400,14 @@ function InvestigationDashboard({ data, steps }: { data: InvestigationData; step
       return data.canonicalCompanies.map((company) => ({
         id: company.id,
         name: company.canonical_name,
-        registration_number: company.linked_procurement_companies[0]?.registration_number ?? null,
-        href: `/companies/${company.linked_procurement_companies[0]?.id ?? company.linked_company_ids[0] ?? company.id}`,
-        awards: company.linked_awards.length,
+        registration_number: null,
+        href: `/companies/${company.id}`,
+        awards: company.matched_sources.filter((source) => source.source_type === "procurement_award").length,
         aliases: company.aliases,
         confidence: company.confidence,
         sources: company.matched_sources.length,
-        procurementRecords: company.linked_procurement_companies.length,
-        webEvidence: company.linked_web_evidence.length
+        procurementRecords: company.matched_procurement_records.length,
+        webEvidence: 0
       }));
     }
     return relatedCompanies.slice(0, 3).map((company) => ({ ...company, href: `/companies/${company.id}` }));
@@ -470,11 +416,12 @@ function InvestigationDashboard({ data, steps }: { data: InvestigationData; step
   const categories = useMemo(() => countValues(procurementEvidence.map((item) => item.procurement_sector ?? item.tender_category)), [procurementEvidence]);
   const countries = useMemo(() => countValues(procurementEvidence.map((item) => item.country)), [procurementEvidence]);
   const timelineItems = useMemo(() => buildInvestigationTimeline(data, awards, procurementEvidence), [awards, data, procurementEvidence]);
+  const packageDocuments = useMemo(() => packageDocumentRows(data.investigationPackage), [data.investigationPackage]);
   const totalValue = sumMoney(data.tenders.map((tender) => tender.estimated_value));
   const procurementGraph = useMemo(() => buildProcurementGraph(data.graph), [data.graph]);
   const locationClusters = useMemo(
-    () => buildLocationClusters(data, procurementEvidence),
-    [data, procurementEvidence]
+    () => buildLocationClusters(data, procurementEvidence, packageDocuments),
+    [data, packageDocuments, procurementEvidence]
   );
   const primaryBuyer = buyers[0]?.name ?? "Not available";
   const procurementAvailable = data.tenders.length > 0 || awards.length > 0 || procurementEvidence.length > 0;
@@ -491,37 +438,39 @@ function InvestigationDashboard({ data, steps }: { data: InvestigationData; step
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
         <div className="min-w-0 space-y-5">
-          <Section eyebrow="Pipeline" title="Investigation Timeline">
-            <TimelineStrip items={timelineItems} />
-          </Section>
+          {timelineItems.length > 0 ? (
+            <Section eyebrow="Timeline" title="Investigation Timeline">
+              <TimelineStrip items={timelineItems} />
+            </Section>
+          ) : null}
 
-          <Section
-            eyebrow="Evidence"
-            title="Procurement Evidence Table"
-            action={<PaginationSummary pageIndex={0} pageSize={PAGE_SIZE} total={procurementEvidence.length} />}
-          >
-            <ProcurementEvidenceTable evidence={procurementEvidence} pages={data.webPages} />
-          </Section>
+          {procurementEvidence.length > 0 ? (
+            <Section
+              eyebrow="Evidence"
+              title="Procurement Evidence Table"
+              action={<PaginationSummary pageIndex={0} pageSize={PAGE_SIZE} total={procurementEvidence.length} />}
+            >
+              <ProcurementEvidenceTable evidence={procurementEvidence} pages={data.webPages} />
+            </Section>
+          ) : null}
 
-          <Section eyebrow="Geography" title="Geographic Map">
-            <ProcurementMap clusters={locationClusters} />
-          </Section>
+          {locationClusters.length > 0 ? (
+            <Section eyebrow="Geography" title="Procurement Geography">
+              <ProcurementMap clusters={locationClusters} />
+            </Section>
+          ) : null}
 
-          <Section eyebrow="History" title="Tender History">
-            {data.tenders.length === 0 ? (
-              <EmptyState title="No procurement records found" message="No tenders were returned for this investigation." />
-            ) : (
+          {data.tenders.length > 0 ? (
+            <Section eyebrow="History" title="Tender History">
               <TenderHistoryTable tenders={data.tenders} />
-            )}
-          </Section>
+            </Section>
+          ) : null}
 
-          <Section eyebrow="History" title="Award History">
-            {awards.length === 0 ? (
-              <EmptyState title="No procurement records found" message="No awards were returned for this investigation." />
-            ) : (
+          {awards.length > 0 ? (
+            <Section eyebrow="History" title="Award History">
               <AwardHistoryTable awards={awards} />
-            )}
-          </Section>
+            </Section>
+          ) : null}
         </div>
 
         <div className="min-w-0 space-y-5">
@@ -531,43 +480,39 @@ function InvestigationDashboard({ data, steps }: { data: InvestigationData; step
                 <OverviewTile label="Scope" value={data.scope.kind === "company" ? "Company investigation" : data.scope.kind === "tender" ? "Tender investigation" : "Query investigation"} />
                 <OverviewTile label="Top buyer" value={primaryBuyer} />
                 <OverviewTile label="Procurement records" value={formatInteger(procurementEvidence.length)} />
-                <OverviewTile label="Countries" value={countries.length ? countries.map((item) => `${item.name} (${item.count})`).join(", ") : "India"} />
-                <OverviewTile label="Categories" value={categories.length ? categories.slice(0, 3).map((item) => item.name).join(", ") : "Not available"} />
+                {countries.length ? <OverviewTile label="Countries" value={countries.map((item) => `${item.name} (${item.count})`).join(", ")} /> : null}
+                {categories.length ? <OverviewTile label="Categories" value={categories.slice(0, 3).map((item) => item.name).join(", ")} /> : null}
               </div>
             ) : (
-              <EmptyState title="No procurement records found" message="No tenders, awards, or procurement evidence were returned for the connected procurement sources." />
+              <EmptyState title="No package records found" message="The investigation package did not return tenders, awards, documents, or extracted procurement evidence." />
             )}
           </Section>
 
-          <Section eyebrow="Graph" title="Relationship Graph">
-            {procurementGraph.nodes.length > 0 ? (
+          {procurementGraph.nodes.length > 0 ? (
+            <Section eyebrow="Graph" title="Relationship Graph">
               <div className="overflow-hidden rounded-[24px] border border-[#E8D8B1] bg-white">
                 <RelationshipGraphExplorer graph={procurementGraph} />
               </div>
-            ) : (
-              <EmptyState title="No procurement records found" message="The existing graph API did not return procurement-related relationships for this investigation." />
-            )}
-          </Section>
+            </Section>
+          ) : null}
 
-          <Section eyebrow="Buyers" title="Government Buyers">
-            {buyers.length === 0 ? <EmptyState title="No procurement records found" message="No buyers were extracted from the procurement evidence." /> : <GovernmentBuyersTable buyers={buyers} />}
-          </Section>
+          {buyers.length > 0 ? (
+            <Section eyebrow="Buyers" title="Government Buyers">
+              <GovernmentBuyersTable buyers={buyers} />
+            </Section>
+          ) : null}
 
-          <Section eyebrow="Network" title="Connected Companies">
-            {companyProfiles.length === 0 ? (
-              <EmptyState title="No procurement records found" message="No connected companies were resolved from the current procurement record set." />
-            ) : (
+          {companyProfiles.length > 0 ? (
+            <Section eyebrow="Network" title="Connected Companies">
               <ConnectedCompaniesPanel companies={companyProfiles} />
-            )}
-          </Section>
+            </Section>
+          ) : null}
 
-          <Section eyebrow="Documents" title="Documents">
-            {data.webPages.length === 0 ? (
-              <EmptyState title="No procurement records found" message="No procurement documents were stored for this investigation." />
-            ) : (
-              <DocumentsTable pages={data.webPages} />
-            )}
-          </Section>
+          {packageDocuments.length > 0 ? (
+            <Section eyebrow="Documents" title="Documents">
+              <DocumentsTable documents={packageDocuments} />
+            </Section>
+          ) : null}
         </div>
       </div>
     </div>
@@ -611,8 +556,8 @@ function TimelineStrip({ items }: { items: TimelineItem[] }) {
 
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {items.map((item) => (
-        <div className="rounded-[18px] border border-[#E8D8B1] bg-white p-4 shadow-[0_14px_36px_rgba(87,63,14,0.05)]" key={`${item.label}-${item.value}`}>
+      {items.map((item, index) => (
+        <div className="rounded-[18px] border border-[#E8D8B1] bg-white p-4 shadow-[0_14px_36px_rgba(87,63,14,0.05)]" key={`${item.label}-${item.value}-${index}`}>
           <div className="flex items-start gap-2 text-sm font-semibold text-[#2F2F2F]">
             <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#B88927]" aria-hidden="true" />
             <span className="min-w-0 break-words leading-5">{item.label}</span>
@@ -773,17 +718,17 @@ function ConnectedCompaniesPanel({ companies }: { companies: CompanyProfileCard[
   );
 }
 
-function DocumentsTable({ pages }: { pages: StoredWebPage[] }) {
+function DocumentsTable({ documents }: { documents: PackageDocument[] }) {
   const [filter, setFilter] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
-  const items = useMemo(() => filterItems(pages, filter, (page) => `${page.title ?? ""} ${page.source} ${page.url}`), [pages, filter]);
+  const items = useMemo(() => filterItems(documents, filter, (document) => `${document.title} ${document.sourceName} ${document.url ?? ""} ${document.tenderTitle}`), [documents, filter]);
   const visible = paginateItems(items, pageIndex, PAGE_SIZE);
-  useEffect(() => setPageIndex(0), [filter, pages.length]);
-  const columns: Column<StoredWebPage>[] = [
-    { key: "source", header: "Source", render: (page) => <RecordTitle title={page.title ?? page.source} meta={page.source} /> },
-    { key: "url", header: "URL", render: (page) => <a className="break-all text-[#B88927] hover:underline" href={page.url} rel="noreferrer" target="_blank">{page.url}</a> },
-    { key: "retrieved", header: "Retrieved", render: (page) => <span>{formatDate(page.retrieved_at)}</span> },
-    { key: "entities", header: "Entities", align: "right", render: (page) => <span>{page.extraction.organization_names.length}</span> }
+  useEffect(() => setPageIndex(0), [filter, documents.length]);
+  const columns: Column<PackageDocument>[] = [
+    { key: "document", header: "Document", render: (document) => <RecordTitle title={document.title} meta={document.documentType} /> },
+    { key: "tender", header: "Tender", render: (document) => <RecordTitle title={document.tenderTitle} meta={document.tenderReference} /> },
+    { key: "source", header: "Source", render: (document) => document.url ? <a className="break-all text-[#B88927] hover:underline" href={document.url} rel="noreferrer" target="_blank">{document.sourceName}</a> : <span>{document.sourceName}</span> },
+    { key: "retrieved", header: "Retrieved", render: (document) => <span>{formatDate(document.retrievedAt)}</span> }
   ];
 
   return (
@@ -792,7 +737,7 @@ function DocumentsTable({ pages }: { pages: StoredWebPage[] }) {
         <TableFilter value={filter} onChange={setFilter} placeholder="Search documents" />
         <PaginationSummary pageIndex={pageIndex} pageSize={PAGE_SIZE} total={items.length} />
       </div>
-      <DataTable columns={columns} empty={<EmptyState title="No procurement records found" message="No documents were stored for this investigation." />} items={visible} />
+      <DataTable columns={columns} empty={<EmptyState title="No documents match" message="No package documents match the current filter." />} items={visible} />
       <PaginationBar pageIndex={pageIndex} pageSize={PAGE_SIZE} total={items.length} onNext={() => setPageIndex((value) => Math.min(value + 1, Math.max(0, Math.ceil(items.length / PAGE_SIZE) - 1)))} onPrev={() => setPageIndex((value) => Math.max(0, value - 1))} />
     </div>
   );
@@ -810,12 +755,11 @@ function ProcurementMap({ clusters }: { clusters: LocationCluster[] }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-      <div className="relative overflow-hidden rounded-[24px] border border-[#E8D8B1] bg-gradient-to-br from-[#FFFDF8] to-[#F6EDD7] p-4 shadow-[0_20px_48px_rgba(87,63,14,0.08)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(212,167,75,0.12),transparent_30%),radial-gradient(circle_at_70%_30%,rgba(212,167,75,0.08),transparent_28%),radial-gradient(circle_at_50%_80%,rgba(212,167,75,0.08),transparent_24%)]" />
+      <div className="relative overflow-hidden rounded-[24px] border border-[#E8D8B1] bg-[#FFFDF8] p-4 shadow-[0_20px_48px_rgba(87,63,14,0.08)]">
         <div className="relative flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#B88927]">India Procurement Map</div>
-            <div className="mt-1 text-sm text-[#6B7280]">Clusters are derived only from procurement evidence text and company/overview addresses.</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#B88927]">Procurement Map</div>
+            <div className="mt-1 text-sm text-[#6B7280]">Clusters are derived from package procurement records, documents, and extracted evidence geography.</div>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-[#E8D8B1] bg-white p-1">
             <MapButton icon={<Minus className="h-3.5 w-3.5" />} onClick={() => setZoom((value) => Math.max(0.8, Number((value - 0.1).toFixed(2))))} label="Zoom out" />
@@ -825,22 +769,11 @@ function ProcurementMap({ clusters }: { clusters: LocationCluster[] }) {
         </div>
 
         <div className="relative mt-4 aspect-[1.6] overflow-hidden rounded-[24px] border border-[#E8D8B1] bg-[#FCF8EF]">
-          <div className="absolute inset-0 opacity-70">
-            <svg className="h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-              <defs>
-                <linearGradient id="india-map-fill" x1="0" x2="1" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#F7E7B5" />
-                  <stop offset="100%" stopColor="#E9C873" />
-                </linearGradient>
-              </defs>
-              <path d="M46 6 L58 10 L67 18 L73 27 L77 38 L76 49 L71 59 L67 69 L60 78 L53 89 L45 85 L40 74 L34 65 L27 56 L21 45 L23 33 L29 23 L36 14 Z" fill="url(#india-map-fill)" opacity="0.38" stroke="#D4A74B" strokeWidth="0.7" />
-              <path d="M47 17 L54 19 L59 28 L57 38 L52 47 L48 58 L41 68 L36 61 L33 50 L35 39 L40 29 Z" fill="none" stroke="#D4A74B" strokeDasharray="1.5 1.5" strokeWidth="0.4" opacity="0.55" />
-              <path d="M30 41 L40 44 L50 44 L61 47 L69 55" fill="none" stroke="#D4A74B" strokeWidth="0.3" opacity="0.45" />
-            </svg>
-          </div>
           <div className="absolute inset-0 grid grid-cols-6 grid-rows-6 opacity-[0.08]">
             {Array.from({ length: 36 }).map((_, index) => <div className="border-l border-t border-[#B88927]" key={index} />)}
           </div>
+          <div className="absolute left-4 top-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7A7F87]">Location intensity</div>
+          <div className="absolute bottom-4 left-4 text-xs text-[#6B7280]">Pan by selecting clusters. Zoom controls scale the procurement geography layer.</div>
           <div className="relative h-full w-full">
             <div className={`absolute left-1/2 top-1/2 h-[72%] w-[72%] -translate-x-1/2 -translate-y-1/2 ${zoomClass}`}>
               {clusters.map((cluster) => (
@@ -983,44 +916,63 @@ type LocationCluster = {
   positionClass: string;
 };
 
-const INDIA_LOCATION_POINTS: Array<{ id: string; label: string; terms: string[]; positionClass: string }> = [
-  { id: "delhi", label: "Delhi NCR", terms: ["delhi", "new delhi", "gurgaon", "noida", "ghaziabad"], positionClass: "left-[53%] top-[20%]" },
-  { id: "chandigarh", label: "Chandigarh / Punjab", terms: ["chandigarh", "punjab"], positionClass: "left-[41%] top-[15%]" },
-  { id: "ahmedabad", label: "Ahmedabad / Gujarat", terms: ["ahmedabad", "gujarat"], positionClass: "left-[28%] top-[38%]" },
-  { id: "mumbai", label: "Mumbai / Maharashtra", terms: ["mumbai", "maharashtra", "pune"], positionClass: "left-[34%] top-[53%]" },
-  { id: "hyderabad", label: "Hyderabad / Telangana", terms: ["hyderabad", "telangana"], positionClass: "left-[54%] top-[66%]" },
-  { id: "bengaluru", label: "Bengaluru / Karnataka", terms: ["bengaluru", "bangalore", "karnataka"], positionClass: "left-[50%] top-[78%]" },
-  { id: "chennai", label: "Chennai / Tamil Nadu", terms: ["chennai", "tamil nadu"], positionClass: "left-[62%] top-[87%]" },
-  { id: "kochi", label: "Kochi / Kerala", terms: ["kochi", "kerala"], positionClass: "left-[55%] top-[94%]" },
-  { id: "kolkata", label: "Kolkata / West Bengal", terms: ["kolkata", "west bengal"], positionClass: "left-[81%] top-[53%]" },
-  { id: "bhubaneswar", label: "Bhubaneswar / Odisha", terms: ["bhubaneswar", "odisha"], positionClass: "left-[76%] top-[63%]" }
-];
+type PackageDocument = {
+  id: string;
+  title: string;
+  url: string | null;
+  documentType: string;
+  sourceName: string;
+  retrievedAt: string | null;
+  tenderReference: string;
+  tenderTitle: string;
+  locationText: string;
+};
 
-function buildLocationClusters(data: InvestigationData, evidence: ProcurementEvidence[]): LocationCluster[] {
+function packageDocumentRows(pkg: InvestigationPackage | null): PackageDocument[] {
+  if (!pkg) return [];
+  return pkg.records.flatMap((record) =>
+    record.documents.map((document, index) => ({
+      id: stableId(["document", document.metadata.source_name, document.metadata.source_record_id, document.url ?? document.title, String(index)]),
+      title: document.title,
+      url: document.url,
+      documentType: document.document_type,
+      sourceName: document.metadata.source_name,
+      retrievedAt: document.metadata.retrieved_at,
+      tenderReference: record.tender.reference_number,
+      tenderTitle: record.tender.title,
+      locationText: [
+        record.tender.procuring_entity,
+        record.tender.title,
+        record.tender.description,
+        ...record.companies.map((company) => company.address),
+        ...record.awards.map((award) => award.company_address)
+      ].filter(Boolean).join(" ")
+    }))
+  );
+}
+
+function buildLocationClusters(data: InvestigationData, evidence: ProcurementEvidence[], documents: PackageDocument[]): LocationCluster[] {
   const clusters = new Map<string, LocationCluster>();
   const sources = [
-    data.scope.label,
+    ...data.tenderDetails.flatMap((tender) => [tender.procuring_entity, tender.title, tender.description]),
     ...data.companyOverviews.map((overview) => [overview.address, overview.company.address].filter(Boolean).join(" ")),
+    ...documents.map((document) => document.locationText),
     ...evidence.flatMap((item) => [item.company_name, item.government_buyer, item.tender_title, item.contract_title, item.organization, item.country].filter(Boolean) as string[])
-  ];
+  ].filter((source): source is string => Boolean(source));
 
   for (const source of sources) {
-    const normalized = source.toLowerCase();
-    let matchedPoint = INDIA_LOCATION_POINTS.find((point) => point.terms.some((term) => normalized.includes(term)));
-    if (!matchedPoint && normalized.includes("india")) {
-      matchedPoint = { id: "india", label: "India", terms: ["india"], positionClass: "left-[55%] top-[52%]" };
-    }
-    if (!matchedPoint) continue;
-
-    const current = clusters.get(matchedPoint.id) ?? {
-      id: matchedPoint.id,
-      label: matchedPoint.label,
-      detail: "Derived from procurement evidence and company address text",
+    const label = extractLocationLabel(source);
+    if (!label) continue;
+    const id = label.toLowerCase();
+    const current = clusters.get(id) ?? {
+      id,
+      label,
+      detail: "Derived from package procurement records and evidence geography",
       count: 0,
-      positionClass: matchedPoint.positionClass
+      positionClass: locationPositionClass(label)
     };
     current.count += 1;
-    clusters.set(matchedPoint.id, current);
+    clusters.set(id, current);
   }
 
   return [...clusters.values()].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
@@ -1033,6 +985,154 @@ function buildProcurementGraph(graph: RelationshipGraph | null): RelationshipGra
   const nodeIds = new Set(nodes.map((node) => node.id));
   const edges = graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)).slice(0, 50);
   return { nodes, edges };
+}
+
+function buildPackageGraph(pkg: InvestigationPackage | null): RelationshipGraph {
+  if (!pkg) return { nodes: [], edges: [] };
+  const nodes = new Map<string, RelationshipGraph["nodes"][number]>();
+  const edges = new Map<string, RelationshipGraph["edges"][number]>();
+
+  for (const record of pkg.records) {
+    const tenderId = stableId(["tender", record.tender.metadata.source_name, record.tender.reference_number]);
+    nodes.set(tenderId, {
+      id: tenderId,
+      type: "tender",
+      label: record.tender.title,
+      data: {
+        reference_number: record.tender.reference_number,
+        procuring_entity: record.tender.procuring_entity,
+        published_date: record.tender.published_date,
+        closing_date: record.tender.closing_date,
+        estimated_value: record.tender.estimated_value,
+        currency: record.tender.currency,
+        source: record.tender.metadata.source_name,
+        source_url: record.tender.metadata.source_url,
+        summary: record.tender.description ?? record.tender.title
+      }
+    });
+
+    if (record.tender.procuring_entity) {
+      const buyerId = stableId(["buyer", record.tender.procuring_entity]);
+      nodes.set(buyerId, {
+        id: buyerId,
+        type: "buyer",
+        label: record.tender.procuring_entity,
+        data: { source: record.tender.metadata.source_name, summary: `Buyer for ${record.tender.reference_number}` }
+      });
+      addGraphEdge(edges, buyerId, tenderId, "buyer_tender", "published");
+    }
+
+    for (const company of record.companies) {
+      const companyId = company.canonical_company_id || stableId(["company", company.registration_number ?? company.name]);
+      nodes.set(companyId, {
+        id: companyId,
+        type: "company",
+        label: company.name,
+        data: {
+          canonical_company_id: company.canonical_company_id,
+          registration_number: company.registration_number,
+          source: company.metadata.source_name,
+          source_url: company.metadata.source_url,
+          summary: company.address ?? company.name
+        }
+      });
+      addGraphEdge(edges, companyId, tenderId, "company_tender", "participated");
+    }
+
+    record.awards.forEach((award, index) => {
+      const awardId = stableId(["award", record.tender.reference_number, award.company_name, award.award_date ?? String(index)]);
+      const companyId = award.canonical_company_id || stableId(["company", award.company_registration_number ?? award.company_name]);
+      nodes.set(companyId, {
+        id: companyId,
+        type: "company",
+        label: award.company_name,
+        data: {
+          canonical_company_id: award.canonical_company_id,
+          registration_number: award.company_registration_number,
+          source: award.metadata.source_name,
+          summary: award.company_address ?? award.company_name
+        }
+      });
+      nodes.set(awardId, {
+        id: awardId,
+        type: "award",
+        label: `${award.company_name} award`,
+        data: {
+          award_date: award.award_date,
+          award_value: award.award_value,
+          currency: award.currency,
+          source: award.metadata.source_name,
+          summary: `${award.company_name} awarded ${award.award_value ?? "undisclosed"} ${award.currency}`
+        }
+      });
+      addGraphEdge(edges, tenderId, awardId, "tender_award", "awarded");
+      addGraphEdge(edges, awardId, companyId, "award_company", "won by");
+    });
+
+    record.documents.forEach((document, index) => {
+      const documentId = stableId(["document", record.tender.reference_number, document.url ?? document.title, String(index)]);
+      nodes.set(documentId, {
+        id: documentId,
+        type: "document",
+        label: document.title,
+        data: {
+          document_type: document.document_type,
+          source: document.metadata.source_name,
+          source_url: document.url,
+          retrieved_at: document.metadata.retrieved_at,
+          summary: document.title
+        }
+      });
+      addGraphEdge(edges, documentId, tenderId, "document_tender", "supports");
+    });
+  }
+
+  return { nodes: [...nodes.values()].slice(0, 80), edges: [...edges.values()].slice(0, 120) };
+}
+
+function addGraphEdge(
+  edges: Map<string, RelationshipGraph["edges"][number]>,
+  source: string,
+  target: string,
+  type: RelationshipGraph["edges"][number]["type"],
+  label: string
+) {
+  const id = stableId(["edge", source, target, type, label]);
+  edges.set(id, { id, source, target, type, label, data: {} });
+}
+
+function stableId(parts: string[]): string {
+  return parts.join(":").toLowerCase().replace(/[^a-z0-9:_-]+/g, "-").replace(/-+/g, "-").slice(0, 140);
+}
+
+function extractLocationLabel(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const countryMatch = normalized.match(/\b(India|Ukraine|United States|United Kingdom|Canada|Australia)\b/i);
+  if (countryMatch) return titleCase(countryMatch[1]);
+  const cityMatch = normalized.match(/\b(Delhi|New Delhi|Mumbai|Pune|Bengaluru|Bangalore|Hyderabad|Chennai|Kolkata|Ahmedabad|Gujarat|Maharashtra|Karnataka|Telangana|Tamil Nadu|Odisha|Kerala|Punjab)\b/i);
+  return cityMatch ? titleCase(cityMatch[1]) : null;
+}
+
+function locationPositionClass(label: string): string {
+  const positions = [
+    "left-[18%] top-[24%]",
+    "left-[32%] top-[18%]",
+    "left-[48%] top-[30%]",
+    "left-[68%] top-[22%]",
+    "left-[78%] top-[42%]",
+    "left-[58%] top-[58%]",
+    "left-[38%] top-[64%]",
+    "left-[22%] top-[76%]",
+    "left-[48%] top-[82%]",
+    "left-[72%] top-[74%]"
+  ];
+  const hash = [...label].reduce((value, char) => value + char.charCodeAt(0), 0);
+  return positions[hash % positions.length];
+}
+
+function titleCase(value: string): string {
+  return value.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function WorkspaceResults({ data, steps }: { data: InvestigationData; steps: InvestigationStep[] }) {
@@ -1069,14 +1169,14 @@ function WorkspaceResults({ data, steps }: { data: InvestigationData; steps: Inv
       return data.canonicalCompanies.map((company) => ({
         id: company.id,
         name: company.canonical_name,
-        registration_number: company.linked_procurement_companies[0]?.registration_number ?? null,
-        href: `/companies/${company.linked_procurement_companies[0]?.id ?? company.linked_company_ids[0] ?? company.id}`,
-        awards: company.linked_awards.length,
+        registration_number: null,
+        href: `/companies/${company.id}`,
+        awards: company.matched_sources.filter((source) => source.source_type === "procurement_award").length,
         aliases: company.aliases,
         confidence: company.confidence,
         sources: company.matched_sources.length,
-        procurementRecords: company.linked_procurement_companies.length,
-        webEvidence: company.linked_web_evidence.length
+        procurementRecords: company.matched_procurement_records.length,
+        webEvidence: 0
       }));
     }
     return relatedCompanies.slice(0, 3).map((company) => ({ ...company, href: `/companies/${company.id}` }));
@@ -1251,14 +1351,14 @@ function SearchableProcurementEvidenceTable({ evidence, pages }: { evidence: Pro
   return <WorkspaceTable title="Procurement Evidence" icon={<Shield className="h-4 w-4" />} filter={filter} onFilter={setFilter}><DataTable columns={columns} empty={<EmptyState message="No procurement facts were extracted from web evidence." />} items={items} /></WorkspaceTable>;
 }
 
-function CanonicalCompanyTable({ companies }: { companies: CanonicalCompany[] }) {
+function CanonicalCompanyTable({ companies }: { companies: InvestigationPackage["canonical_companies"] }) {
   const [filter, setFilter] = useState("");
   const items = filterItems(companies, filter, (company) => `${company.canonical_name} ${company.aliases.join(" ")}`);
-  const columns: Column<CanonicalCompany>[] = [
-    { key: "name", header: "Canonical Name", render: (company) => <RecordTitle title={company.canonical_name} meta={`${company.linked_procurement_companies.length} procurement records`} /> },
+  const columns: Column<InvestigationPackage["canonical_companies"][number]>[] = [
+    { key: "name", header: "Canonical Name", render: (company) => <RecordTitle title={company.canonical_name} meta={`${company.matched_procurement_records.length} procurement records`} /> },
     { key: "aliases", header: "Aliases", render: (company) => <span>{company.aliases.join(", ") || "None"}</span> },
     { key: "confidence", header: "Confidence", align: "right", render: (company) => <span>{formatPercent(company.confidence)}</span> },
-    { key: "sources", header: "Linked Sources", render: (company) => <span>{company.matched_sources.length} sources / {company.linked_web_evidence.length} web evidence</span> }
+    { key: "sources", header: "Linked Sources", render: (company) => <span>{company.matched_sources.length} sources</span> }
   ];
   return <WorkspaceTable title="Canonical Entities" icon={<Users className="h-4 w-4" />} filter={filter} onFilter={setFilter}><DataTable columns={columns} empty={<EmptyState message="No canonical entity links were returned for this investigation." />} items={items} /></WorkspaceTable>;
 }
@@ -1404,7 +1504,7 @@ function SummaryList({ items, title }: { items: string[]; title: string }) {
 }
 
 function RecordTitle({ meta, title }: { meta: string; title: string }) {
-  return <div className="min-w-0"><div className="line-clamp-2 break-words font-semibold leading-5 text-[#E6E8EB]">{title}</div><div className="mt-1 break-words text-xs leading-5 text-[#9AA4AF]">{meta}</div></div>;
+  return <div className="min-w-0"><div className="line-clamp-2 break-words font-semibold leading-5 text-[#2F2F2F]">{title}</div><div className="mt-1 break-words text-xs leading-5 text-[#6B7280]">{meta}</div></div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -1417,8 +1517,8 @@ function StartState() {
       {["Procurement records", "Public web evidence", "Relationship graph"].map((label) => (
         <SurfaceCard className="p-5" key={label}>
           <Database className="h-5 w-5 text-[#C58B2A]" />
-          <div className="mt-4 text-sm font-semibold text-[#E6E8EB]">{label}</div>
-          <div className="mt-2 text-sm text-[#9AA4AF]">Search to begin collecting live evidence from existing APIs.</div>
+          <div className="mt-4 text-sm font-semibold text-[#2F2F2F]">{label}</div>
+          <div className="mt-2 text-sm text-[#6B7280]">Search to begin collecting live evidence from existing APIs.</div>
         </SurfaceCard>
       ))}
     </div>
@@ -1440,6 +1540,94 @@ function LoadingWorkspace() {
 
 function createSteps(): InvestigationStep[] {
   return stepNames.map((name) => ({ name, status: "pending" }));
+}
+
+function applyInvestigationPackage(data: InvestigationData, investigationPackage: InvestigationPackage | null, query: string) {
+  const records = investigationPackage?.records ?? [];
+  data.tenderDetails = records.map(packageRecordToTenderDetail);
+  data.tenders = data.tenderDetails.map(toTenderSummary);
+  data.companies = packageCompanies(records);
+  data.canonicalCompanies = investigationPackage?.canonical_companies ?? [];
+  data.companyAwardHistory = data.tenderDetails.flatMap((tender) =>
+    tender.awards.map((award) => ({
+      id: award.id,
+      award_amount: award.award_value,
+      award_date: award.award_date,
+      currency: award.currency,
+      tender_id: tender.id,
+      tender_title: tender.title,
+      tender_reference_number: tender.reference_number
+    }))
+  );
+  data.totalTenders = records.length;
+
+  const primaryTender = data.tenders[0];
+  const primaryCompany = data.companies.find((company) => matchesQuery([company.name, company.registration_number ?? ""], query));
+  const investigationType = investigationPackage?.plan.investigation_type;
+  if (primaryCompany && ["company", "supplier", "director"].includes(investigationType ?? "")) {
+    data.scope = { kind: "company", id: primaryCompany.id, label: primaryCompany.name };
+  } else if (primaryTender) {
+    data.scope = { kind: "tender", id: primaryTender.id, label: primaryTender.title };
+  } else if (primaryCompany) {
+    data.scope = { kind: "company", id: primaryCompany.id, label: primaryCompany.name };
+  } else {
+    data.scope = { kind: "query", label: query };
+  }
+}
+
+function packageRecordToTenderDetail(record: InvestigationProcurementRecord): TenderDetail {
+  const createdAt = record.tender.metadata.retrieved_at ?? new Date().toISOString();
+  return {
+    id: record.tender.metadata.source_record_id || record.tender.reference_number,
+    reference_number: record.tender.reference_number,
+    title: record.tender.title,
+    procuring_entity: record.tender.procuring_entity,
+    published_date: record.tender.published_date,
+    closing_date: record.tender.closing_date,
+    estimated_value: record.tender.estimated_value,
+    currency: record.tender.currency,
+    created_at: createdAt,
+    updated_at: createdAt,
+    description: record.tender.description,
+    buyer: { name: record.tender.procuring_entity },
+    awards: record.awards.map((award) => ({
+      id: `${award.metadata.source_name}:${award.metadata.source_record_id}:${award.company_name}`,
+      award_date: award.award_date,
+      award_value: award.award_value,
+      currency: award.currency,
+      company: {
+        id: award.canonical_company_id || award.metadata.source_record_id || award.company_registration_number || award.company_name,
+        name: award.company_name,
+        registration_number: award.company_registration_number
+      }
+    })),
+    participating_companies: record.companies.map((company) => ({
+      id: company.canonical_company_id || company.metadata.source_record_id || company.registration_number || company.name,
+      name: company.name,
+      registration_number: company.registration_number
+    })),
+    intelligence: { signals: [], relationship_scores: [] }
+  };
+}
+
+function packageCompanies(records: InvestigationProcurementRecord[]): CompanySearchSummary[] {
+  const companies = new Map<string, CompanySearchSummary>();
+  for (const record of records) {
+    for (const company of record.companies) {
+      const id = company.canonical_company_id || company.metadata.source_record_id || company.registration_number || company.name;
+      if (!companies.has(id)) {
+        const timestamp = company.metadata.retrieved_at ?? new Date().toISOString();
+        companies.set(id, {
+          id,
+          name: company.name,
+          registration_number: company.registration_number,
+          created_at: timestamp,
+          updated_at: timestamp
+        });
+      }
+    }
+  }
+  return [...companies.values()];
 }
 
 function buyerRows(tenders: TenderSummary[], evidence: ProcurementEvidence[] = []) {
@@ -1517,8 +1705,8 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
-function uniqueCanonicalCompanies(values: CanonicalCompany[]): CanonicalCompany[] {
-  const companies = new Map<string, CanonicalCompany>();
+function uniqueCanonicalCompanies(values: InvestigationPackage["canonical_companies"]): InvestigationPackage["canonical_companies"] {
+  const companies = new Map<string, InvestigationPackage["canonical_companies"][number]>();
   for (const company of values) {
     companies.set(company.id, company);
   }
@@ -1551,8 +1739,8 @@ function formatInteger(value: number): string {
   return new Intl.NumberFormat("en").format(value);
 }
 
-function formatPercent(value: string | undefined): string {
-  if (!value) return "Not available";
+function formatPercent(value: string | number | undefined): string {
+  if (value === undefined || value === "") return "Not available";
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "Not available";
   return `${Math.round(numeric * 100)}%`;
@@ -1566,6 +1754,14 @@ type TimelineItem = {
 
 function buildInvestigationTimeline(data: InvestigationData, awards: Array<TenderDetail["awards"][number] & { tender: TenderDetail }>, evidence: ProcurementEvidence[]): TimelineItem[] {
   const items: TimelineItem[] = [];
+
+  for (const event of data.investigationPackage?.timeline ?? []) {
+    items.push({
+      label: event.label,
+      value: formatDate(event.event_date),
+      detail: [event.related_tender, event.related_entity, event.source_name].filter(Boolean).join(" / ")
+    });
+  }
 
   if (data.scope.kind === "company") {
     const overview = data.companyOverviews[0];
@@ -1660,5 +1856,5 @@ function filterWebPages(pages: StoredWebPage[], scope: InvestigationScope, query
     });
   }
 
-  return pages.filter((page) => matchesQuery([page.title, page.source, page.url, page.query], query));
+  return pages.filter((page) => Boolean(page.procurement_evidence) && matchesQuery([page.title, page.source, page.url, page.query], query));
 }

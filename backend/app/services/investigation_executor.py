@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.connectors import SourceManager
+from app.entity_resolution.package_resolver import InvestigationEntityResolver
 from app.schemas.investigation_executor import (
     InvestigationAwardResult,
     InvestigationCompanyResult,
@@ -25,8 +26,10 @@ class InvestigationExecutor:
         self,
         source_manager: SourceManager | None = None,
         investigation_planner: InvestigationPlanner | None = None,
+        entity_resolver: InvestigationEntityResolver | None = None,
     ) -> None:
         self.source_manager = source_manager or SourceManager()
+        self.entity_resolver = entity_resolver or InvestigationEntityResolver()
         # Lazily import to avoid circular dependency
         if investigation_planner:
             self.investigation_planner = investigation_planner
@@ -66,19 +69,19 @@ class InvestigationExecutor:
                 for record in records:
                     pkg_record = InvestigationProcurementRecord(
                         tender=InvestigationTenderResult(
-                            reference_number=record.tender.id,
+                            reference_number=record.tender.reference_number,
                             title=record.tender.title,
                             description=record.tender.description,
                             procuring_entity=record.tender.procuring_entity,
                             published_date=record.tender.published_date,
                             closing_date=record.tender.closing_date,
-                            estimated_value=record.tender.value,
+                            estimated_value=record.tender.estimated_value,
                             currency=record.tender.currency,
                             metadata=InvestigationSourceMetadata(
-                                source_name=record.tender.source_name,
-                                source_record_id=record.tender.source_record_id,
-                                source_url=record.tender.source_url,
-                                retrieved_at=record.tender.retrieved_at,
+                                source_name=record.tender.metadata.source_name,
+                                source_record_id=record.tender.metadata.source_record_id,
+                                source_url=record.tender.metadata.source_url,
+                                retrieved_at=record.tender.metadata.retrieved_at,
                             ),
                         )
                     )
@@ -88,11 +91,15 @@ class InvestigationExecutor:
                             InvestigationCompanyResult(
                                 name=company.name,
                                 registration_number=company.registration_number,
+                                tax_id=None,
+                                company_identifier=company.registration_number,
+                                address=None,
+                                website=None,
                                 metadata=InvestigationSourceMetadata(
-                                    source_name=company.source_name,
-                                    source_record_id=company.source_record_id,
-                                    source_url=company.source_url,
-                                    retrieved_at=company.retrieved_at,
+                                    source_name=company.metadata.source_name,
+                                    source_record_id=company.metadata.source_record_id,
+                                    source_url=company.metadata.source_url,
+                                    retrieved_at=company.metadata.retrieved_at,
                                 ),
                             )
                         )
@@ -100,17 +107,21 @@ class InvestigationExecutor:
                     for award in record.awards:
                         pkg_record.awards.append(
                             InvestigationAwardResult(
-                                tender_reference_number=award.tender_id,
+                                tender_reference_number=award.tender_reference_number,
                                 company_name=award.company_name,
                                 company_registration_number=award.company_registration_number,
+                                company_tax_id=None,
+                                company_identifier=award.company_registration_number,
+                                company_address=None,
+                                company_website=None,
                                 award_date=award.award_date,
-                                award_value=award.value,
+                                award_value=award.award_value,
                                 currency=award.currency,
                                 metadata=InvestigationSourceMetadata(
-                                    source_name=award.source_name,
-                                    source_record_id=award.source_record_id,
-                                    source_url=award.source_url,
-                                    retrieved_at=award.retrieved_at,
+                                    source_name=award.metadata.source_name,
+                                    source_record_id=award.metadata.source_record_id,
+                                    source_url=award.metadata.source_url,
+                                    retrieved_at=award.metadata.retrieved_at,
                                 ),
                             )
                         )
@@ -122,15 +133,17 @@ class InvestigationExecutor:
                                 url=document.url,
                                 document_type=document.document_type,
                                 metadata=InvestigationSourceMetadata(
-                                    source_name=document.source_name,
-                                    source_record_id=document.source_record_id,
-                                    source_url=document.source_url,
-                                    retrieved_at=document.retrieved_at,
+                                    source_name=document.metadata.source_name,
+                                    source_record_id=document.metadata.source_record_id,
+                                    source_url=document.metadata.source_url,
+                                    retrieved_at=document.metadata.retrieved_at,
                                 ),
                             )
                         )
                     pkg.records.append(pkg_record)
                     step_result.records_added += 1
+            self.entity_resolver.resolve_package(pkg)
+            step_result.entities_added = len(pkg.canonical_companies)
 
         # Placeholder for other modules
         # TODO: Implement logic for other modules (graph, timeline, entity_resolution, etc.)
