@@ -1,0 +1,31 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454899",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454899",
+  "retrieved_at": "2026-07-07T10:18:36.177770+00:00",
+  "data": {
+    "id": "OP00454899",
+    "notice_type": "Invitation for Bids",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "Portuguese",
+    "notice_status": "Published",
+    "submission_deadline_date": "2026-07-31T00:00:00Z",
+    "submission_deadline_time": "11:15",
+    "project_ctry_name": "Southwest Indian Ocean",
+    "project_id": "P179293",
+    "project_name": "East Africa Girls' Empowerment and Resilience",
+    "bid_reference_no": "MZ-MJD-546935-NC-RFB",
+    "bid_description": "Training in Crafts Beauty and Interior Decoration- Nampula",
+    "procurement_group": "NC",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "contact_address": "Av. 10 de Novembro, 74, Maputo",
+    "contact_ctry_name": "Mozambique",
+    "contact_email": "rcassamo1@gmail.com",
+    "contact_name": "Rafique Cassamo",
+    "contact_organization": "Secretary of State for Youth and Employment",
+    "contact_phone_no": "847791751",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<table align=\"center\" cellspacing=\"0\" style=\"border-collapse:collapse; width:594px\"><tbody><tr><td style=\"border-bottom:1px solid black; border-left:1px solid black; border-right:1px solid black; border-top:1px solid black; height:62px; width:182px\"><p>MZ-MJD-546935-NC-RFB</p></td><td style=\"border-bottom:1px solid black; border-left:none; border-right:1px solid black; border-top:1px solid black; height:62px; width:184px\"><p>Contrata&ccedil;&atilde;o de Provedor de Servi&ccedil;o de Forma&ccedil;&atilde;o &ndash; Artesanato, Beleza e Decora&ccedil;&atilde;o em Nampula</p></td><td style=\"border-bottom:1px solid black; border-left:none; border-right:1px solid black; border-top:1px solid black; height:62px; width:120px\"><p>31/07/2026</p><p>&aacute;s</p><p>11h15</p></td><td style=\"border-bottom:1px solid black; border-left:none; border-right:1px solid black; border-top:1px solid black; height:62px; width:108px\"><p>31/07/2026</p><p>&aacute;s</p><p>11h15</p></td></tr></tbody></table>"
+  }
+}

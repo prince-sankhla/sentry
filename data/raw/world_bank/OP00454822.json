@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454822",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454822",
+  "retrieved_at": "2026-07-07T10:18:36.174545+00:00",
+  "data": {
+    "id": "OP00454822",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "French",
+    "notice_status": "Published",
+    "project_ctry_name": "Benin",
+    "project_id": "P175768",
+    "project_name": "Benin Vocational Education and Entrepreneurship for Jobs Project",
+    "bid_reference_no": "BJ-ADSC-499701-GO-RFQ",
+    "bid_description": "Acquisition de matériels informatiques  au profit du Ministère des Petites et Moyennes Entreprises et de la Promotion de l'Emploi (MPMEPE).",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P175768-Benin Vocational Education and Entrepreneurship for Jobs Project<br/><b>Loan/Credit/TF Info:</b>IDA-D9450<br/><b>Bid/Contract Reference No:</b>BJ-ADSC-499701-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Demande de prix<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Acquisition de matriels informatiques au profit du Ministre des Petites et Moyennes Entreprises et de la Promotion de lEmploi (MPMEPE).</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>null<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>1 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>HM-ELECTRO SERVICES (1103189)</b><br/>+229 0190946725LOT 4-453 DOWA Ddom Porto novo<br/>Country: Bnin<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 20484800<br/><br/>Evaluated Bid Price<br/>XOF 20484800</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>XOF 20484800</div><br/></div></div>"
+  }
+}

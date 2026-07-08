@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454821",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454821",
+  "retrieved_at": "2026-07-07T10:18:37.865601+00:00",
+  "data": {
+    "id": "OP00454821",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "French",
+    "notice_status": "Published",
+    "project_ctry_name": "Mali",
+    "project_id": "P181538",
+    "project_name": "Mali Water Security Project",
+    "bid_reference_no": "ML-PASEMA-461035-GO-RFQ",
+    "bid_description": "Acquisition de Matériel et de KITS pour les missions de Terrain : Sonde piézométrique manuelle, signal lumineux, 200m avec capteur de fond et sac de transport + Sonde multi paramètres : pH, Température, Conductivité, RedOx, O2, Turbidimètre; Permeatre, Ca",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P181538-Mali Water Security Project<br/><b>Loan/Credit/TF Info:</b>-<br/><b>Bid/Contract Reference No:</b>ML-PASEMA-461035-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Demande de prix<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Acquisition de Matriel et de KITS pour les missions de Terrain</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/02/13<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>3 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>TRANSFORMAT-SARLU (885028)</b><br/>Bamako-Mali<br/>Country: Mali<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 54680000<br/><br/>Evaluated Bid Price<br/>XOF 54680000</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>XOF 54680000</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>ECOTRAP-SARL (557714)</b><br/>Sogoniko, Immeuble SAMA Bamako-Mali Tl : 70 71 00 71/70 71 04 71/70 71 07 71 Email : ecotraptrap@yahoo.fr<br/>Country: Mali<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 66550000<br/><br/>Evaluated Bid Price<br/>XOF 66550000</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>SAID2CO-SARL (810118)</b><br/>Sige Banankabougou Bamako-Mali RC.MA.BKO.2019. B.10779 NIF 086147826C Tel : +223 20 29 12 53/ 70 71 03 71/ 71 71 33 77<br/>Country: Mali<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 63800000<br/><br/>Evaluated Bid Price<br/>XOF 63800000</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>TALLYA (1090299)</b><br/>Badalabougou, SEMAGESCO prs du 2me pont<br/>Country: Mali<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 67165000<br/><br/>Evaluated Bid Price<br/>XOF 67165000</div></br></div><br/></div></div>"
+  }
+}

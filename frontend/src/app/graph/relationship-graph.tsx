@@ -49,34 +49,36 @@ const typeLabels: Record<GraphNodeType, string> = {
 };
 
 const nodeStyles: Record<GraphNodeType, { border: string; fill: string; accent: string }> = {
-  company: { border: "#1E3A8A", fill: "#EAF1FF", accent: "#1E3A8A" },
-  tender: { border: "#D97706", fill: "#FFF6E8", accent: "#B45309" },
-  award: { border: "#EA580C", fill: "#FFF4EC", accent: "#C2410C" },
-  buyer: { border: "#0F766E", fill: "#E6FFFB", accent: "#0F766E" },
-  indicator: { border: "#DC2626", fill: "#FEF2F2", accent: "#DC2626" },
-  evidence: { border: "#9CA3AF", fill: "#F3F4F6", accent: "#6B7280" },
-  document: { border: "#64748B", fill: "#F8FAFC", accent: "#475569" },
-  web_evidence: { border: "#64748B", fill: "#F8FAFC", accent: "#475569" },
-  organization: { border: "#7C3AED", fill: "#F5F3FF", accent: "#7C3AED" },
-  category: { border: "#D97706", fill: "#FFF7ED", accent: "#B45309" }
+  company: { border: "#3B6FE0", fill: "#101a2c", accent: "#7fa6f0" },
+  tender: { border: "#b8842a", fill: "#231c0e", accent: "#f0b429" },
+  award: { border: "#2e8b63", fill: "#0e1e18", accent: "#43c08a" },
+  buyer: { border: "#2a8c86", fill: "#0c1e1d", accent: "#4fd1c5" },
+  indicator: { border: "#c0392b", fill: "#241012", accent: "#ef4d54" },
+  evidence: { border: "#46566b", fill: "#141b26", accent: "#93a1b5" },
+  document: { border: "#46566b", fill: "#141b26", accent: "#93a1b5" },
+  web_evidence: { border: "#46566b", fill: "#141b26", accent: "#93a1b5" },
+  organization: { border: "#7c5cd0", fill: "#171426", accent: "#b79cf0" },
+  category: { border: "#b8842a", fill: "#231c0e", accent: "#f0b429" }
 };
 
+const HL = "#e0a73e"; // gold highlight for selection/search
+
 const edgeColors: Record<GraphEdgeType, string> = {
-  company_tender: "#94A3B8",
-  tender_award: "#94A3B8",
-  award_company: "#94A3B8",
-  buyer_tender: "#94A3B8",
-  buyer_company: "#94A3B8",
-  tender_indicator: "#94A3B8",
-  company_indicator: "#94A3B8",
-  evidence_indicator: "#94A3B8",
-  tender_evidence: "#CBD5E1",
-  web_evidence_company: "#CBD5E1",
-  web_evidence_tender: "#CBD5E1",
-  web_evidence_award: "#CBD5E1",
-  document_tender: "#CBD5E1",
-  category_tender: "#CBD5E1",
-  organization_evidence: "#CBD5E1"
+  company_tender: "#46566b",
+  tender_award: "#5b6f4a",
+  award_company: "#46566b",
+  buyer_tender: "#3f5560",
+  buyer_company: "#3f5560",
+  tender_indicator: "#7a3a3a",
+  company_indicator: "#7a3a3a",
+  evidence_indicator: "#7a3a3a",
+  tender_evidence: "#3a4453",
+  web_evidence_company: "#3a4453",
+  web_evidence_tender: "#3a4453",
+  web_evidence_award: "#3a4453",
+  document_tender: "#3a4453",
+  category_tender: "#3a4453",
+  organization_evidence: "#3a4453"
 };
 
 const filterTypes: GraphNodeType[] = ["company", "buyer", "tender", "award", "indicator", "evidence", "document", "web_evidence", "organization", "category"];
@@ -166,18 +168,18 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
 
   return (
     <div className="grid min-h-[calc(100vh-112px)] gap-4 xl:grid-cols-[1fr_380px]">
-      <section className="overflow-hidden rounded-[16px] border border-[#E8D8B1] bg-white shadow-[0_20px_50px_rgba(87,63,14,0.06)]">
-        <div className="flex flex-col gap-3 border-b border-[#F0E4C8] bg-[#FBF7F0] p-4 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)]">
+        <div className="flex flex-col gap-3 border-b border-border bg-bg-2/40 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-[#2F2F2F]">Investigation Graph</h2>
-            <p className="mt-1 text-xs text-[#6B7280]">{visibleGraph.nodes.length} nodes / {visibleGraph.edges.length} relationships</p>
+            <h2 className="text-base font-semibold text-text">Investigation Graph</h2>
+            <p className="mt-1 text-xs text-muted">{visibleGraph.nodes.length} nodes / {visibleGraph.edges.length} relationships</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="relative block">
               <span className="sr-only">Search graph nodes</span>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" aria-hidden="true" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
               <input
-                className="h-10 w-full rounded-[14px] border border-[#E8D8B1] bg-white pl-9 pr-3 text-sm text-[#2F2F2F] outline-none placeholder:text-[#8C919A] focus:border-[#D4A74B] sm:w-80"
+                className="h-10 w-full rounded-[12px] border border-border bg-bg pl-9 pr-3 text-sm text-text outline-none placeholder:text-faint focus:border-accent/60 sm:w-80"
                 onChange={(event) => onSearch(event.target.value)}
                 placeholder="Search graph nodes"
                 type="search"
@@ -185,7 +187,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
               />
             </label>
             <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] border border-[#E8D8B1] bg-white px-3 text-sm font-semibold text-[#2F2F2F] transition hover:border-[#D4A74B] hover:shadow-[0_12px_28px_rgba(87,63,14,0.06)]"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface px-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-accent"
               onClick={() => fitView({ duration: 420, padding: 0.24 })}
               type="button"
             >
@@ -194,14 +196,14 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 border-b border-[#F0E4C8] bg-[#FFFDF8] px-4 py-3">
-          <div className="flex items-center gap-2 pr-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#6B7280]">
+        <div className="flex flex-wrap gap-2 border-b border-border bg-bg-2/20 px-4 py-3">
+          <div className="flex items-center gap-2 pr-2 text-xs font-semibold uppercase tracking-[0.12em] text-faint">
             <Filter className="h-3.5 w-3.5" aria-hidden="true" />
             Filters
           </div>
           {filterTypes.map((type) => (
             <button
-              className={`h-8 rounded-[14px] border px-2.5 text-xs font-semibold transition ${enabledTypes.has(type) ? "border-[#D4A74B] bg-[#FFF5DD] text-[#8A6412]" : "border-[#E8D8B1] bg-white text-[#6B7280]"}`}
+              className={`h-8 rounded-[10px] border px-2.5 text-xs font-semibold transition ${enabledTypes.has(type) ? "border-accent/50 bg-accent/10 text-accent" : "border-border bg-surface text-muted hover:text-text"}`}
               key={type}
               onClick={() => toggleType(type)}
               type="button"
@@ -210,7 +212,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             </button>
           ))}
         </div>
-        <div className="h-[720px] bg-[#FCFAF5]">
+        <div className="h-[720px] bg-bg">
           <ReactFlow
             edges={edges}
             fitView
@@ -224,11 +226,11 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             onNodesChange={onNodesChange}
             proOptions={{ hideAttribution: true }}
           >
-            <Background color="#E8D8B1" gap={34} lineWidth={0.35} variant={BackgroundVariant.Lines} />
+            <Background color="#1c2634" gap={34} lineWidth={0.4} variant={BackgroundVariant.Lines} />
             <Controls position="bottom-left" />
             <MiniMap
-              maskColor="rgba(250, 248, 245, 0.84)"
-              nodeColor={(node) => nodeStyles[(node.data as unknown as FlowNodeData).graphNode.type]?.border ?? "#94A3B8"}
+              maskColor="rgba(8, 11, 17, 0.82)"
+              nodeColor={(node) => nodeStyles[(node.data as unknown as FlowNodeData).graphNode.type]?.border ?? "#46566b"}
               pannable
               position="bottom-right"
               zoomable
@@ -237,10 +239,10 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
         </div>
       </section>
 
-      <aside className="rounded-[16px] border border-[#E8D8B1] bg-white shadow-[0_20px_50px_rgba(87,63,14,0.06)]">
-        <div className="border-b border-[#F0E4C8] bg-[#FBF7F0] px-4 py-3">
-          <h2 className="text-base font-semibold text-[#2F2F2F]">Details</h2>
-          <p className="mt-1 text-xs text-[#6B7280]">Overview, metadata, relationships, evidence, and statistics</p>
+      <aside className="rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)]">
+        <div className="border-b border-border bg-bg-2/40 px-4 py-3">
+          <h2 className="text-base font-semibold text-text">Details</h2>
+          <p className="mt-1 text-xs text-muted">Overview, metadata, relationships, evidence, and statistics</p>
         </div>
         <AnimatePresence mode="wait">
           <motion.div
@@ -256,7 +258,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
             ) : selectedEdge ? (
               <DetailsPanel badge="Relationship" graph={visibleGraph} itemId={selectedEdge.id} fields={selectedEdge.data} label={selectedEdge.label} meta={`${selectedEdge.source} -> ${selectedEdge.target}`} />
             ) : (
-              <div className="rounded-[16px] border border-dashed border-[#E8D8B1] p-5 text-sm text-[#6B7280]">
+              <div className="rounded-[14px] border border-dashed border-border bg-bg-2/30 p-5 text-sm text-muted">
                 Select a node or relationship to inspect connected entities, metadata, evidence, and statistics.
               </div>
             )}
@@ -278,29 +280,31 @@ function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
       transition={{ duration: 0.14 }}
     >
       <div
-        className="rounded-[16px] border p-3 shadow-[0_16px_40px_rgba(87,63,14,0.08)]"
+        className="rounded-[14px] border p-3"
         style={{
           backgroundColor: style.fill,
-          borderColor: data.selected || data.matched ? "#3B82F6" : data.connected ? style.border : "#D6D3D1",
-          boxShadow: data.selected || data.matched ? "0 0 0 2px rgba(59,130,246,0.28), 0 18px 48px rgba(87,63,14,0.12)" : undefined,
+          borderColor: data.selected || data.matched ? HL : data.connected ? style.border : "#212c3b",
+          boxShadow: data.selected || data.matched
+            ? `0 0 0 2px rgba(224,167,62,0.35), 0 18px 48px rgba(0,0,0,0.6)`
+            : "0 12px 32px -16px rgba(0,0,0,0.7)",
           width: 280
         }}
       >
-        <Handle className="!h-2 !w-2 !border-[#D6D3D1] !bg-[#3B82F6]" position={Position.Left} type="target" />
-        <Handle className="!h-2 !w-2 !border-[#D6D3D1] !bg-[#3B82F6]" position={Position.Right} type="source" />
+        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={Position.Left} type="target" />
+        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={Position.Right} type="source" />
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4" style={{ color: style.accent }} aria-hidden="true" />
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: style.accent }}>
           {typeLabels[graphNode.type]}
           </span>
-          {data.connected ? <Crosshair className="ml-auto h-3.5 w-3.5 text-[#3B82F6]" aria-hidden="true" /> : null}
+          {data.connected ? <Crosshair className="ml-auto h-3.5 w-3.5" style={{ color: HL }} aria-hidden="true" /> : null}
         </div>
-        <div className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-[#2F2F2F]">{graphNode.label}</div>
-        <div className="mt-3 space-y-1 text-[11px] text-[#6B7280]">
+        <div className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-[#e7ecf3]">{graphNode.label}</div>
+        <div className="mt-3 space-y-1 text-[11px] text-[#93a1b5]">
           {renderNodeFacts(graphNode).map((fact) => (
             <div className="flex justify-between gap-3" key={fact.label}>
               <span>{fact.label}</span>
-              <span className="max-w-[150px] truncate text-right tabular-nums text-[#374151]">{fact.value}</span>
+              <span className="max-w-[150px] truncate text-right tabular-nums text-[#c3ccd8]">{fact.value}</span>
             </div>
           ))}
         </div>
@@ -334,11 +338,11 @@ function DetailsPanel({
     .filter((node): node is RelationshipGraphNode => Boolean(node));
   return (
     <div>
-      <div className="inline-flex rounded-[14px] border border-[#E8D8B1] bg-[#FFF5DD] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#8A6412]">
+      <div className="inline-flex rounded-[10px] border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
         {badge}
       </div>
-      <h3 className="mt-3 text-lg font-semibold text-[#2F2F2F]">{label}</h3>
-      {meta ? <p className="mt-2 break-all text-xs text-[#6B7280]">{meta}</p> : null}
+      <h3 className="mt-3 text-lg font-semibold text-text">{label}</h3>
+      {meta ? <p className="mt-2 break-all font-mono text-xs text-faint">{meta}</p> : null}
 
       <DetailSection title="Overview">
         <Field label="Summary" value={stringValue(fields.summary) || label} />
@@ -398,8 +402,8 @@ function DetailsPanel({
 function DetailSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section className="mt-5">
-      <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#B88927]">{title}</h4>
-      <div className="mt-3 divide-y divide-[#F0E4C8] rounded-[16px] border border-[#E8D8B1] bg-[#FFFDF8]">{children}</div>
+      <h4 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">{title}</h4>
+      <div className="mt-2 divide-y divide-border rounded-[12px] border border-border bg-bg-2/30">{children}</div>
     </section>
   );
 }
@@ -407,8 +411,8 @@ function DetailSection({ children, title }: { children: ReactNode; title: string
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="p-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7280]">{label}</div>
-      <div className="mt-1 break-words text-sm text-[#2F2F2F]">{value}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-faint">{label}</div>
+      <div className="mt-1 break-words text-sm text-text">{value}</div>
     </div>
   );
 }
@@ -441,9 +445,11 @@ function toFlowEdges(graph: RelationshipGraph): Edge[] {
     animated: true,
     label: edge.label,
     markerEnd: { type: MarkerType.ArrowClosed, color: edgeColors[edge.type] },
-    style: { stroke: edgeColors[edge.type], strokeWidth: edge.type.includes("indicator") ? 2.2 : 1.8 },
-    labelStyle: { fill: "#C8CDD3", fontSize: 11, fontWeight: 600 },
-    labelBgStyle: { fill: "#FAF8F5", fillOpacity: 0.96 },
+    style: { stroke: edgeColors[edge.type], strokeWidth: edge.type.includes("indicator") ? 2.2 : 1.6 },
+    labelStyle: { fill: "#93a1b5", fontSize: 11, fontWeight: 600 },
+    labelBgStyle: { fill: "#111823", fillOpacity: 0.92 },
+    labelBgPadding: [6, 3] as [number, number],
+    labelBgBorderRadius: 6,
     type: "smoothstep"
   }));
 }
@@ -490,13 +496,16 @@ function applyEdgeHighlights(edges: Edge[], graph: RelationshipGraph, selectedIt
   return edges.map((edge) => {
     const isSelectedEdge = selectedItem?.kind === "edge" && selectedItem.id === edge.id;
     const isConnected = connectedNodeIds.size === 0 || (connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target));
+    const active = isSelectedEdge || (selectedItem !== null && isConnected);
+    const baseStroke = (edge.style as { stroke?: string } | undefined)?.stroke;
     return {
       ...edge,
       animated: isConnected,
       style: {
         ...edge.style,
-        opacity: isConnected ? 1 : 0.16,
-        strokeWidth: isSelectedEdge ? 3.4 : isConnected ? 2 : 1.2
+        stroke: active ? HL : baseStroke,
+        opacity: isConnected ? 1 : 0.14,
+        strokeWidth: isSelectedEdge ? 3.2 : isConnected ? 2 : 1.1
       }
     };
   });

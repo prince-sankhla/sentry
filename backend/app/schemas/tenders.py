@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import Pagination
+from app.schemas.pdf_intelligence import TenderDocumentExtraction
 from app.schemas.procurement_intelligence import ProcurementIntelligence
 
 
@@ -58,3 +59,7 @@ class TenderDetail(TenderSummary):
     awards: list[AwardSummary]
     participating_companies: list[CompanySummary]
     intelligence: ProcurementIntelligence
+    # Deterministic, provenanced structured extraction from the tender document
+    # text (see services/pdf_intelligence.py). ``None`` / ``empty`` when the
+    # stored text yielded no structured procurement signal.
+    pdf_intelligence: TenderDocumentExtraction | None = None

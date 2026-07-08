@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454801",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454801",
+  "retrieved_at": "2026-07-07T10:18:36.233742+00:00",
+  "data": {
+    "id": "OP00454801",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Lebanon",
+    "project_id": "P181954",
+    "project_name": "GFPP for Lebanon Digital Acceleration Project",
+    "bid_reference_no": "LB-OMSAR-537752-CS-CQS",
+    "bid_description": "e-services, Business Process Reengineering Foundational Work as part of Re-inventing Government (6 priority services)",
+    "procurement_group": "CS",
+    "procurement_method_code": "CQS",
+    "procurement_method_name": "Consultant Qualification  Selection",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P181954-GFPP for Lebanon Digital Acceleration Project<br/><b>Loan/Credit/TF Info:</b>TF-C8895<br/><b>Bid/Contract Reference No:</b>LB-OMSAR-537752-CS-CQS<br/><b>Procurement Method:</b>CQS-Consultant Qualification Selection<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>LUMP-SUM CONTRACT FOR CONSULTING SERVICES: Between Office of the Minister of State for Administrative Reform (OMSAR) and Ever East Med s.a.l for E-Services, Business Process Reengineering Foundation</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/30<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>5 Month(s)<br/></div><div class='col-sm-4'><b>Minimum Qualifying Score</b><br/><br/>80</div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Firm(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='row col-sm-12'><div class='col-sm-6'><b>EVER EAST MED SAL (931246)</b><br/>Naccach<br/>Country: Lebanon<br/>Registry ID: 00000<br/></div></div><br/><div class='col-sm-6'><b>Scores</b><table width='100%'><tbody><tr><td colspan='2' width='50%'>Technical:</td><td width='30%'>96.00</td></tr><tr><td width='10%'></td><td>Consultant Specific Experience:</td><td>30</td></tr><tr><td></td><td>Methodology:</td><td>18</td></tr><tr><td></td><td>Key Personnel:</td><td>18</td></tr><tr><td></td><td>Transfer of Knowledge:</td><td>10</td></tr><tr><td></td><td>Participation by Nationals:</td><td>20</td></tr><tr><td colspan='2'>Financial:</td><td>100</td></tr><tr><td colspan='2'>Combined:</td><td>97</td></tr><tr><td colspan='2'>Rank:</td><td>1</td></tr></tbody></table></div><div class='col-sm-6'><p></p><b>Final Evaluation Price</b><br/>USD 90000.00<br/><p></p><b>Signed Contract Price</b><br/>USD 90000.00</div><div class='row col-sm-12'><div class='col-xs-12'><b>Price:</b><br/></div></div><div class='row col-sm-12'><div class='col-xs-4'>Currency:</div><div class='col-xs-4'>Amount:</div></div><div class='row col-sm-12'><div class='col-xs-4'>United States Dollars (United States Dollars)</div><div class='col-xs-4'>90000.00</div></div></div><div class='spacing'></div><div class='spacing'></div></div>"
+  }
+}

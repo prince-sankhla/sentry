@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from app.connectors import SourceManager
+from app.connectors.common.source_priority import prioritize_source_names
 from app.schemas.investigation_planner import InvestigationPlan, InvestigationPlanStep, InvestigationType
 
 
@@ -98,9 +99,12 @@ class InvestigationPlanner:
     def _select_connectors(self, source_names: list[str] | None) -> list[str]:
         available = self.source_manager.connector_names()
         if not source_names:
-            return available
+            # Indian procurement first — the plan queries Indian sources ahead of
+            # international ones (World Bank et al. become secondary).
+            return prioritize_source_names(available)
         requested = {source_name.strip() for source_name in source_names if source_name.strip()}
-        return [source_name for source_name in available if source_name in requested]
+        selected = [source_name for source_name in available if source_name in requested]
+        return prioritize_source_names(selected)
 
     def _build_steps(
         self,

@@ -47,3 +47,4 @@ class Tender(Base):
     )
 
     awards: Mapped[list["Award"]] = relationship(back_populates="tender")
+    documents: Mapped[list["Document"]] = relationship(back_populates="tender")

@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454794",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454794",
+  "retrieved_at": "2026-07-07T10:18:37.863239+00:00",
+  "data": {
+    "id": "OP00454794",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "Portuguese",
+    "notice_status": "Published",
+    "project_ctry_name": "Brazil",
+    "project_id": "P165695",
+    "project_name": "SABESP - IMPROVING WATER SERVICE ACCESS AND SECURITY IN THE METROPOLITAN REGION OF SÃO PAULO PROJECT",
+    "bid_reference_no": "BR-SABESP-554408-NC-DIR",
+    "bid_description": "Diagnosticos para renovacao de ativos via satelite",
+    "procurement_group": "NC",
+    "procurement_method_code": "DIR",
+    "procurement_method_name": "Direct Selection",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P165695-SABESP - IMPROVING WATER SERVICE ACCESS AND SECURITY IN THE METROPOLITAN REGION OF SO PAULO PROJECT<br/><b>Loan/Credit/TF Info:</b>IBRD-89160<br/><b>Bid/Contract Reference No:</b>BR-SABESP-554408-NC-DIR<br/><b>Procurement Method:</b>DIR-Aquisio Direta<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Diagnsticos para renovao de ativos via satlite</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2025/12/19<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>720 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>NORTECH COMERCIO, IMPORTAO E EXPORTAO (1095506)</b><br/>Rua/Av. Rua Canto, 1241, Jose Licnio Lopes, Florianpolis - Santa Catarina<br/>Country: Brasil<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>BRL 5917584.10<br/><br/>Evaluated Bid Price<br/>BRL 5917584.10</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>BRL 5917584.10</div><br/></div></div>"
+  }
+}

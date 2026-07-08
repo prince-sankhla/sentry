@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454834",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454834",
+  "retrieved_at": "2026-07-07T10:18:37.780234+00:00",
+  "data": {
+    "id": "OP00454834",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "French",
+    "notice_status": "Published",
+    "project_ctry_name": "Western and Central Africa",
+    "project_id": "P508837",
+    "project_name": "Health Security Program in Western and Central Africa - Phase III",
+    "bid_reference_no": "TD-MOH-TD-546463-GO-RFQ",
+    "bid_description": "Acquisition de matériels informatiques pour le COUSP",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P508837-Health Security Program in Western and Central Africa - Phase III<br/><b>Loan/Credit/TF Info:</b>IDA-E5230<br/><b>Bid/Contract Reference No:</b>TD-MOH-TD-546463-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Demande de prix<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>l'acquisition des quipements informatiques et des consommables en trois (03) lots au profit du Centre des Oprations d'Urgence en Sant Publique (COUSP) lot N01</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>null<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>15 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>SYPHRA (1099606)</b><br/>Quartier Chagoua64 73 14 34<br/>Country: Tchad<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XAF 23350000<br/><br/>Evaluated Bid Price<br/>XAF 22600000</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>XAF 22600000</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>SOCIETE YOUSSOUF ISSAKA ALI (1099611)</b><br/>Quartier AMRIGUEBE 63 14 72 72<br/>Country: Tchad<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XAF 22350000<br/><br/>Evaluated Bid Price<br/>XAF 23150000</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>OUADIENE POUR LA CONSTRUCTION ET COMMERCE GENERAL (1099605)</b><br/>Quartier KLEMAT 66 30 36 11<br/>Country: Tchad<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XAF 22750000<br/><br/>Evaluated Bid Price<br/>XAF 22750000</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>ENTREPRISE AMCU HISSEIN (1099613)</b><br/>Quartier RIDINA 66 31 91 68<br/>Country: Tchad<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XAF 23350000<br/><br/>Evaluated Bid Price<br/>XAF 23350000</div></br></div><br/></div></div>"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454944",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454944",
+  "retrieved_at": "2026-07-07T10:18:37.792691+00:00",
+  "data": {
+    "id": "OP00454944",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Kenya",
+    "project_id": "P173065",
+    "project_name": "Financing Locally-Led Climate Action Program",
+    "bid_reference_no": "KE-CFGEU-552084-GO-RFQ",
+    "bid_description": "Supply and delivery of 10no. desktop computers all in one,5no. laptops type 2 and 1no.mobile smart phone for the Financing Locally Led Climate Action Program",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P173065-Financing Locally-Led Climate Action Program<br/><b>Loan/Credit/TF Info:</b>IDA-69800<br/><b>Bid/Contract Reference No:</b>KE-CFGEU-552084-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Supply and delivery of 10No. desktop computers All in one) for the Financing Locally Led Climate Action Program</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/15<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>5 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>WESTALL INVESTMENT LIMITED (988677)</b><br/>P.O.BOX 960-00242 KITENGELA NAIROBI<br/>Country: Kenya<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>KES 3191120.00<br/><br/>Evaluated Bid Price<br/>KES 3191120.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>KES 3191120.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>TUKNU INVESTMENTS LIMITED (1103137)</b><br/>P.O.BOX 3597-00200NAIROBI<br/>Country: Kenya<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>KES 3500000.00<br/><br/>Evaluated Bid Price<br/>KES 3500000.00</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>NORTHTRECK SOLUTIONS LIMITED (1103135)</b><br/>BOX 21665-00100NAIROBI<br/>Country: Kenya<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>KES 3550000.00<br/><br/>Evaluated Bid Price<br/>KES 3550000.00</div></br></div><br/></div></div>"
+  }
+}

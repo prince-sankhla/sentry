@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454872",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454872",
+  "retrieved_at": "2026-07-07T10:18:36.268126+00:00",
+  "data": {
+    "id": "OP00454872",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "Spanish; Castilian",
+    "notice_status": "Published",
+    "project_ctry_name": "Guatemala",
+    "project_id": "P159213",
+    "project_name": "Crecer Sano: Guatemala Nutrition and Health  Project",
+    "bid_reference_no": "GT-MSPAS-461941-GO-RFB",
+    "bid_description": "Equipo Antropométrico, equipo médico clínico y quirúrgico para Nuevos Puestos de Salud. El método queda como Solicitud de Ofertas.",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P159213-Crecer Sano: Guatemala Nutrition and Health Project<br/><b>Loan/Credit/TF Info:</b>IBRD-87300<br/><b>Bid/Contract Reference No:</b>GT-MSPAS-461941-GO-RFB<br/><b>Procurement Method:</b>RFB-Solicitud de ofertas<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>No. EquipoCantidad requerida Equipo mdico, clnico y quirrgico 10Otoscopio4211Oxmetro de dedo4212Doppler fetal 4215Termmetro digital sin contacto. 42</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/22<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>10 Week(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>GUSTAVO ADOLFO BARAHONA SORIA (581198)</b><br/>6 AV 2-45 ZONA 4, RESIDENCIALES BOSQUES DE SAN BARTOLO, SAN BARTOLOM MILPAS ALTAS, SACATEPQUEZ<br/>Country: Guatemala<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>GTQ<br/><br/>Evaluated Bid Price<br/>GTQ 44793.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>GTQ 44793.00</div><br/></div></div>"
+  }
+}

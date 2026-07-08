@@ -9,6 +9,7 @@ from app.connectors.base import (
     NormalizedTender,
     SourceConnector,
 )
+from app.connectors.common.source_priority import prioritize_source_names, source_rank
 from app.connectors.registry import discover_connectors
 
 
@@ -18,11 +19,15 @@ class SourceManager:
         self.registry = discover_connectors()
 
     def connectors(self, source_names: list[str] | None = None) -> list[SourceConnector]:
+        # Always query Indian procurement sources first so results and the shared
+        # search budget favour Indian data over international sources.
         if not source_names:
-            return self.registry.all(data_root=self.data_root)
+            connectors = self.registry.all(data_root=self.data_root)
+            return sorted(connectors, key=lambda connector: source_rank(connector.metadata.name))
+        ordered = prioritize_source_names(list(source_names))
         return [
             connector
-            for source_name in source_names
+            for source_name in ordered
             for connector in [self.registry.get(source_name, data_root=self.data_root)]
             if connector is not None
         ]

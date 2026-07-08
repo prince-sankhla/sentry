@@ -84,6 +84,36 @@ export type TenderListParams = {
   sort?: TenderSort;
 };
 
+/** A single structured value extracted from a tender document, with provenance. */
+export type ExtractedField = {
+  name: string;
+  value: string;
+  confidence: number;
+  /** The literal text span the value was read from — the proof. */
+  source_span: string;
+  method: string;
+};
+
+/** Deterministic, grounded structured intelligence extracted from a tender document. */
+export type TenderDocumentExtraction = {
+  tender_reference: ExtractedField | null;
+  title: ExtractedField | null;
+  procuring_entity: ExtractedField | null;
+  estimated_value: ExtractedField | null;
+  emd_amount: ExtractedField | null;
+  tender_fee: ExtractedField | null;
+  bid_submission_end: ExtractedField | null;
+  bid_opening_date: ExtractedField | null;
+  category: ExtractedField | null;
+  bidders_count: ExtractedField | null;
+  fields: ExtractedField[];
+  /** Extraction coverage 0..1 (fields found / fields attempted). */
+  coverage: number;
+  /** True when the text yielded no structured procurement signal at all. */
+  empty: boolean;
+  char_count: number;
+};
+
 export type TenderDetail = TenderSummary & {
   description: string | null;
   buyer: {
@@ -92,6 +122,7 @@ export type TenderDetail = TenderSummary & {
   awards: AwardSummary[];
   participating_companies: CompanySummary[];
   intelligence: ProcurementIntelligence;
+  pdf_intelligence: TenderDocumentExtraction | null;
 };
 
 export type DashboardSummary = {
@@ -490,13 +521,148 @@ export type InvestigationPackage = {
   evidence: unknown[];
   timeline: InvestigationTimelineEvent[];
   graph_seeds: InvestigationGraphSeed[];
+  indicators: InvestigationProcurementIndicator[];
   step_results: InvestigationStepResult[];
+};
+
+export type InvestigationProcurementIndicator = {
+  type: string;
+  severity: "low" | "medium" | "high";
+  title: string;
+  summary: string;
+  score: number;
+  evidence: string[];
+  related_tenders: string[];
+  related_entities: string[];
 };
 
 export type InvestigationExecutionRequest = {
   plan: InvestigationPlan;
   limit_per_connector: number;
   package: InvestigationPackage | null;
+};
+
+/* -------------------------------------------------- AI reasoning layer */
+
+export type EvidenceQualityTier = "primary" | "corroborating" | "weak" | "unverified";
+
+export type ReasoningCitation = {
+  label: string;
+  source_name: string;
+  source_record_id: string | null;
+  source_url: string | null;
+  document_url: string | null;
+  document_type: string | null;
+  retrieved_at: string | null;
+  published_date: string | null;
+  confidence: number;
+  related_tender: string | null;
+  related_entity: string | null;
+  evidence_type: string;
+  citation: string;
+  quality: number;
+  quality_tier: EvidenceQualityTier;
+};
+
+export type ReasoningFinding = {
+  title: string;
+  detail: string;
+  severity: "low" | "medium" | "high";
+  score: number;
+  citations: ReasoningCitation[];
+  evidence_backed: boolean;
+};
+
+export type FollowUpSuggestion = {
+  label: string;
+  query: string;
+  rationale: string;
+};
+
+/** One step of the grounded multi-step analyst trace. */
+export type AnalystStep = {
+  order: number;
+  tool: string;
+  input: string;
+  observation: string;
+  citations: ReasoningCitation[];
+};
+
+/** Audit proving the narrative is anchored to verifiable evidence. */
+export type GroundingReport = {
+  total_findings: number;
+  evidence_backed_findings: number;
+  total_citations: number;
+  records_reviewed: number;
+  documents_available: number;
+  fully_grounded: boolean;
+};
+
+/** A prior related investigation recalled from cross-investigation memory. */
+export type MemoryHit = {
+  subject: string;
+  investigation_type: string;
+  risk_level: string;
+  confidence: number;
+  key_entities: string[];
+  key_indicators: string[];
+  records_reviewed: number;
+  remembered_at: string;
+  match_score: number;
+  match_reason: string;
+};
+
+export type InvestigationRiskLevel = "low" | "medium" | "high" | "critical" | "insufficient";
+
+export type InvestigationReasoning = {
+  subject: string;
+  investigation_type: string;
+  generated_by: "llm" | "deterministic";
+  provider: string | null;
+  model: string | null;
+  executive_summary: string;
+  risk_level: InvestigationRiskLevel;
+  risk_rationale: string[];
+  confidence: number;
+  findings: ReasoningFinding[];
+  recommendations: string[];
+  follow_ups: FollowUpSuggestion[];
+  evidence_ledger: ReasoningCitation[];
+  grounding: GroundingReport;
+  analyst_trace: AnalystStep[];
+  prior_investigations: MemoryHit[];
+  insufficient_evidence: boolean;
+};
+
+export type InvestigationReport = {
+  package: InvestigationPackage;
+  reasoning: InvestigationReasoning;
+};
+
+/** Live status of the multi-provider LLM chain. */
+export type LLMProviderStatus = {
+  mode: "llm" | "deterministic";
+  providers: string[];
+  fallback_order: string[];
+};
+
+export function getLLMProviders(): Promise<LLMProviderStatus> {
+  return apiGet<LLMProviderStatus>("/api/investigations/providers");
+}
+
+/* SSE frames emitted by POST /api/investigations/stream */
+export type InvestigationStreamStep = {
+  key: string;
+  status: "running" | "complete" | "error";
+  label: string;
+  detail?: string;
+};
+
+export type InvestigationStreamHandlers = {
+  onStep?: (step: InvestigationStreamStep) => void;
+  onPlan?: (plan: InvestigationPlan) => void;
+  onReport?: (report: InvestigationReport) => void;
+  onError?: (message: string) => void;
 };
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
@@ -637,6 +803,106 @@ export function executeInvestigation(plan: InvestigationPlan, limitPerConnector 
   });
 }
 
+/**
+ * Run a full AI investigation from a single prompt, streaming live progress.
+ *
+ * Uses a POST + ReadableStream reader (EventSource only supports GET) to parse
+ * Server-Sent Event frames from /api/investigations/stream. Returns an abort
+ * function so callers can cancel an in-flight investigation.
+ */
+export function streamInvestigation(
+  query: string,
+  handlers: InvestigationStreamHandlers,
+  options?: { limitPerConnector?: number; sourceNames?: string[] }
+): () => void {
+  const controller = new AbortController();
+
+  (async () => {
+    let response: Response;
+    try {
+      response = await fetch(`${backendUrl}/api/investigations/stream`, {
+        method: "POST",
+        signal: controller.signal,
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify({
+          query,
+          source_names: options?.sourceNames ?? null,
+          limit_per_connector: options?.limitPerConnector ?? 25
+        })
+      });
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        handlers.onError?.(err instanceof Error ? err.message : "Failed to reach investigation engine");
+      }
+      return;
+    }
+
+    if (!response.ok || !response.body) {
+      handlers.onError?.(`Investigation engine returned ${response.status}`);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    const dispatch = (frame: string) => {
+      const lines = frame.split("\n");
+      let event = "message";
+      const dataLines: string[] = [];
+      for (const line of lines) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+      }
+      if (dataLines.length === 0) return;
+      let payload: unknown;
+      try {
+        payload = JSON.parse(dataLines.join("\n"));
+      } catch {
+        return;
+      }
+      switch (event) {
+        case "step":
+          handlers.onStep?.(payload as InvestigationStreamStep);
+          break;
+        case "plan":
+          handlers.onPlan?.(payload as InvestigationPlan);
+          break;
+        case "report":
+          handlers.onReport?.(payload as InvestigationReport);
+          break;
+        case "error":
+          handlers.onError?.((payload as { message?: string }).message ?? "Investigation failed");
+          break;
+        default:
+          break;
+      }
+    };
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE frames are separated by a blank line.
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (frame.trim()) dispatch(frame);
+        }
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        handlers.onError?.(err instanceof Error ? err.message : "Investigation stream interrupted");
+      }
+    }
+  })();
+
+  return () => controller.abort();
+}
+
 export function searchWebEvidence(query: string): Promise<WebSearchResponse> {
   return apiPost<WebSearchResponse>("/api/web/search", { query });
 }
@@ -648,4 +914,224 @@ export function getProcurementEvidence(query: string, limit = 25): Promise<Procu
 
 export function getCanonicalCompany(companyId: string): Promise<CanonicalCompany> {
   return apiGet<CanonicalCompany>(`/api/entities/company/${companyId}`);
+}
+
+// ---- Phase 3: search, autocomplete, and profile endpoints ----
+
+export type SearchHit = {
+  type: "tender" | "company" | "buyer";
+  id: string;
+  label: string;
+  sublabel: string | null;
+};
+
+export type SearchResponse = {
+  query: string;
+  tenders: SearchHit[];
+  companies: SearchHit[];
+  buyers: SearchHit[];
+  total: number;
+};
+
+export type AutocompleteResponse = {
+  query: string;
+  suggestions: SearchHit[];
+};
+
+export type ProfileOverview = {
+  kind: "tender" | "company" | "buyer";
+  id: string;
+  title: string;
+  subtitle: string | null;
+  stats: Record<string, unknown>;
+};
+
+export type RelatedTender = {
+  reference_number: string;
+  title: string;
+  procuring_entity: string | null;
+  published_date: string | null;
+  estimated_value: string | null;
+  currency: string;
+  source_name: string | null;
+};
+
+export type RelatedAward = {
+  tender_reference_number: string;
+  company_name: string;
+  award_value: string | null;
+  currency: string;
+  award_date: string | null;
+};
+
+export type RelatedDocument = {
+  title: string;
+  url: string | null;
+  document_type: string;
+  related_tender: string | null;
+};
+
+export type ProfileResponse = {
+  overview: ProfileOverview;
+  indicators: InvestigationProcurementIndicator[];
+  timeline: InvestigationTimelineEvent[];
+  evidence: unknown[];
+  relationships: InvestigationGraphSeed[];
+  related_tenders: RelatedTender[];
+  related_awards: RelatedAward[];
+  related_documents: RelatedDocument[];
+  graph: RelationshipGraph;
+  canonical_companies: InvestigationCanonicalCompany[];
+  entities: unknown[];
+};
+
+export function globalSearch(query: string, limit = 10): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiGet<SearchResponse>(`/api/search?${params.toString()}`);
+}
+
+export function autocomplete(query: string, limit = 10): Promise<AutocompleteResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiGet<AutocompleteResponse>(`/api/search/autocomplete?${params.toString()}`);
+}
+
+export function getTenderProfile(tenderId: string): Promise<ProfileResponse> {
+  return apiGet<ProfileResponse>(`/api/profiles/tender/${tenderId}`);
+}
+
+export function getCompanyProfile(companyId: string): Promise<ProfileResponse> {
+  return apiGet<ProfileResponse>(`/api/profiles/company/${companyId}`);
+}
+
+export function getBuyerProfile(name: string): Promise<ProfileResponse> {
+  const params = new URLSearchParams({ name });
+  return apiGet<ProfileResponse>(`/api/profiles/buyer?${params.toString()}`);
+}
+
+// ---- Analytics: awards, portfolio overview, risk, timeline, geography ----
+
+export type AwardListItem = {
+  id: string;
+  award_value: string | null;
+  currency: string;
+  award_date: string | null;
+  company: CompanySummary;
+  tender: {
+    id: string;
+    reference_number: string;
+    title: string;
+    procuring_entity: string | null;
+  };
+};
+
+export type AwardListStats = {
+  total_awards: number;
+  total_value: string;
+  average_value: string;
+  awarded_suppliers: number;
+  awarding_buyers: number;
+};
+
+export type AwardSort = "newest" | "amount" | "award_date" | "buyer";
+
+export type AwardListResponse = {
+  items: AwardListItem[];
+  pagination: Pagination;
+  stats: AwardListStats;
+};
+
+export function getAwards({
+  limit = 25,
+  offset = 0,
+  q,
+  sort = "newest"
+}: { limit?: number; offset?: number; q?: string; sort?: AwardSort } = {}): Promise<AwardListResponse> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), sort });
+  if (q) params.set("q", q);
+  return apiGet<AwardListResponse>(`/api/analytics/awards?${params.toString()}`);
+}
+
+export type AnalyticsOverview = {
+  totals: {
+    tenders: number;
+    companies: number;
+    awards: number;
+    total_tender_value: string;
+    total_awarded_value: string;
+    average_tender_value: string;
+    single_bidder_tenders: number;
+    buyers: number;
+  };
+  top_buyers: { buyer: string; tenders: number; awards: number; total_value: string }[];
+  top_suppliers: { company_id: string; name: string; awards: number; total_value: string }[];
+  monthly: { month: string; tenders: number; value: string }[];
+  sources: { source_name: string; tenders: number }[];
+};
+
+export function getAnalyticsOverview(): Promise<AnalyticsOverview> {
+  return apiGet<AnalyticsOverview>("/api/analytics/overview");
+}
+
+export type RiskSignal = {
+  type: string;
+  severity: "low" | "medium" | "high";
+  title: string;
+  summary: string;
+  score: number;
+  buyer: string | null;
+  supplier_name: string | null;
+  supplier_id: string | null;
+  tender_id: string | null;
+  tender_reference: string | null;
+  evidence: string[];
+};
+
+export type RiskResponse = {
+  summary: {
+    total: number;
+    high: number;
+    medium: number;
+    low: number;
+    single_bidder_tenders: number;
+    flagged_relationships: number;
+  };
+  signals: RiskSignal[];
+};
+
+export function getRisk(): Promise<RiskResponse> {
+  return apiGet<RiskResponse>("/api/analytics/risk");
+}
+
+export type TimelineEvent = {
+  date: string;
+  kind: "tender_published" | "tender_closing" | "award";
+  title: string;
+  subtitle: string | null;
+  reference: string | null;
+  entity_type: "tender" | "company";
+  entity_id: string | null;
+};
+
+export type TimelineResponse = { events: TimelineEvent[] };
+
+export function getAnalyticsTimeline(limit = 60): Promise<TimelineResponse> {
+  return apiGet<TimelineResponse>(`/api/analytics/timeline?limit=${limit}`);
+}
+
+export type GeographyRegion = {
+  region: string;
+  tenders: number;
+  value: string;
+  awards: number;
+};
+
+export type GeographyResponse = {
+  regions: GeographyRegion[];
+  matched: number;
+  unmatched: number;
+  total: number;
+};
+
+export function getGeography(): Promise<GeographyResponse> {
+  return apiGet<GeographyResponse>("/api/analytics/geography");
 }

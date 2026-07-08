@@ -1,4 +1,6 @@
 alembic
+anthropic  # optional: enables the Anthropic LLM provider; system runs deterministically without a key
+pypdf  # optional: enables PDF Intelligence byte-level extraction; text extraction works without it
 fastapi
 httpx
 pydantic-settings

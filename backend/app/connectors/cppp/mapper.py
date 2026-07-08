@@ -82,7 +82,13 @@ def map_notice_file(path: Path) -> MappedNotice:
     return map_notice(detail_html, source_url=source_url, retrieved_at=retrieved_at)
 
 
-def map_notice(detail_html: str, source_url: str, retrieved_at: datetime) -> MappedNotice:
+def map_notice(
+    detail_html: str,
+    source_url: str,
+    retrieved_at: datetime,
+    source_name: str = SOURCE_NAME,
+    reference_prefix: str = "CPPP",
+) -> MappedNotice:
     fields = _extract_label_values(detail_html)
     tender_id = _first_field(fields, "Tender ID")
     tender_reference = _first_field(fields, "Tender Reference Number")
@@ -90,14 +96,14 @@ def map_notice(detail_html: str, source_url: str, retrieved_at: datetime) -> Map
         raise CPPPMappingError("CPPP notice is missing Tender ID and Tender Reference Number.")
 
     record_id = tender_id or tender_reference
-    reference_number = f"CPPP:{tender_reference or tender_id}"
+    reference_number = f"{reference_prefix}:{tender_reference or tender_id}"
     work_description = _first_field(fields, "Work Description")
     title = _first_field(fields, "Tender Title") or work_description or f"CPPP tender {record_id}"
     organisation_chain = _first_field(fields, "Organisation Chain")
     tender_value = _parse_decimal(_first_field(fields, "Tender Value in"))
 
     metadata = SourceMetadata(
-        source_name=SOURCE_NAME,
+        source_name=source_name,
         source_record_id=record_id,
         source_url=source_url,
         retrieved_at=retrieved_at,

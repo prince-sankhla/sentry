@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454756",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454756",
+  "retrieved_at": "2026-07-07T10:18:36.213752+00:00",
+  "data": {
+    "id": "OP00454756",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "India",
+    "project_id": "P157929",
+    "project_name": "Assam Inland Water Transport Project",
+    "bid_reference_no": "IN-IWT-506101-GO-RFQ",
+    "bid_description": "ER & SAR --- Procurement of Mega Phone",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P157929-Assam Inland Water Transport Project<br/><b>Loan/Credit/TF Info:</b>IBRD-90260<br/><b>Bid/Contract Reference No:</b>IN-IWT-506101-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>GEM bidding</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/02/19<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>15 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>GLOBAL ENGINEERING (652877)</b><br/>5th Floor NA SHOOPERS POINT FANCY BAZAAR, GUWAHATI-781001, ASSAM<br/>Country: India<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>INR 803670.00<br/><br/>Evaluated Bid Price<br/>INR 803670.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>INR 803670.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>PROTECH FIRE & SAFETY (1103166)</b><br/>Haldiya Exit Road, Kolaghat, West Bengal 721134<br/>Country: India<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>INR<br/><br/>Evaluated Bid Price<br/>INR<br/><br/>Reason for Rejection<br/>Non Responsive<br/></div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>GAJEN KALITA (1095610)</b><br/>GUWAHATI<br/>Country: India<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>INR<br/><br/>Evaluated Bid Price<br/>INR<br/><br/>Reason for Rejection<br/>Non Responsive<br/></div></br></div><br/></div></div>"
+  }
+}

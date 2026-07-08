@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454663",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454663",
+  "retrieved_at": "2026-07-07T10:18:36.184767+00:00",
+  "data": {
+    "id": "OP00454663",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Kyrgyz Republic",
+    "project_id": "P167428",
+    "project_name": "Kyrgyz Republic Regional Economic Development Project",
+    "bid_reference_no": "IDA-REDP-RFB-G-VC-2026-31",
+    "bid_description": "Delivery of cattle",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P167428-Kyrgyz Republic Regional Economic Development Project<br/><b>Loan/Credit/TF Info:</b>IDA-D5700<br/><b>Bid/Contract Reference No:</b>IDA-REDP-RFB-G-VC-2026-31<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Supply of Cattle/Lot 2</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/10<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>60 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>FARM ENTERPRISE NATURAL KHOZYAYSTVO (995425)</b><br/>15 Akhmedov Akeem Street, Bolshevik village, Zhoosh Ayil Aimak, Kara-Suu District, Osh Region, Kyrgyz Republic<br/>Country: Kyrgyz Republic<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Evaluation Scores<br/><br/><br/>Bid Price at Opening<br/>KGS<br/><br/>Evaluated Bid Price<br/>KGS 1929500.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>KGS 1929500.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>JLD STROY (835758)</b><br/>Kyrgyz Republic<br/>Country: Kyrgyz Republic<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Evaluation Scores<br/><br/><br/>Bid Price at Opening<br/>KGS<br/><br/>Evaluated Bid Price<br/>KGS<br/><br/>Reason for Rejection<br/>Does not meet Eligibility Requirements<br/></div></br></div><br/></div></div>"
+  }
+}

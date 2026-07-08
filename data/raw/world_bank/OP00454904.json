@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454904",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454904",
+  "retrieved_at": "2026-07-07T10:18:36.180833+00:00",
+  "data": {
+    "id": "OP00454904",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "French",
+    "notice_status": "Published",
+    "project_ctry_name": "Western and Central Africa",
+    "project_id": "P173197",
+    "project_name": "Regional Sahel Pastoralism Support Project II",
+    "bid_reference_no": "NE-PRAPS II - NE-535119-NC-RFQ",
+    "bid_description": "Production et édition des bulletins d'information semestriel  capitalisant les acquis PRAPS II 2026",
+    "procurement_group": "NC",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P173197-Regional Sahel Pastoralism Support Project II<br/><b>Loan/Credit/TF Info:</b>IDA-68600<br/><b>Bid/Contract Reference No:</b>NE-PRAPS II - NE-535119-NC-RFQ<br/><b>Procurement Method:</b>RFQ-Demande de prix<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Production et dition des bulletins d'information semestriel capitalisant les acquis du PRAPS-II 2026</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/26<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>10 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>ETS MAHAMADOU IBRAHIM IMPRIMEUR (942098)</b><br/>TEL 0022785150722 NIAMEY NIGER<br/>Country: Niger<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 9900000<br/><br/>Evaluated Bid Price<br/>XOF 9900000</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>XOF 9900000</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>IMPRIMERIE FIGNON SERVICES (1103235)</b><br/>Tel : (+227) 96 50 17 73-Niamey/Niger<br/>Country: Niger<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 10500000<br/><br/>Evaluated Bid Price<br/>XOF 10500000</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>IMPRIMERIE EXPRESS O.M (942093)</b><br/>TEL 96 56 19 36 NIAMEY<br/>Country: Niger<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XOF 10100000<br/><br/>Evaluated Bid Price<br/>XOF 10100000</div></br></div><br/></div></div>"
+  }
+}

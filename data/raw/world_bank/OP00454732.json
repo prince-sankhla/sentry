@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454732",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454732",
+  "retrieved_at": "2026-07-07T10:18:37.827629+00:00",
+  "data": {
+    "id": "OP00454732",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Moldova",
+    "project_id": "P168790",
+    "project_name": "Women's Empowerment through Gender-Based Violence Services (WEGS)",
+    "bid_reference_no": "MD-AGC-500969-CS-CQS",
+    "bid_description": "National Company to develop and maintain Project Database",
+    "procurement_group": "CS",
+    "procurement_method_code": "CQS",
+    "procurement_method_name": "Consultant Qualification  Selection",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P168790-Women's Empowerment through Gender-Based Violence Services (WEGS)<br/><b>Loan/Credit/TF Info:</b>TF-C8205<br/><b>Bid/Contract Reference No:</b>MD-AGC-500969-CS-CQS<br/><b>Procurement Method:</b>CQS-Consultant Qualification Selection<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Contract with Creativmaro to develop the project database</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/24<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>4 Month(s)<br/></div><div class='col-sm-4'><b>Minimum Qualifying Score</b><br/><br/>70</div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Firm(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='row col-sm-12'><div class='col-sm-6'><b>SRL CREATIVMARO (1103138)</b><br/>MD-2069, strada Calea Ieilor 16/3, ap. 8V, mun. Chiinu, Republica Moldova<br/>Country: Moldova<br/>Registry ID: 1009600037044<br/></div></div><br/><div class='col-sm-6'><b>Scores</b><table width='100%'><tbody><tr><td colspan='2' width='50%'>Technical:</td><td width='30%'>66.33</td></tr><tr><td width='10%'></td><td>Consultant Specific Experience:</td><td>18</td></tr><tr><td></td><td>Methodology:</td><td>29</td></tr><tr><td></td><td>Key Personnel:</td><td>19.33</td></tr><tr><td colspan='2'>Financial:</td><td>30</td></tr><tr><td colspan='2'>Combined:</td><td>96.33</td></tr><tr><td colspan='2'>Rank:</td><td>1</td></tr></tbody></table></div><div class='col-sm-6'><p></p><b>Final Evaluation Price</b><br/>MDL 479000.00<br/><p></p><b>Signed Contract Price</b><br/>MDL 479000.00</div><div class='row col-sm-12'><div class='col-xs-12'><b>Price:</b><br/></div></div><div class='row col-sm-12'><div class='col-xs-4'>Currency:</div><div class='col-xs-4'>Amount:</div></div><div class='row col-sm-12'><div class='col-xs-4'>Moldovan Leu (Moldovan Leu)</div><div class='col-xs-4'>479000.00</div></div></div><div class='spacing'></div><div class='spacing'></div></div>"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454930",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454930",
+  "retrieved_at": "2026-07-07T10:18:37.791521+00:00",
+  "data": {
+    "id": "OP00454930",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Caribbean",
+    "project_id": "P171528",
+    "project_name": "Caribbean Digital Transformation Project",
+    "bid_reference_no": "DM-MPWDE-528715-GO-RFB",
+    "bid_description": "Hardware/Tools for e-Office Deployment",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P171528-Caribbean Digital Transformation Project<br/><b>Loan/Credit/TF Info:</b>IDA-66850<br/><b>Bid/Contract Reference No:</b>DM-MPWDE-528715-GO-RFB<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Hardware Equipment/Tools for e-Office Deployment - Lot 2: Daily Workflow Scanner</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/26<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>45 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>B&B MONEY SAVERS INC. (1098120)</b><br/>Marisule, Gros Islet P.O. Box GM1051 Gablewoods Mall, Sunny Acres Saint Lucia, W.I<br/>Country: St. Lucia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XCD<br/><br/>Evaluated Bid Price<br/>XCD 139519.26</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>XCD 152437.71</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>I4 JUNCTION (PVT.) LTD. (865572)</b><br/>52-D Commercial Area, near Zaitoon Corporate Office New Lahore City, Lahore.+92 322 007 8000www.i4junction.com<br/>Country: Pakistan<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>XCD<br/><br/>Evaluated Bid Price<br/>XCD 270650.70</div></br></div><br/></div></div>"
+  }
+}

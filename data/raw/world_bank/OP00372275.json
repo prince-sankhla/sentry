@@ -1,0 +1,31 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00372275",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00372275",
+  "retrieved_at": "2026-07-07T10:18:36.221268+00:00",
+  "data": {
+    "id": "OP00372275",
+    "notice_type": "Invitation for Bids",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "submission_deadline_date": "2025-09-08T00:00:00Z",
+    "submission_deadline_time": "12:30",
+    "project_ctry_name": "Guinea",
+    "project_id": "P168613",
+    "project_name": "Guinea Natural Resources, Mining and Environmental Management Project",
+    "bid_reference_no": "GN-PGRNME-460777-CW-RFB",
+    "bid_description": "Réhabilitation et aménagement de la base vie de Sidakoro dans le parc National du Haut Niger",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "contact_address": "Residence ALIMOU, Quartier Taouyah, Commune de Ratoma, Conakry",
+    "contact_ctry_name": "Guinea",
+    "contact_email": "dsorykouyate@gmail.com",
+    "contact_name": "Sory KOUYATE",
+    "contact_organization": "PROJET DE GESTION ET DE VALORISATION DES RESSOURCES NATURELLES, MINIERES ET ENVIRONNEMENT",
+    "contact_phone_no": "+224623493350",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "Water Network Construction Works at -Nyambikala Estate (On-Site) for project Affected People by Electricity Transmission Line Phase II"
+  }
+}

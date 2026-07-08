@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454841",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454841",
+  "retrieved_at": "2026-07-07T10:18:37.840048+00:00",
+  "data": {
+    "id": "OP00454841",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Nigeria",
+    "project_id": "P167156",
+    "project_name": "Nigeria: Improved Child Survival Program for Human Capital MPA",
+    "bid_reference_no": "NG-PLATEAU IMPACT-537895-GO-RFQ",
+    "bid_description": "Procurement of Fire Extinguishers for the 82 Upgraded Facilities",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P167156-Nigeria: Improved Child Survival Program for Human CapitalMPA<br/><b>Loan/Credit/TF Info:</b>IDA-65390<br/><b>Bid/Contract Reference No:</b>NG-PLATEAU IMPACT-537895-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Supply of Fire Extinguishers to 82 Upgraded Primary Health Care Facilities in Plateau State</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/03/03<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>4 Week(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>PROXIMA GREEN GLOBAL NIGERIA (1103036)</b><br/>No. 02, Alphonse Street, Behind ITF Bukuru, Jos, Plateau State<br/>Country: Nigeria<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>NGN 11400000.00<br/><br/>Evaluated Bid Price<br/>NGN 11400000.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>NGN 11400000.00</div><br/></div></div>"
+  }
+}

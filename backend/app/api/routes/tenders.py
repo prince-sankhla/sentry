@@ -14,6 +14,7 @@ from app.schemas.tenders import (
     TenderListResponse,
     TenderSummary,
 )
+from app.services.pdf_intelligence import extract_tender_fields
 from app.services.procurement_intelligence import build_tender_intelligence
 
 router = APIRouter(prefix="/api/tenders", tags=["tenders"])
@@ -82,6 +83,13 @@ def get_tender(tender_id: UUID, db: Session = Depends(get_db)) -> TenderDetail:
         key=lambda company: company.name,
     )
 
+    # Expose the existing deterministic document-intelligence extractor over the
+    # tender's stored text. Grounded: only values literally present are returned,
+    # each with its source span; an empty extraction is surfaced as such so the
+    # UI can hide the panel when no structured signal exists.
+    document_text = "\n".join(part for part in (tender.title, tender.description) if part)
+    pdf_intelligence = extract_tender_fields(document_text)
+
     return TenderDetail(
         **TenderSummary.model_validate(tender).model_dump(),
         description=tender.description,
@@ -89,4 +97,5 @@ def get_tender(tender_id: UUID, db: Session = Depends(get_db)) -> TenderDetail:
         awards=tender.awards,
         participating_companies=[CompanySummary.model_validate(company) for company in companies],
         intelligence=build_tender_intelligence(db, tender),
+        pdf_intelligence=pdf_intelligence,
     )

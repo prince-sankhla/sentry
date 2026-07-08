@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454702",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454702",
+  "retrieved_at": "2026-07-07T10:18:36.279988+00:00",
+  "data": {
+    "id": "OP00454702",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Nigeria",
+    "project_id": "P179687",
+    "project_name": "Nigeria Distributed Access through Renewable Energy Scale-up Project",
+    "bid_reference_no": "REA-NEP/DARES/GO/RFQ/048/2025",
+    "bid_description": "Procurement of infrastructure for the Integration and Interoperability of Software Platforms Utilized by Mini grid Developers, Standalone Solar Providers, and other Third-Party Applications deployed within the Nigeria Electrification Programme (NEP)",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P179687-Nigeria Distributed Access through Renewable Energy Scale-up Project<br/><b>Loan/Credit/TF Info:</b>IDA-74680<br/><b>Bid/Contract Reference No:</b>REA-NEP/DARES/GO/RFQ/048/2025<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>PROCUREMENT OF INFRASTRUCTURE FOR THE INTEGRATION AND INTEROPERABILITY OF SOFTWARE PLATFORMS UTILIZED BY MINI GRID DEVELOPERS, STANDALONE SOLAR PROVIDERS, AND OTHER THIRD-PARTY APPLICATIONS DEPLOYED</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2025/05/07<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>12 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>CEONEL LIMITED (1085824)</b><br/>7 Ralph Karieren Crescent, Lekki Pennsula Scheme 2. Lagos State<br/>Country: Nigeria<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>NGN 149680150.22<br/><br/>Evaluated Bid Price<br/>NGN 149680150.22</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>NGN 149680150.22</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>TIDOSEAN LIMITED (1085831)</b><br/>7 Regalseaview Estate, Lekki Phase 1, Oceanside, Lagos State.<br/>Country: Nigeria<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>NGN 152313019.38<br/><br/>Evaluated Bid Price<br/>NGN 152313019.38</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>DELPHI TECHNOLOGIES LIMITED (1085825)</b><br/>9 Fola Daniel Cl, Lekki Phase 1, Lagos State<br/>Country: Nigeria<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>NGN 158201976.31<br/><br/>Evaluated Bid Price<br/>NGN 158201976.31</div></br></div><br/></div></div>"
+  }
+}

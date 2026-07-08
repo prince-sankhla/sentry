@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Award, Company, Tender
+from app.schemas.analytics import PortfolioRisk, RiskSignal, RiskSummary
 from app.schemas.procurement_intelligence import (
     BuyerSupplierRelationshipScore,
     ProcurementIntelligence,
@@ -75,6 +76,100 @@ def build_company_intelligence(db: Session, company: Company) -> ProcurementInte
         signals=_dedupe_signals(signals),
         relationship_scores=sorted(relationship_scores, key=lambda score: score.score, reverse=True),
     )
+
+
+def build_portfolio_risk(db: Session) -> PortfolioRisk:
+    awards = _awards_with_entities(db)
+    valid_awards = [
+        award for award in awards if award.tender is not None and award.company is not None
+    ]
+
+    signals: list[RiskSignal] = []
+
+    # Single-bidder detection: tenders with exactly one distinct awarded company.
+    awards_by_tender: dict[UUID, list[Award]] = defaultdict(list)
+    for award in valid_awards:
+        awards_by_tender[award.tender_id].append(award)
+
+    single_bidder_tenders = 0
+    for tender_awards in awards_by_tender.values():
+        if len({award.company_id for award in tender_awards}) != 1:
+            continue
+        single_bidder_tenders += 1
+        anchor = tender_awards[0]
+        tender = anchor.tender
+        company = anchor.company
+        signals.append(
+            RiskSignal(
+                type="single_bidder",
+                severity="high",
+                title="Single Bidder Detection",
+                summary=f"Only one supplier is recorded against tender {tender.reference_number}.",
+                score=80,
+                buyer=tender.procuring_entity,
+                supplier_name=company.name,
+                supplier_id=company.id,
+                tender_id=tender.id,
+                tender_reference=tender.reference_number,
+                evidence=[
+                    "Recorded suppliers: 1",
+                    f"Supplier: {company.name}",
+                    f"Buyer: {tender.procuring_entity or 'Unknown buyer'}",
+                ],
+            )
+        )
+
+    # Repeat-supplier / buyer-supplier relationship scoring.
+    buyer_awards = _awards_by_buyer(awards)
+    flagged_relationships = 0
+    for (buyer, _company_id), supplier_awards in _awards_by_buyer_supplier(awards).items():
+        if len(supplier_awards) < REPEAT_SUPPLIER_MIN_AWARDS:
+            continue
+        relationship = _relationship_score(
+            buyer_awards=buyer_awards[buyer],
+            supplier_awards=supplier_awards,
+        )
+        flagged_relationships += 1
+        is_high = relationship.supplier_award_share >= CONCENTRATION_REVIEW_THRESHOLD
+        signals.append(
+            RiskSignal(
+                type="buyer_supplier_relationship" if is_high else "repeat_supplier",
+                severity="high" if is_high else "medium",
+                title="Buyer-Supplier Relationship Scoring"
+                if is_high
+                else "Repeat Supplier Detection",
+                summary=(
+                    f"{relationship.supplier_name} holds {relationship.awards_to_supplier} awards "
+                    f"from {relationship.buyer or 'the same buyer'} "
+                    f"({relationship.supplier_award_share:.0%} of that buyer's awards)."
+                ),
+                score=relationship.score,
+                buyer=relationship.buyer,
+                supplier_name=relationship.supplier_name,
+                supplier_id=relationship.supplier_id,
+                tender_id=None,
+                tender_reference=None,
+                evidence=[
+                    f"Awards to supplier: {relationship.awards_to_supplier}",
+                    f"Total buyer awards indexed: {relationship.total_buyer_awards}",
+                    f"Supplier share: {relationship.supplier_award_share:.0%}",
+                    f"Latest award: "
+                    f"{relationship.latest_award_date.isoformat() if relationship.latest_award_date else 'No award date'}",
+                ],
+            )
+        )
+
+    summary = RiskSummary(
+        total=len(signals),
+        high=sum(1 for signal in signals if signal.severity == "high"),
+        medium=sum(1 for signal in signals if signal.severity == "medium"),
+        low=sum(1 for signal in signals if signal.severity == "low"),
+        single_bidder_tenders=single_bidder_tenders,
+        flagged_relationships=flagged_relationships,
+    )
+
+    ranked = sorted(signals, key=lambda signal: signal.score, reverse=True)[:100]
+    return PortfolioRisk(summary=summary, signals=ranked)
 
 
 def _awards_with_entities(db: Session) -> list[Award]:

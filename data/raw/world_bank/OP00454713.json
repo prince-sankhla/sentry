@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454713",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454713",
+  "retrieved_at": "2026-07-07T10:18:37.850615+00:00",
+  "data": {
+    "id": "OP00454713",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Indonesia",
+    "project_id": "P173487",
+    "project_name": "Agriculture Value Chain Development Project (ICARE)",
+    "bid_reference_no": "ID-BRMP NTB-504433-GO-RFQ",
+    "bid_description": "Procurement of Laboratory Testing Equipment",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P173487-Agriculture Value Chain Development Project (ICARE)<br/><b>Loan/Credit/TF Info:</b>IBRD-93410<br/><b>Bid/Contract Reference No:</b>ID-BRMP NTB-504433-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Procurement of Laboratory Testing Equipment for Strengthening Agricultural Services-Spectro</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2025/09/29<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>3 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>DITEK JAYA (1100046)</b><br/>KEBON JERUK, JAKARTA BARAT, DKI JAKARTA<br/>Country: Indonesia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>IDR 1087490<br/><br/>Evaluated Bid Price<br/>IDR 1084503</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>IDR 1087490</div><br/></div></div>"
+  }
+}

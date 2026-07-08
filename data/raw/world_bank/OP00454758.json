@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454758",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454758",
+  "retrieved_at": "2026-07-07T10:18:37.831049+00:00",
+  "data": {
+    "id": "OP00454758",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Mozambique",
+    "project_id": "P167054",
+    "project_name": "Improvement of Skills Development in Mozambique",
+    "bid_reference_no": "NC26",
+    "bid_description": "Customs Clearance services for computers for high education students",
+    "procurement_group": "NC",
+    "procurement_method_code": "DIR",
+    "procurement_method_name": "Direct Selection",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P167054-Improvement of Skills Development in Mozambique<br/><b>Loan/Credit/TF Info:</b>IDA-D7160<br/><b>Bid/Contract Reference No:</b>NC26<br/><b>Procurement Method:</b>DIR-Direct Selection<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Customs Clearance services for computers for high education students</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2025/03/25<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>5 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>AKN SERVICES LTD (1103097)</b><br/>AV. SAMORA MACHEL N 120, 1 ANDAR, PORTA 2 - Maputo<br/>Country: Mozambique<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>MZN 18113858.51<br/><br/>Evaluated Bid Price<br/>MZN 18113858.51</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>MZN 18113858.51</div><br/></div></div>"
+  }
+}

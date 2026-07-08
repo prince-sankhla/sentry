@@ -9,13 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "@xyflow/react": "^12.11.1",
     "dagre": "^0.8.5",
+    "echarts": "^6.1.0",
     "framer-motion": "^12.42.0",
     "lucide-react": "^1.22.0",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "react-simple-maps": "^3.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "latest",

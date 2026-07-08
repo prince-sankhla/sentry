@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454699",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454699",
+  "retrieved_at": "2026-07-07T10:18:37.873773+00:00",
+  "data": {
+    "id": "OP00454699",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Maldives",
+    "project_id": "P177768",
+    "project_name": "Maldives Atoll Education Development Project",
+    "bid_reference_no": "MV-MOE-AEDP-476446-CW-RFB",
+    "bid_description": "Refurbishment of Facilities for Science, ICT, STEM and Skill Laboratories in Aminiya School , Male'",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P177768-Maldives Atoll Education Development Project<br/><b>Loan/Credit/TF Info:</b>IDA-72080<br/><b>Bid/Contract Reference No:</b>MV-MOE-AEDP-476446-CW-RFB<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Refurbishment of facilities for Science, ICT, STEM and Skill laboratories in Aminiya School  Male</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>null<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>56 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>THE EDHURU INVESTMENT (1046768)</b><br/>HAPPY SIDE - TH.MADIFUSHI<br/>Country: Maldives<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>MVR<br/><br/>Evaluated Bid Price<br/>MVR 1740962.05</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>MVR 1740962.05</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>M-CUTE INVESTMENT (1102690)</b><br/>Kadufennage, Ali Katheebu Magu 16020, Ga. Villlingili<br/>Country: Maldives<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>MVR<br/><br/>Evaluated Bid Price<br/>MVR 3697920.00</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>NEWKAN PRIVATE LIMITED (1058662)</b><br/>Ma. Medellin Dhanburuh Goalhi Male<br/>Country: Maldives<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>MVR<br/><br/>Evaluated Bid Price<br/>MVR 1730513.72</div></br></div><br/></div></div>"
+  }
+}

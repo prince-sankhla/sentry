@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454776",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454776",
+  "retrieved_at": "2026-07-07T10:18:37.806517+00:00",
+  "data": {
+    "id": "OP00454776",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "French",
+    "notice_status": "Published",
+    "project_ctry_name": "Madagascar",
+    "project_id": "P508924",
+    "project_name": "Madagascar Contingent and Emergency Response Project",
+    "bid_reference_no": "CERP_26010_DIR_AP",
+    "bid_description": "Recrutement d'AGENCE PAYEUR pour le paiement des transferts ACT et TMNC des ménages bénéficiaires",
+    "procurement_group": "NC",
+    "procurement_method_code": "DIR",
+    "procurement_method_name": "Direct Selection",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P508924-Madagascar Contingent and Emergency Response Project<br/><b>Loan/Credit/TF Info:</b>COFN-C2720<br/><b>Bid/Contract Reference No:</b>CERP_26010_DIR_AP<br/><b>Procurement Method:</b>DIR-Passation de march de gr  gr<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>SERVICE POUR LE PAIEMENT DES TRANSFERTS MONETAIRES PAR QR CODE SUR LA PLATEFORME PGP POUR LE FINANCEMENT CERP (REPONSES AUX CHOCS ECONOMIQUES)</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/03/24<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>6 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>FITAHIANTSOA (682614)</b><br/>LOT II G 10 CAB AMBATOMARO <br/>Country: Madagascar<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>MGA 78405000.00<br/><br/>Evaluated Bid Price<br/>MGA 78405000.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>MGA 78405000.00</div><br/></div></div>"
+  }
+}

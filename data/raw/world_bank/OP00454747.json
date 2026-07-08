@@ -1,0 +1,32 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454747",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454747",
+  "retrieved_at": "2026-07-07T10:18:37.854298+00:00",
+  "data": {
+    "id": "OP00454747",
+    "notice_type": "Invitation for Bids",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "submission_deadline_date": "2026-06-30T00:00:00Z",
+    "submission_deadline_time": "11:00",
+    "project_ctry_name": "India",
+    "project_id": "P157929",
+    "project_name": "Assam Inland Water Transport Project",
+    "bid_reference_no": "IN-IWT-506101-GO-RFQ",
+    "bid_description": "ER & SAR --- Procurement of Mega Phone",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "contact_address": "Ulubari, Guwahati 781007",
+    "contact_ctry_name": "India",
+    "contact_email": "aiwtds.step@gmail.com",
+    "contact_name": "Dhrubajyoti  Sarma",
+    "contact_organization": "Directorate of Inland Water Transport, Assam",
+    "contact_phone_no": "9864012016",
+    "contact_web_url": "www.iwt.assam.gov.in",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<p>GEM bidding</p>"
+  }
+}

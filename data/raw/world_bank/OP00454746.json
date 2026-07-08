@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454746",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454746",
+  "retrieved_at": "2026-07-07T10:18:37.828770+00:00",
+  "data": {
+    "id": "OP00454746",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Kyrgyz Republic",
+    "project_id": "P162635",
+    "project_name": "Enhancing Resilience in Kyrgyzstan Project",
+    "bid_reference_no": "KG-CW/RFB-33/AF-2026",
+    "bid_description": "Reconstruction School No. 31 named affter B. Alykulova, Jal village, Kadamzhai district, Batken region.",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P162635-Enhancing Resilience in Kyrgyzstan Project<br/><b>Loan/Credit/TF Info:</b>IDA-66870; IDA-D6550<br/><b>Bid/Contract Reference No:</b>KG-CW/RFB-33/AF-2026<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Reconstruction School No. 31 named affter B. Alykulova, Jal village, Kadamzhai district, Batken region.</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/29<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>365 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>UNISERVICE AST (742219)</b><br/>The Kyrgyz Republic<br/>Country: Kyrgyz Republic<br/></br></div><div class='row col-sm-12'><b>AIST STOI (834913)</b><br/>Osh city<br/>Country: Kyrgyz Republic<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Evaluation Scores<br/><br/><br/>Bid Price at Opening<br/>KGS<br/><br/>Evaluated Bid Price<br/>KGS 155140370.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>KGS 155140370.00</div><br/></div></div>"
+  }
+}

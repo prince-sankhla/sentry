@@ -133,6 +133,35 @@ class InvestigationGraphSeed(BaseModel):
     source_record_id: str
 
 
+class RiskTimelineEvent(BaseModel):
+    """A dated event supporting a risk indicator (award, publication, closing)."""
+
+    label: str
+    event_date: date
+    related_tender: str | None = None
+    related_entity: str | None = None
+
+
+class InvestigationProcurementIndicator(BaseModel):
+    type: str
+    severity: str
+    title: str
+    summary: str
+    score: int = Field(ge=0, le=100)
+    # Explainability contract: every risk carries a human-readable reason,
+    # a calibrated confidence, and the full set of supporting evidence it was
+    # computed from. All additive/optional so existing consumers keep working.
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    reason: str = ""
+    evidence: list[str] = Field(default_factory=list)
+    related_tenders: list[str] = Field(default_factory=list)
+    related_entities: list[str] = Field(default_factory=list)
+    supporting_buyers: list[str] = Field(default_factory=list)
+    supporting_suppliers: list[str] = Field(default_factory=list)
+    supporting_documents: list[str] = Field(default_factory=list)
+    timeline: list[RiskTimelineEvent] = Field(default_factory=list)
+
+
 class InvestigationStepResult(BaseModel):
     order: int
     module: str
@@ -152,6 +181,7 @@ class InvestigationPackage(BaseModel):
     evidence: list[InvestigationEvidence] = Field(default_factory=list)
     timeline: list[InvestigationTimelineEvent] = Field(default_factory=list)
     graph_seeds: list[InvestigationGraphSeed] = Field(default_factory=list)
+    indicators: list[InvestigationProcurementIndicator] = Field(default_factory=list)
     step_results: list[InvestigationStepResult] = Field(default_factory=list)
 
     class Config:

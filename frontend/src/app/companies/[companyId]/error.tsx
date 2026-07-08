@@ -2,27 +2,31 @@
 
 import Link from "next/link";
 
+import { PageShell } from "@/components/ui/page";
+import { ErrorState } from "@/components/ui/states";
+
 export default function Error({ reset }: { reset: () => void }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0B0F14] px-5 text-[#E6E8EB]">
-      <div className="w-full max-w-md rounded-[6px] border border-[#2A3441] bg-[#121821] p-6 text-center">
-        <h1 className="text-xl font-semibold text-[#E6E8EB]">Unable to load company investigation</h1>
-        <p className="mt-2 text-sm leading-6 text-[#9AA4AF]">
-          The backend API did not return the company investigation data.
-        </p>
-        <div className="mt-5 flex justify-center gap-3">
-          <button
-            className="rounded-[4px] border border-[#C58B2A] bg-[#2A2115] px-4 py-2 text-sm font-semibold text-[#F3D59A] hover:bg-[#332719]"
-            onClick={reset}
-            type="button"
-          >
-            Retry
-          </button>
-          <Link className="rounded-[4px] border border-[#2A3441] px-4 py-2 text-sm font-semibold" href="/">
-            Dashboard
-          </Link>
-        </div>
+    <PageShell>
+      <ErrorState
+        title="Unable to load company investigation"
+        message="The backend API did not return the company investigation data."
+      />
+      <div className="mt-5 flex justify-center gap-3">
+        <button
+          className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text transition hover:border-border-strong"
+          onClick={reset}
+          type="button"
+        >
+          Retry
+        </button>
+        <Link
+          className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text transition hover:border-border-strong"
+          href="/"
+        >
+          Dashboard
+        </Link>
       </div>
-    </main>
+    </PageShell>
   );
 }

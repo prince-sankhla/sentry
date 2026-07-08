@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00454979",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00454979",
+  "retrieved_at": "2026-07-07T10:18:36.272680+00:00",
+  "data": {
+    "id": "OP00454979",
+    "notice_type": "Contract Award",
+    "noticedate": "30-Jun-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Eswatini",
+    "project_id": "P173151",
+    "project_name": "Strengthening Early Childhood Development and Basic Education Systems to Support Human Capital Devel",
+    "bid_reference_no": "SZ-MOET-539718-GO-RFQ",
+    "bid_description": "Supply and Delivery of Dignity Packs for Boys and Girls' Clubs",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-06-30T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P173151-Strengthening Early Childhood Development and Basic Education Systems to Support Human Capital Development in Eswatini Project<br/><b>Loan/Credit/TF Info:</b>IBRD-93750<br/><b>Bid/Contract Reference No:</b>SZ-MOET-539718-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Supply and Delivery of Dignity Packs for Boys and Girls ClubsTender Reference: SZ-MOET- 539718-GO-RFQ</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/04/07<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>6 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>CARNECIA INVESTMENTS (1072739)</b><br/>Plot No: 100MbabaneEswatini<br/>Country: Eswatini<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>SZL 798720.00<br/><br/>Evaluated Bid Price<br/>SZL 798720.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>SZL 798720.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>LENDMO (PTY) LIMITED (1072509)</b><br/>Mbabane, Eswatini<br/>Country: Eswatini<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>SZL<br/><br/>Evaluated Bid Price<br/>SZL<br/><br/>Reason for Rejection<br/>Failure to meet minimum technical score<br/></div></br></div><br/></div></div>"
+  }
+}
