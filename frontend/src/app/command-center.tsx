@@ -11,7 +11,6 @@
  */
 import { motion } from "framer-motion";
 import {
-  Activity,
   Award,
   Building2,
   FileText,
@@ -25,12 +24,13 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { DonutChart, HBarChart } from "@/components/charts";
+import { AreaTrend, DonutChart, HBarChart } from "@/components/charts";
 import { CHART } from "@/components/charts/echart";
 import { Section } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { SeverityBadge } from "@/components/ui/page";
 import { EmptyState, ErrorState } from "@/components/ui/states";
+import { AiStatus } from "@/components/dashboard/ai-status";
 import { LiveActivityFeed } from "@/components/dashboard/live-activity";
 import { MorningBrief } from "@/components/dashboard/morning-brief";
 import { SourceStatus } from "@/components/dashboard/source-status";
@@ -48,7 +48,6 @@ import {
   type TimelineResponse
 } from "@/lib/api";
 import { formatCompactMoney, formatDate, formatNumber } from "@/lib/format";
-import { sourceLabel } from "@/lib/sources";
 
 // India map is heavy (SVG topojson) — lazy-load, client only.
 const IndiaMap = dynamic(() => import("@/components/map/india-map").then((m) => m.IndiaMap), {
@@ -113,6 +112,9 @@ function CommandCenterView({ data, onLaunch }: { data: Bundle; onLaunch: (q: str
 
   const topBuyers = overview.top_buyers.slice(0, 6);
   const topSuppliers = overview.top_suppliers.slice(0, 6);
+
+  // Procurement value trend — last 12 months of awarded/tender value.
+  const trend = useMemo(() => overview.monthly.slice(-12), [overview.monthly]);
 
   return (
     <div className="mt-2 space-y-5">
@@ -205,6 +207,35 @@ function CommandCenterView({ data, onLaunch }: { data: Bundle; onLaunch: (q: str
 
         <Section eyebrow="Live" title="Live Activity Feed" action={<span className="inline-flex items-center gap-1.5 text-[11px] text-success"><span className="h-1.5 w-1.5 rounded-full bg-success pulse-live" />Live</span>}>
           <LiveActivityFeed timeline={timeline.events} recent={recent} />
+        </Section>
+      </Reveal>
+
+      {/* PROCUREMENT TRENDS + AI INVESTIGATION STATUS */}
+      <Reveal className="grid grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr]">
+        <Section
+          eyebrow="Trends"
+          title="Procurement Value Trend"
+          action={<Link href="/reports" className="text-xs text-accent hover:underline">Analytics →</Link>}
+        >
+          {trend.length === 0 ? (
+            <EmptyState message="No dated procurement records to chart." />
+          ) : (
+            <AreaTrend
+              categories={trend.map((m) => m.month.slice(2))}
+              values={trend.map((m) => Number(m.value) || 0)}
+              color={CHART.accent}
+              height={220}
+              valueFormatter={(v) => formatCompactMoney(String(v))}
+            />
+          )}
+        </Section>
+
+        <Section
+          eyebrow="Reasoning"
+          title="AI Investigation Status"
+          action={<Link href="/investigations" className="text-xs text-accent hover:underline">Investigate →</Link>}
+        >
+          <AiStatus />
         </Section>
       </Reveal>
 

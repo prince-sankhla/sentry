@@ -21,6 +21,8 @@ If the package contains no procurement records, the service returns an explicit
 
 from __future__ import annotations
 
+import logging
+
 from app.clients.llm import LLMUnavailableError, get_llm_client
 from app.schemas.investigation_executor import (
     InvestigationPackage,
@@ -39,10 +41,15 @@ from app.services.investigation_evidence import (
     citation_from_record,
     grounding_report,
 )
+from app.services.investigation_grounding import verify_summary
+from app.services.investigation_integrity import assess_integrity
+from app.services.investigation_report import build_analyst_report
 from app.services.investigation_memory import (
     InvestigationMemory,
     entry_from_investigation,
 )
+
+logger = logging.getLogger(__name__)
 
 _SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
 
@@ -94,7 +101,20 @@ def build_reasoning(
         )
 
     findings = _findings_from_indicators(pkg)
-    risk_level, risk_rationale, confidence = _assess_risk(pkg, findings)
+
+    # Weighted Procurement Integrity Assessment — risk is a weighted blend of
+    # distinct integrity factors, NOT a count of indicators. The banded level,
+    # score, and confidence all come from this explainable model; the rationale
+    # is the ranked factor breakdown so the verdict is fully auditable.
+    integrity = assess_integrity(pkg)
+    risk_level = integrity.level
+    confidence = integrity.confidence
+    risk_rationale = [
+        f"{factor.label}: {factor.contribution:.0f} pts (weight {factor.weight:.0%}, strength {factor.strength:.0%})"
+        for factor in integrity.factors
+        if factor.contribution > 0
+    ][:6] or [f"{len(pkg.records)} records reviewed; no adverse integrity factors dominated"]
+
     recommendations = _recommendations(pkg, risk_level, findings)
     follow_ups = _follow_ups(pkg, subject, investigation_type)
 
@@ -107,6 +127,15 @@ def build_reasoning(
 
     # Multi-step, grounded analyst trace (tool-driven, package-only facts).
     analyst_trace = run_analyst_trace(pkg)
+
+    # Structured analyst-report sections — grounded deterministic projections
+    # (buyer/supplier/award/timeline analysis, patterns, contradictions, missing
+    # evidence, derived confidence). The LLM narrates these; it never computes them.
+    analyst_report = build_analyst_report(pkg, grounding)
+    # Confidence is now derived from measurable investigation quality, not a bare
+    # heuristic — surface the derived score as the headline confidence.
+    if analyst_report.confidence_assessment is not None:
+        confidence = analyst_report.confidence_assessment.score
 
     reasoning = InvestigationReasoning(
         subject=subject,
@@ -122,13 +151,16 @@ def build_reasoning(
         grounding=grounding,
         analyst_trace=analyst_trace,
         prior_investigations=prior,
+        integrity_assessment=integrity,
+        analyst_report=analyst_report,
     )
 
-    summary, generated_by, provider, model = _executive_summary(pkg, reasoning)
+    summary, generated_by, provider, model, fallback_reason = _executive_summary(pkg, reasoning)
     reasoning.executive_summary = summary
     reasoning.generated_by = generated_by
     reasoning.provider = provider
     reasoning.model = model
+    reasoning.fallback_reason = fallback_reason
 
     # Remember this investigation for future continuity (best-effort).
     mem.remember(
@@ -149,29 +181,83 @@ def build_reasoning(
 
 
 def _findings_from_indicators(pkg: InvestigationPackage) -> list[ReasoningFinding]:
-    """Map each risk indicator to a cited finding.
+    """Group indicators into one finding per type — never repeated titles.
 
-    Citations are resolved from the indicator's ``related_tenders`` against the
-    package records via the Evidence Engine, so every finding links back to a
-    verifiable, fully-provenanced source record. A finding that resolves to no
-    citation is flagged ``evidence_backed=False`` rather than presented as fact.
+    Detectors emit one indicator per affected record, so "Abnormal Contract
+    Value" can fire a dozen times. Presenting a dozen identical findings is poor
+    analyst UX, so identical types are collapsed into a single finding that
+    carries the occurrence count, every supporting record, the merged
+    provenanced citations, and per-instance summaries for drill-down.
+
+    Citations resolve from each indicator's ``related_tenders`` via the Evidence
+    Engine, so every grouped finding still links back to verifiable sources; a
+    group that resolves to no citation is flagged ``evidence_backed=False``.
     """
     record_by_ref = {r.tender.reference_number: r for r in pkg.records}
-    findings: list[ReasoningFinding] = []
 
+    # Preserve first-seen order of indicator types (indicators arrive sorted by
+    # score desc, so the strongest type leads).
+    groups: dict[str, list[InvestigationProcurementIndicator]] = {}
     for indicator in pkg.indicators:
-        citations = _citations_for_indicator(indicator, record_by_ref)
+        groups.setdefault(indicator.type, []).append(indicator)
+
+    findings: list[ReasoningFinding] = []
+    for indicator_type, members in groups.items():
+        lead = max(members, key=lambda i: (i.score, i.confidence))
+
+        # Merge, de-duplicate and cap citations across every instance in the group.
+        seen_cit: set[tuple[str, str | None]] = set()
+        citations: list[ReasoningCitation] = []
+        for member in members:
+            for cit in _citations_for_indicator(member, record_by_ref):
+                key = (cit.source_name, cit.related_tender)
+                if key in seen_cit:
+                    continue
+                seen_cit.add(key)
+                citations.append(cit)
+
+        supporting_records = sorted({ref for m in members for ref in m.related_tenders})
+        occurrences = len(members)
+        severity = _dominant_severity(members)
+
+        title = _pluralize_title(lead.title) if occurrences > 1 else lead.title
+        if occurrences > 1:
+            detail = f"{lead.summary} ({occurrences} occurrences across {len(supporting_records)} records)."
+        else:
+            detail = lead.summary
+
         findings.append(
             ReasoningFinding(
-                title=indicator.title,
-                detail=indicator.summary,
-                severity=indicator.severity,  # type: ignore[arg-type]
-                score=indicator.score,
-                citations=citations,
+                title=title,
+                detail=detail,
+                severity=severity,  # type: ignore[arg-type]
+                score=lead.score,
+                citations=citations[:12],
                 evidence_backed=bool(citations),
+                indicator_type=indicator_type,
+                occurrences=occurrences,
+                supporting_records=supporting_records,
+                instances=[m.summary for m in members][:20],
             )
         )
+
+    # Strongest findings first (grouped, so each type appears exactly once).
+    findings.sort(key=lambda f: (_SEVERITY_RANK.get(f.severity, 0), f.score), reverse=True)
     return findings
+
+
+def _dominant_severity(members: list[InvestigationProcurementIndicator]) -> str:
+    """Highest severity present in the group (high > medium > low)."""
+    order = {"low": 1, "medium": 2, "high": 3}
+    return max((m.severity for m in members), key=lambda s: order.get(s, 0))
+
+
+def _pluralize_title(title: str) -> str:
+    """Best-effort plural for a grouped finding title (analyst-facing)."""
+    if title.endswith(("s", "Timing", "Concentration", "Dependence", "Gap")):
+        return title
+    # e.g. "Abnormal Contract Value" -> "Abnormal Contract Values"
+    return title + "s"
 
 
 def _citations_for_indicator(
@@ -203,43 +289,11 @@ def _citations_for_indicator(
 # --------------------------------------------------------------------------- risk
 
 
-def _assess_risk(
-    pkg: InvestigationPackage, findings: list[ReasoningFinding]
-) -> tuple[RiskLevel, list[str], float]:
-    """Derive an overall risk verdict from the indicator set.
-
-    Deterministic and explainable: the rationale lists exactly which signals
-    drove the level, so the analyst can audit the verdict.
-    """
-    if not findings:
-        rationale = [
-            f"{len(pkg.records)} procurement records reviewed",
-            "No red-flag indicators triggered",
-        ]
-        # Some evidence, but nothing adverse — low risk, moderate confidence.
-        return "low", rationale, min(0.6, 0.3 + len(pkg.records) * 0.02)
-
-    high = [f for f in findings if f.severity == "high"]
-    medium = [f for f in findings if f.severity == "medium"]
-    top_score = max(f.score for f in findings)
-
-    rationale: list[str] = []
-    for finding in findings[:4]:
-        rationale.append(f"{finding.title} (score {finding.score})")
-
-    if len(high) >= 2 or top_score >= 85:
-        level: RiskLevel = "critical"
-    elif high:
-        level = "high"
-    elif medium:
-        level = "medium"
-    else:
-        level = "low"
-
-    # Confidence grows with corroborating records and distinct signal types.
-    signal_types = {f.title for f in findings}
-    confidence = min(0.95, 0.45 + len(signal_types) * 0.08 + min(len(pkg.records), 20) * 0.01)
-    return level, rationale, round(confidence, 2)
+# Overall risk is now produced by the Weighted Procurement Integrity Assessment
+# (``services/investigation_integrity.assess_integrity``): a weighted blend of
+# distinct integrity factors rather than a count of indicators. The former
+# count-based ``_assess_risk`` was removed so there is a single authoritative
+# risk model.
 
 
 # --------------------------------------------------------------------------- recommendations
@@ -357,18 +411,21 @@ def _distinct_buyers(pkg: InvestigationPackage) -> list[str]:
 
 def _executive_summary(
     pkg: InvestigationPackage, reasoning: InvestigationReasoning
-) -> tuple[str, str, str | None, str | None]:
-    """Return (summary_text, generated_by, provider, model).
+) -> tuple[str, str, str | None, str | None, str | None]:
+    """Return (summary_text, generated_by, provider, model, fallback_reason).
 
     Tries the live LLM chain first (grounded, strictly context-only), and falls
-    back to the deterministic composer whenever no provider answers. Provider and
-    model reflect whichever provider actually produced the text.
+    back to the deterministic composer whenever no provider answers, every
+    provider errors/refuses, or the model's phrasing fails the grounding guard.
+    ``fallback_reason`` records which of those occurred (``None`` on LLM success)
+    so the UI can show *why* the deterministic composer authored the summary
+    instead of silently reading as "Fallback Active".
     """
     deterministic = _deterministic_summary(pkg, reasoning)
 
     client = get_llm_client()
     if client is None:
-        return deterministic, "deterministic", None, None
+        return deterministic, "deterministic", None, None, "no_provider"
 
     context = _evidence_context(pkg, reasoning)
     prompt = (
@@ -381,9 +438,25 @@ def _executive_summary(
     )
     try:
         text = client.complete(system=_SYSTEM_PROMPT, prompt=prompt)
-    except LLMUnavailableError:
-        return deterministic, "deterministic", None, None
-    return text, "llm", client.provider, client.model
+    except LLMUnavailableError as exc:
+        # Every configured provider failed, errored, or returned a restricted /
+        # refusal response — that is never shown; the deterministic composer answers.
+        # Surface the reason instead of silently falling back.
+        logger.warning("LLM reasoning fell back to deterministic (provider error): %s", exc)
+        return deterministic, "deterministic", None, None, "provider_error"
+
+    # Grounding guard: the model may only *phrase* the summary, never introduce
+    # facts. Reject any output that asserts a quantity (value, share, count) not
+    # present in the evidence context and fall back to the deterministic composer,
+    # which is grounded by construction. Correctness beats phrasing.
+    verdict = verify_summary(text, context)
+    if not verdict.grounded:
+        logger.warning(
+            "LLM summary from %s failed the grounding guard (%s); using deterministic composer",
+            client.provider, verdict.reason,
+        )
+        return deterministic, "deterministic", client.provider, client.model, "grounding_guard"
+    return text.strip(), "llm", client.provider, client.model, None
 
 
 def _deterministic_summary(pkg: InvestigationPackage, reasoning: InvestigationReasoning) -> str:
@@ -462,4 +535,18 @@ def _evidence_context(pkg: InvestigationPackage, reasoning: InvestigationReasoni
                 f"- “{hit.subject}” assessed {hit.risk_level} on "
                 f"{hit.remembered_at.date().isoformat()} ({hit.match_reason})"
             )
+
+    # Grounded structured-report facts so the narrative can reflect contradictions
+    # and the derived confidence — all computed deterministically from the package.
+    report = reasoning.analyst_report
+    if report is not None:
+        if report.confidence_assessment is not None:
+            ca = report.confidence_assessment
+            lines.append(f"Derived confidence: {int(ca.score * 100)}% ({ca.level}).")
+        if report.contradictions:
+            lines.append("Contradictions detected (deterministic):")
+            for c in report.contradictions[:5]:
+                lines.append(f"- [{c.severity}] {c.summary}")
+        if report.missing_evidence:
+            lines.append("Evidence gaps: " + "; ".join(report.missing_evidence[:3]))
     return "\n".join(lines)

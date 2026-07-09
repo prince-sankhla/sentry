@@ -18,27 +18,31 @@ const DOT_TONES = {
 
 export function Timeline({ items }: { items: TimelineItem[] }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-1">
       {items.map((item, i) => (
         <div
-          className="grid grid-cols-[18px_1fr] gap-3"
+          className="grid grid-cols-[24px_1fr] gap-3 rounded-[12px] p-2 transition hover:bg-surface-2/50"
           key={`${item.label}-${item.value}-${i}`}
         >
           <div className="relative flex justify-center">
             <div
-              className={`z-10 mt-1 h-2.5 w-2.5 rounded-full border ${
+              className={`z-10 mt-1 grid h-4 w-4 place-items-center rounded-full border ${
                 DOT_TONES[item.tone ?? "accent"]
               }`}
-            />
+            >
+              {item.icon ? <span className="text-[10px] text-text">{item.icon}</span> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+            </div>
             {i < items.length - 1 && (
-              <div className="absolute left-1/2 top-3 h-full w-px -translate-x-1/2 bg-border" />
+              <div className="absolute left-1/2 top-5 h-[calc(100%+4px)] w-px -translate-x-1/2 bg-border" />
             )}
           </div>
           <div className="pb-1">
-            <div className="text-sm font-medium text-text">{item.label}</div>
-            <div className="mt-0.5 text-xs text-muted">{item.value}</div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 text-sm font-medium text-text">{item.label}</div>
+              <div className="shrink-0 text-xs tabular text-muted">{item.value}</div>
+            </div>
             {item.detail ? (
-              <div className="mt-0.5 text-xs text-faint">{item.detail}</div>
+              <div className="mt-0.5 truncate text-xs text-faint">{item.detail}</div>
             ) : null}
           </div>
         </div>

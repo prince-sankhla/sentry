@@ -15,13 +15,19 @@
 
 import { motion } from "framer-motion";
 import {
+  BadgeCheck,
+  BriefcaseBusiness,
+  Building2,
   Check,
   Copy,
   ExternalLink,
   FileText,
   Globe2,
-  ShieldCheck
+  Landmark,
+  ShieldCheck,
+  Tags
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { isIndianSource, sourceMeta } from "@/lib/sources";
 
@@ -44,6 +50,13 @@ export type EvidenceItem = {
   reference?: string | null;
   /** Evidence class, drives the leading glyph. */
   kind?: "record" | "web" | "document";
+  evidenceType?: string | null;
+  citation?: string | null;
+  relatedEntities?: string[];
+  relatedContracts?: string[];
+  relatedTenders?: string[];
+  relatedOrganizations?: string[];
+  tags?: string[];
 };
 
 function fmtDate(value?: string | null): string {
@@ -54,6 +67,7 @@ function fmtDate(value?: string | null): string {
 }
 
 function buildCitation(e: EvidenceItem): string {
+  if (e.citation?.trim()) return e.citation.trim();
   const meta = sourceMeta(e.source);
   const parts = [e.title.trim()];
   parts.push(meta.label);
@@ -88,6 +102,7 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
 
   const hasConf = typeof item.confidence === "number";
   const conf = hasConf ? confidenceTone(item.confidence as number) : null;
+  const evidenceType = item.evidenceType ?? (item.kind === "web" ? "Open-source record" : item.kind === "document" ? "Document" : "Procurement record");
 
   return (
     <motion.div
@@ -108,6 +123,9 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
           <Glyph className="h-3.5 w-3.5" />
         </span>
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-muted">{meta.label}</span>
+        <span className="shrink-0 rounded border border-border bg-bg-2/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-faint">
+          {evidenceType}
+        </span>
         {indian && (
           <span className="shrink-0 rounded border border-accent/30 bg-accent/[0.08] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
             India
@@ -125,37 +143,42 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
       </div>
 
       {/* meta row: date + confidence */}
-      <div className="mt-2.5 flex items-center gap-3 text-[11px]">
-        <span className="text-faint">{fmtDate(item.date)}</span>
+      <div className="mt-2.5 grid grid-cols-2 gap-2 text-[11px]">
+        <MetaPill label="Published" value={fmtDate(item.date)} />
         {conf && (
-          <span className={`inline-flex items-center gap-1 ${conf.cls}`}>
-            <span className="h-1.5 w-1.5 rounded-full bg-current" />
-            {Math.round((item.confidence as number) * 100)}%
-          </span>
+          <MetaPill label="Confidence" value={`${Math.round((item.confidence as number) * 100)}%`} valueClassName={conf.cls} />
         )}
       </div>
+
+      <div className="mt-3 space-y-2">
+        <EvidenceChips icon={<Building2 className="h-3 w-3" />} label="Entities" items={item.relatedEntities} />
+        <EvidenceChips icon={<BriefcaseBusiness className="h-3 w-3" />} label="Contracts" items={item.relatedContracts} />
+        <EvidenceChips icon={<FileText className="h-3 w-3" />} label="Tenders" items={item.relatedTenders} />
+        <EvidenceChips icon={<Landmark className="h-3 w-3" />} label="Organizations" items={item.relatedOrganizations} />
+        <EvidenceChips icon={<Tags className="h-3 w-3" />} label="Tags" items={item.tags} tone="accent" />
+      </div>
+
+      {item.citation ? (
+        <div className="mt-3 rounded-lg border border-border bg-bg-2/40 p-2 text-[11px] leading-relaxed text-muted">
+          <span className="mb-1 flex items-center gap-1 font-semibold uppercase tracking-wide text-faint">
+            <BadgeCheck className="h-3 w-3" />
+            Citation
+          </span>
+          {item.citation}
+        </div>
+      ) : null}
 
       {/* action row: full provenance controls */}
       <div className="mt-3 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
         {item.sourceUrl ? (
-          <>
-            <a
-              href={item.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
-            >
-              <ExternalLink className="h-3 w-3" /> Open source
-            </a>
-            <a
-              href={item.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
-            >
-              <FileText className="h-3 w-3" /> Document
-            </a>
-          </>
+          <a
+            href={item.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
+          >
+            <ExternalLink className="h-3 w-3" /> Open Original Source
+          </a>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/40 px-2 py-1 font-mono text-[10px] text-faint">
             {item.recordId ?? "No public URL"}
@@ -172,5 +195,57 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
         </button>
       </div>
     </motion.div>
+  );
+}
+
+function MetaPill({
+  label,
+  value,
+  valueClassName = "text-text"
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-bg-2/40 px-2 py-1.5">
+      <div className="text-[9px] font-semibold uppercase tracking-wide text-faint">{label}</div>
+      <div className={`mt-0.5 truncate tabular text-[11px] font-semibold ${valueClassName}`}>{value}</div>
+    </div>
+  );
+}
+
+function EvidenceChips({
+  icon,
+  items,
+  label,
+  tone = "neutral"
+}: {
+  icon: ReactNode;
+  items?: string[];
+  label: string;
+  tone?: "neutral" | "accent";
+}) {
+  const shown = (items ?? []).filter(Boolean).slice(0, 4);
+  if (shown.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-faint">
+        {icon}
+        {label}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {shown.map((item, index) => (
+          <span
+            className={`rounded-md border px-1.5 py-0.5 text-[10px] ${
+              tone === "accent" ? "border-accent/25 bg-accent/[0.08] text-accent" : "border-border bg-bg-2/60 text-muted"
+            }`}
+            key={`${label}-${item}-${index}`}
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.deps import get_db
 from app.models import Award, Company, Tender
 from app.schemas.dashboard import DashboardRecent, DashboardSummary
+from app.services.search_query import source_rank_ordering
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -33,16 +34,21 @@ def get_dashboard_recent(
     limit: int = Query(default=5, ge=1, le=20),
     db: Session = Depends(get_db),
 ) -> DashboardRecent:
+    # Indian procurement first: recent activity surfaces Indian tenders ahead of
+    # international ones, then by recency, so the dashboard is not World-Bank-dominated.
     latest_tenders = db.scalars(
-        select(Tender).order_by(Tender.created_at.desc(), Tender.id.desc()).limit(limit)
+        select(Tender)
+        .order_by(source_rank_ordering().asc(), Tender.created_at.desc(), Tender.id.desc())
+        .limit(limit)
     ).all()
     latest_awarded_companies = db.scalars(
         select(Company).order_by(Company.created_at.desc(), Company.name.asc()).limit(limit)
     ).all()
     latest_awards = db.execute(
         select(Award)
+        .join(Tender, Award.tender_id == Tender.id)
         .options(joinedload(Award.company), joinedload(Award.tender))
-        .order_by(Award.created_at.desc(), Award.id.desc())
+        .order_by(source_rank_ordering().asc(), Award.created_at.desc(), Award.id.desc())
         .limit(limit)
     ).unique().scalars().all()
 

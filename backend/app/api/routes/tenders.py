@@ -16,6 +16,7 @@ from app.schemas.tenders import (
 )
 from app.services.pdf_intelligence import extract_tender_fields
 from app.services.procurement_intelligence import build_tender_intelligence
+from app.services.search_query import matches, relevance_score, source_rank_ordering
 
 router = APIRouter(prefix="/api/tenders", tags=["tenders"])
 
@@ -24,29 +25,20 @@ router = APIRouter(prefix="/api/tenders", tags=["tenders"])
 def list_tenders(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    q: str | None = Query(default=None, min_length=1, max_length=200, description="Search tender title and procuring entity."),
-    sort: str = Query(default="newest", pattern="^(newest|published_date|value|title)$"),
+    q: str | None = Query(default=None, min_length=1, max_length=200, description="Search tender title, description, buyer, supplier and reference."),
+    sort: str = Query(default="newest", pattern="^(newest|published_date|value|title|relevance)$"),
     db: Session = Depends(get_db),
 ) -> TenderListResponse:
-    filters = []
-    if q:
-        search_term = f"%{q.strip()}%"
-        filters.append(
-            or_(
-                Tender.title.ilike(search_term),
-                Tender.procuring_entity.ilike(search_term),
-            )
-        )
-
     total_statement = select(func.count()).select_from(Tender)
     tender_statement = select(Tender)
-    if filters:
-        total_statement = total_statement.where(*filters)
-        tender_statement = tender_statement.where(*filters)
+    if q:
+        # Full-text + fuzzy + synonym retrieval (shared with global search).
+        total_statement = total_statement.where(matches(q))
+        tender_statement = tender_statement.where(matches(q))
 
     total = db.scalar(total_statement) or 0
     tenders = db.scalars(
-        _apply_tender_sort(tender_statement, sort).limit(limit).offset(offset)
+        _apply_tender_sort(tender_statement, sort, q).limit(limit).offset(offset)
     ).all()
 
     return TenderListResponse(
@@ -55,14 +47,18 @@ def list_tenders(
     )
 
 
-def _apply_tender_sort(statement: Select[tuple[Tender]], sort: str) -> Select[tuple[Tender]]:
+def _apply_tender_sort(statement: Select[tuple[Tender]], sort: str, q: str | None = None) -> Select[tuple[Tender]]:
+    # Indian procurement first everywhere; secondary key varies by requested sort.
+    indian_first = source_rank_ordering().asc()
+    if sort == "relevance" and q:
+        return statement.order_by(indian_first, relevance_score(q).desc(), Tender.published_date.desc().nullslast())
     if sort == "published_date":
-        return statement.order_by(Tender.published_date.desc().nullslast(), Tender.created_at.desc(), Tender.id.desc())
+        return statement.order_by(indian_first, Tender.published_date.desc().nullslast(), Tender.created_at.desc(), Tender.id.desc())
     if sort == "value":
-        return statement.order_by(Tender.estimated_value.desc().nullslast(), Tender.created_at.desc(), Tender.id.desc())
+        return statement.order_by(indian_first, Tender.estimated_value.desc().nullslast(), Tender.created_at.desc(), Tender.id.desc())
     if sort == "title":
-        return statement.order_by(Tender.title.asc(), Tender.created_at.desc(), Tender.id.desc())
-    return statement.order_by(Tender.created_at.desc(), Tender.published_date.desc().nullslast(), Tender.id.desc())
+        return statement.order_by(indian_first, Tender.title.asc(), Tender.created_at.desc(), Tender.id.desc())
+    return statement.order_by(indian_first, Tender.created_at.desc(), Tender.published_date.desc().nullslast(), Tender.id.desc())
 
 
 @router.get("/{tender_id}", response_model=TenderDetail)

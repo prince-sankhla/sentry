@@ -11,10 +11,19 @@ from app.api.deps import get_db
 from app.webintel.crawler import get_default_crawler
 from app.webintel.extractor import extract_evidence
 from app.webintel.models import WebEvidence, WebProcurementEvidence
+from app.webintel.intelligence import build_intelligence
 from app.webintel.procurement_extractor import normalize_company_name
 from app.webintel.procurement_store import ensure_procurement_evidence
-from app.webintel.schemas import ProcurementEvidence, ProcurementEvidenceResponse, SearchRequest, StoredPage, WebSearchResponse
+from app.webintel.schemas import (
+    ProcurementEvidence,
+    ProcurementEvidenceResponse,
+    ProcurementIntelligenceResponse,
+    SearchRequest,
+    StoredPage,
+    WebSearchResponse,
+)
 from app.webintel.search import get_default_search_provider
+from app.webintel.source_authority import classify_source, is_procurement_relevant
 from app.webintel.utils import canonicalize_url
 
 logger = logging.getLogger(__name__)
@@ -61,6 +70,7 @@ def search_web(request: SearchRequest, db: Session = Depends(get_db)) -> WebSear
 
     downloaded_pages = 0
     duplicates_skipped = 0
+    rejected_non_procurement = 0
     stored_pages: list[StoredPage] = []
     seen_urls: set[str] = set()
 
@@ -71,10 +81,27 @@ def search_web(request: SearchRequest, db: Session = Depends(get_db)) -> WebSear
             continue
         seen_urls.add(url)
 
+        # Source-authority gate FIRST: reject any URL that is not an allow-listed
+        # authoritative procurement source (govt/tender portals, oversight bodies,
+        # courts, regulators, official PDFs, procurement news). This drops generic
+        # web — shopping, blogs, marketing, wiki — before we ever download it, so
+        # the engine only ever spends bandwidth on investigation-relevant sources.
+        if not classify_source(url, title=result.title).admissible:
+            rejected_non_procurement += 1
+            continue
+
         page = crawler.fetch(url)
         if page is None:
             continue
         downloaded_pages += 1
+
+        # Content relevance gate: an allow-listed host is not enough — the page
+        # itself must be procurement intelligence. Rejects admissions/contact/
+        # about/marketing pages even on government or educational hosts before
+        # they are ever stored.
+        if not is_procurement_relevant(page.title or result.title, page.url, page.content):
+            rejected_non_procurement += 1
+            continue
 
         if not _is_procurement_page(query, page.title or result.title, page.url, page.content):
             duplicates_skipped += 1
@@ -143,6 +170,7 @@ def search_web(request: SearchRequest, db: Session = Depends(get_db)) -> WebSear
         downloaded_pages=downloaded_pages,
         stored_pages=stored_pages,
         duplicates_skipped=duplicates_skipped,
+        rejected_non_procurement=rejected_non_procurement,
     )
 
 
@@ -235,7 +263,55 @@ def list_procurement_evidence(
         .order_by(WebEvidence.retrieved_at.desc(), WebEvidence.id.desc())
         .limit(min(max(limit, 1), 100))
     )
-    return ProcurementEvidenceResponse(items=[_stored_page(evidence) for evidence in db.scalars(statement).all()])
+    # Only return admissible, procurement-relevant evidence — re-check every item
+    # so admissions/contact/marketing pages never surface even if stored earlier.
+    items = [
+        _stored_page(evidence)
+        for evidence in db.scalars(statement).all()
+        if classify_source(evidence.url, title=evidence.title).admissible
+        and is_procurement_relevant(evidence.title, evidence.url, evidence.content)
+    ]
+    return ProcurementEvidenceResponse(items=items)
+
+
+@router.get("/intelligence", response_model=ProcurementIntelligenceResponse)
+def procurement_intelligence(
+    q: str,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+) -> ProcurementIntelligenceResponse:
+    """Analyst-grade, clustered procurement intelligence for a subject.
+
+    Returns only admissible, investigation-relevant evidence — each item carrying
+    full provenance (source, type, confidence, publication date, URL, citation,
+    summary) and its related entities/tenders/contracts/organizations/
+    investigations — grouped into the seven investigation clusters. Reads the
+    same stored evidence as ``/procurement-evidence`` but re-classifies and
+    clusters it, dropping any source no longer admissible under current rules.
+    """
+    query = q.strip()
+    normalized_query = normalize_company_name(query)
+    search_term = f"%{query}%"
+    normalized_term = f"%{normalized_query}%"
+    statement = (
+        select(WebEvidence)
+        .join(WebProcurementEvidence, WebProcurementEvidence.web_evidence_id == WebEvidence.id)
+        .where(
+            or_(
+                WebEvidence.query.ilike(search_term),
+                WebProcurementEvidence.company_name.ilike(search_term),
+                WebProcurementEvidence.normalized_company_name.ilike(normalized_term),
+                WebProcurementEvidence.government_buyer.ilike(search_term),
+                WebProcurementEvidence.tender_title.ilike(search_term),
+                WebProcurementEvidence.contract_title.ilike(search_term),
+                WebProcurementEvidence.organization.ilike(search_term),
+            )
+        )
+        .order_by(WebEvidence.retrieved_at.desc(), WebEvidence.id.desc())
+        .limit(min(max(limit, 1), 200))
+    )
+    evidences = list(db.scalars(statement).all())
+    return build_intelligence(query, evidences)
 
 
 def _stored_page(evidence: WebEvidence) -> StoredPage:

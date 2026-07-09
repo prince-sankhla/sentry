@@ -6,33 +6,48 @@ import {
   BackgroundVariant,
   Controls,
   Edge,
+  EdgeTypes,
   Handle,
   MarkerType,
   MiniMap,
   Node,
   NodeProps,
+  PanOnScrollMode,
   Position,
   ReactFlow,
   ReactFlowProvider,
+  SmoothStepEdge,
   useEdgesState,
   useNodesState,
   useReactFlow
 } from "@xyflow/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Archive, Award, Building2, Crosshair, FileSearch, FileText, Filter, FolderTree, Globe2, Landmark, Maximize2, Search, UserRound } from "lucide-react";
+import { AlertTriangle, Archive, Award, Building2, Crosshair, Eye, EyeOff, FileSearch, FileText, Filter, FolderTree, Globe2, Landmark, Maximize2, RotateCcw, Search, UserRound, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { GraphEdgeType, GraphNodeType, RelationshipGraph, RelationshipGraphNode } from "@/lib/api";
 
 type SelectedItem = { kind: "node"; id: string } | { kind: "edge"; id: string } | null;
+type LayoutMode = "LR" | "TB";
 
 type FlowNodeData = {
   graphNode: RelationshipGraphNode;
   selected: boolean;
   connected: boolean;
   dimmed: boolean;
+  layoutMode: LayoutMode;
   matched: boolean;
+};
+
+type RelationshipGraphExplorerProps = {
+  graph: RelationshipGraph;
+  compact?: boolean;
+  fullscreen?: boolean;
+  height?: number | string;
+  onExitFullscreen?: () => void;
+  subtitle?: string;
+  title?: string;
 };
 
 const typeLabels: Record<GraphNodeType, string> = {
@@ -87,33 +102,69 @@ const nodeTypes = {
   investigation: InvestigationNode
 };
 
-export function RelationshipGraphExplorer({ graph }: { graph: RelationshipGraph }) {
+const edgeTypes: EdgeTypes = {
+  smoothstep: SmoothStepEdge
+};
+
+export function RelationshipGraphExplorer({
+  graph,
+  compact = false,
+  fullscreen = false,
+  height,
+  onExitFullscreen,
+  subtitle,
+  title = "Investigation Graph"
+}: RelationshipGraphExplorerProps) {
   return (
     <ReactFlowProvider>
-      <RelationshipGraphCanvas graph={graph} />
+      <RelationshipGraphCanvas
+        compact={compact}
+        fullscreen={fullscreen}
+        graph={graph}
+        height={height}
+        onExitFullscreen={onExitFullscreen}
+        subtitle={subtitle}
+        title={title}
+      />
     </ReactFlowProvider>
   );
 }
 
-function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
+function RelationshipGraphCanvas({
+  compact,
+  fullscreen,
+  graph,
+  height,
+  onExitFullscreen,
+  subtitle,
+  title
+}: Required<Pick<RelationshipGraphExplorerProps, "compact" | "fullscreen" | "graph" | "title">> &
+  Pick<RelationshipGraphExplorerProps, "height" | "onExitFullscreen" | "subtitle">) {
   const [enabledTypes, setEnabledTypes] = useState<Set<GraphNodeType>>(() => new Set(filterTypes));
-  const visibleGraph = useMemo(() => filterGraphByType(graph, enabledTypes), [enabledTypes, graph]);
-  const initialNodes = useMemo(() => toFlowNodes(visibleGraph), [visibleGraph]);
+  const [collapsedTypes, setCollapsedTypes] = useState<Set<GraphNodeType>>(() => new Set());
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("LR");
+  const visibleGraph = useMemo(() => filterGraphByType(graph, enabledTypes, collapsedTypes), [collapsedTypes, enabledTypes, graph]);
+  const initialNodes = useMemo(() => toFlowNodes(visibleGraph, layoutMode, fullscreen), [fullscreen, visibleGraph, layoutMode]);
   const initialEdges = useMemo(() => toFlowEdges(visibleGraph), [visibleGraph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   const [query, setQuery] = useState("");
-  const { fitView, setCenter } = useReactFlow();
+  const { fitView, getZoom, setCenter } = useReactFlow();
+  const nodeCounts = useMemo(() => countNodeTypes(graph.nodes), [graph.nodes]);
+  const visibleCounts = useMemo(() => countNodeTypes(visibleGraph.nodes), [visibleGraph.nodes]);
+  const indicatorCount = visibleCounts.indicator ?? 0;
+  const largeGraph = graph.nodes.length > 80;
+  const fitPadding = fullscreen ? (largeGraph ? 0.08 : 0.16) : compact ? 0.18 : 0.28;
 
   const selectedNode = selectedItem?.kind === "node" ? visibleGraph.nodes.find((node) => node.id === selectedItem.id) : null;
   const selectedEdge = selectedItem?.kind === "edge" ? visibleGraph.edges.find((edge) => edge.id === selectedItem.id) : null;
 
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-    setSelectedItem(null);
-  }, [initialEdges, initialNodes, setEdges, setNodes]);
+  const fitGraph = useCallback((duration = 420) => {
+    window.requestAnimationFrame(() => {
+      fitView({ duration, padding: fitPadding, includeHiddenNodes: false });
+    });
+  }, [fitPadding, fitView]);
 
   function applySelection(nextSelection: SelectedItem, matches = new Set<string>()) {
     setSelectedItem(nextSelection);
@@ -126,7 +177,8 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
     applySelection({ kind: "node", id: nodeId });
     const node = nodes.find((candidate) => candidate.id === nodeId);
     if (node) {
-      setCenter(node.position.x + 140, node.position.y + 64, { zoom: 1.05, duration: 360 });
+      const zoom = Math.min(Math.max(getZoom(), fullscreen ? 0.65 : 0.8), fullscreen ? 1.15 : 1.05);
+      setCenter(node.position.x + 150, node.position.y + 66, { zoom, duration: 360 });
     }
   }
 
@@ -150,7 +202,7 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
     const firstMatch = visibleGraph.nodes.find((node) => matches.has(node.id));
     applySelection(firstMatch ? { kind: "node", id: firstMatch.id } : null, matches);
     if (firstMatch) {
-      window.setTimeout(() => fitView({ nodes: [{ id: firstMatch.id }], duration: 360, padding: 0.45 }), 0);
+      window.requestAnimationFrame(() => fitView({ nodes: [{ id: firstMatch.id }], duration: 360, padding: 0.45 }));
     }
   }
 
@@ -166,13 +218,99 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
     });
   }
 
+  const centerGraph = useCallback(() => {
+    if (nodes.length === 0) return;
+    const bounds = nodes.reduce(
+      (acc, node) => {
+        const width = 300;
+        const height = 132;
+        return {
+          minX: Math.min(acc.minX, node.position.x),
+          minY: Math.min(acc.minY, node.position.y),
+          maxX: Math.max(acc.maxX, node.position.x + width),
+          maxY: Math.max(acc.maxY, node.position.y + height)
+        };
+      },
+      { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+    );
+    const zoom = Math.min(Math.max(getZoom(), fullscreen ? 0.25 : 0.45), fullscreen ? 1.05 : 1);
+    setCenter((bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2, { zoom, duration: 360 });
+  }, [fullscreen, getZoom, nodes, setCenter]);
+
+  const resetView = useCallback(() => {
+    setQuery("");
+    applySelection(null);
+    fitGraph(420);
+  }, [fitGraph]);
+
+  useEffect(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+    setSelectedItem(null);
+    fitGraph(520);
+  }, [fitGraph, initialEdges, initialNodes, setEdges, setNodes]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const isTextInput =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        Boolean(target?.isContentEditable);
+      if (isTextInput) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onExitFullscreen?.();
+        return;
+      }
+      if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        fitGraph(360);
+        return;
+      }
+      if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        resetView();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fitGraph, fullscreen, onExitFullscreen, resetView]);
+
+  function toggleCluster(type: GraphNodeType) {
+    setCollapsedTypes((current) => {
+      const next = new Set(current);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }
+
   return (
-    <div className="grid min-h-[calc(100vh-112px)] gap-4 xl:grid-cols-[1fr_380px]">
-      <section className="overflow-hidden rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)]">
-        <div className="flex flex-col gap-3 border-b border-border bg-bg-2/40 p-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className={
+      fullscreen
+        ? "grid h-dvh w-dvw min-h-0 min-w-0 overflow-hidden bg-bg xl:grid-cols-[minmax(0,1fr)_380px]"
+        : `grid gap-4 ${compact ? "min-h-0 xl:grid-cols-[1fr_340px]" : "min-h-[calc(100vh-112px)] xl:grid-cols-[1fr_380px]"}`
+    }>
+      <section className={
+        fullscreen
+          ? "flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border bg-bg"
+          : "overflow-hidden rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)]"
+      }>
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border bg-bg-2/40 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-text">Investigation Graph</h2>
-            <p className="mt-1 text-xs text-muted">{visibleGraph.nodes.length} nodes / {visibleGraph.edges.length} relationships</p>
+            <h2 className="text-base font-semibold text-text">{title}</h2>
+            {subtitle ? <p className="mt-1 max-w-2xl truncate text-xs text-faint">{subtitle}</p> : null}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <GraphStat label="Nodes" value={visibleGraph.nodes.length} />
+              <GraphStat label="Relationships" value={visibleGraph.edges.length} />
+              <GraphStat label="Indicators" value={indicatorCount} tone={indicatorCount > 0 ? "danger" : "neutral"} />
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="relative block">
@@ -186,49 +324,131 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
                 value={query}
               />
             </label>
+            <div className="inline-flex h-10 rounded-[12px] border border-border bg-bg p-0.5" aria-label="Graph layout">
+              {(["LR", "TB"] as LayoutMode[]).map((mode) => (
+                <button
+                  aria-pressed={layoutMode === mode}
+                  className={`rounded-[9px] px-3 text-xs font-semibold transition ${
+                    layoutMode === mode ? "bg-accent/15 text-accent" : "text-muted hover:text-text"
+                  }`}
+                  key={mode}
+                  onClick={() => setLayoutMode(mode)}
+                  type="button"
+                >
+                  {mode === "LR" ? "Horizontal" : "Vertical"}
+                </button>
+              ))}
+            </div>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface px-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-accent"
-              onClick={() => fitView({ duration: 420, padding: 0.24 })}
+              onClick={() => fitGraph(420)}
               type="button"
             >
               <Maximize2 className="h-4 w-4" aria-hidden="true" />
-              Fit
+              Fit Graph
             </button>
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-accent"
+              onClick={centerGraph}
+              type="button"
+            >
+              <Crosshair className="h-4 w-4" aria-hidden="true" />
+              Center Graph
+            </button>
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-accent"
+              onClick={resetView}
+              type="button"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Reset Camera
+            </button>
+            {fullscreen && onExitFullscreen ? (
+              <button
+                aria-label="Exit full graph"
+                className="grid h-10 w-10 place-items-center rounded-[12px] border border-border bg-surface text-muted transition hover:border-border-strong hover:text-text"
+                onClick={onExitFullscreen}
+                title="Exit full graph"
+                type="button"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 border-b border-border bg-bg-2/20 px-4 py-3">
+        <div className="flex shrink-0 flex-wrap gap-2 border-b border-border bg-bg-2/20 px-4 py-3">
           <div className="flex items-center gap-2 pr-2 text-xs font-semibold uppercase tracking-[0.12em] text-faint">
             <Filter className="h-3.5 w-3.5" aria-hidden="true" />
             Filters
           </div>
           {filterTypes.map((type) => (
             <button
-              className={`h-8 rounded-[10px] border px-2.5 text-xs font-semibold transition ${enabledTypes.has(type) ? "border-accent/50 bg-accent/10 text-accent" : "border-border bg-surface text-muted hover:text-text"}`}
+              className={`h-8 rounded-[10px] border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${enabledTypes.has(type) ? "border-accent/50 bg-accent/10 text-accent" : "border-border bg-surface text-muted hover:text-text"}`}
+              disabled={!nodeCounts[type]}
               key={type}
               onClick={() => toggleType(type)}
               type="button"
             >
+              {typeLabels[type]} <span className="ml-1 tabular text-faint">{nodeCounts[type] ?? 0}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2 border-b border-border bg-bg-2/10 px-4 py-3">
+          <div className="flex items-center gap-2 pr-2 text-xs font-semibold uppercase tracking-[0.12em] text-faint">
+            Clusters
+          </div>
+          {filterTypes.filter((type) => (nodeCounts[type] ?? 0) > 0).map((type) => (
+            <button
+              className={`inline-flex h-8 items-center gap-1.5 rounded-[10px] border px-2.5 text-xs font-semibold transition ${
+                collapsedTypes.has(type) ? "border-warning/40 bg-warning/10 text-warning" : "border-border bg-surface text-muted hover:text-text"
+              }`}
+              key={type}
+              onClick={() => toggleCluster(type)}
+              type="button"
+            >
+              {collapsedTypes.has(type) ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               {typeLabels[type]}
             </button>
           ))}
         </div>
-        <div className="h-[720px] bg-bg">
+        {largeGraph && (
+          <div className="shrink-0 border-b border-border bg-warning/[0.04] px-4 py-2 text-xs text-muted">
+            Large graph mode active. Use cluster controls and search to narrow the investigation view.
+          </div>
+        )}
+        <div className={`${fullscreen ? "min-h-0 flex-1" : ""} bg-bg`} style={fullscreen ? undefined : { height: height ?? (compact ? 640 : 720) }}>
           <ReactFlow
             edges={edges}
+            edgeTypes={edgeTypes}
             fitView
-            fitViewOptions={{ padding: 0.22 }}
-            minZoom={0.18}
+            fitViewOptions={{ padding: fitPadding, includeHiddenNodes: false }}
+            maxZoom={fullscreen ? 2.4 : 1.6}
+            minZoom={fullscreen ? 0.01 : 0.04}
             nodeTypes={nodeTypes}
             nodes={nodes}
             onEdgeClick={(_, edge) => selectEdge(edge.id)}
             onEdgesChange={onEdgesChange}
             onNodeClick={(_, node) => selectNode(node.id)}
             onNodesChange={onNodesChange}
+            onlyRenderVisibleElements={largeGraph}
+            panOnDrag
+            panOnScroll={false}
+            panOnScrollMode={PanOnScrollMode.Free}
+            panOnScrollSpeed={0.85}
+            paneClickDistance={4}
+            preventScrolling
             proOptions={{ hideAttribution: true }}
+            selectionOnDrag
+            selectNodesOnDrag={false}
+            style={{ height: "100%", width: "100%" }}
+            zoomOnDoubleClick={false}
+            zoomOnPinch
+            zoomOnScroll
           >
             <Background color="#1c2634" gap={34} lineWidth={0.4} variant={BackgroundVariant.Lines} />
-            <Controls position="bottom-left" />
+            <Controls fitViewOptions={{ padding: fitPadding }} position="bottom-left" />
             <MiniMap
+              className="!bg-bg-2/90"
               maskColor="rgba(8, 11, 17, 0.82)"
               nodeColor={(node) => nodeStyles[(node.data as unknown as FlowNodeData).graphNode.type]?.border ?? "#46566b"}
               pannable
@@ -239,8 +459,12 @@ function RelationshipGraphCanvas({ graph }: { graph: RelationshipGraph }) {
         </div>
       </section>
 
-      <aside className="rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)]">
-        <div className="border-b border-border bg-bg-2/40 px-4 py-3">
+      <aside className={
+        fullscreen
+          ? "hidden min-h-0 overflow-y-auto bg-surface xl:block"
+          : `rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)] ${compact ? "max-xl:hidden" : ""}`
+      }>
+        <div className="sticky top-0 z-10 border-b border-border bg-bg-2/95 px-4 py-3 backdrop-blur">
           <h2 className="text-base font-semibold text-text">Details</h2>
           <p className="mt-1 text-xs text-muted">Overview, metadata, relationships, evidence, and statistics</p>
         </div>
@@ -273,6 +497,8 @@ function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
   const graphNode = data.graphNode;
   const style = nodeStyles[graphNode.type];
   const Icon = nodeIcon(graphNode.type);
+  const targetPosition = data.layoutMode === "TB" ? Position.Top : Position.Left;
+  const sourcePosition = data.layoutMode === "TB" ? Position.Bottom : Position.Right;
 
   return (
     <motion.div
@@ -287,11 +513,11 @@ function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
           boxShadow: data.selected || data.matched
             ? `0 0 0 2px rgba(224,167,62,0.35), 0 18px 48px rgba(0,0,0,0.6)`
             : "0 12px 32px -16px rgba(0,0,0,0.7)",
-          width: 280
+          width: 300
         }}
       >
-        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={Position.Left} type="target" />
-        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={Position.Right} type="source" />
+        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={targetPosition} type="target" />
+        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={sourcePosition} type="source" />
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4" style={{ color: style.accent }} aria-hidden="true" />
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: style.accent }}>
@@ -304,7 +530,7 @@ function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
           {renderNodeFacts(graphNode).map((fact) => (
             <div className="flex justify-between gap-3" key={fact.label}>
               <span>{fact.label}</span>
-              <span className="max-w-[150px] truncate text-right tabular-nums text-[#c3ccd8]">{fact.value}</span>
+              <span className="max-w-[170px] truncate text-right tabular-nums text-[#c3ccd8]">{fact.value}</span>
             </div>
           ))}
         </div>
@@ -336,6 +562,9 @@ function DetailsPanel({
     .filter((id) => id !== itemId)
     .map((id) => graph.nodes.find((node) => node.id === id))
     .filter((node): node is RelationshipGraphNode => Boolean(node));
+  const relatedCompanies = relatedNodes.filter((node) => node.type === "company");
+  const relatedBuyers = relatedNodes.filter((node) => node.type === "buyer");
+  const relatedAwards = relatedNodes.filter((node) => node.type === "award");
   return (
     <div>
       <div className="inline-flex rounded-[10px] border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
@@ -343,6 +572,12 @@ function DetailsPanel({
       </div>
       <h3 className="mt-3 text-lg font-semibold text-text">{label}</h3>
       {meta ? <p className="mt-2 break-all font-mono text-xs text-faint">{meta}</p> : null}
+
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <GraphStat label="Links" value={relationships.length} />
+        <GraphStat label="Companies" value={relatedCompanies.length} />
+        <GraphStat label="Buyers" value={relatedBuyers.length} />
+      </div>
 
       <DetailSection title="Overview">
         <Field label="Summary" value={stringValue(fields.summary) || label} />
@@ -365,15 +600,15 @@ function DetailsPanel({
       </DetailSection>
 
       <DetailSection title="Related Companies">
-        {relatedNodes.filter((node) => node.type === "company").length ? relatedNodes.filter((node) => node.type === "company").slice(0, 6).map((node) => <Field key={node.id} label={typeLabels[node.type]} value={node.label} />) : <Field label="Companies" value={stringValue(fields.related_company) || "None in current graph"} />}
+        {relatedCompanies.length ? relatedCompanies.slice(0, 6).map((node) => <Field key={node.id} label={typeLabels[node.type]} value={node.label} />) : <Field label="Companies" value={stringValue(fields.related_company) || "None in current graph"} />}
       </DetailSection>
 
       <DetailSection title="Related Buyers">
-        {relatedNodes.filter((node) => node.type === "buyer").length ? relatedNodes.filter((node) => node.type === "buyer").slice(0, 6).map((node) => <Field key={node.id} label={typeLabels[node.type]} value={node.label} />) : <Field label="Buyers" value={stringValue(fields.related_buyer) || "None in current graph"} />}
+        {relatedBuyers.length ? relatedBuyers.slice(0, 6).map((node) => <Field key={node.id} label={typeLabels[node.type]} value={node.label} />) : <Field label="Buyers" value={stringValue(fields.related_buyer) || "None in current graph"} />}
       </DetailSection>
 
       <DetailSection title="Related Awards">
-        {relatedNodes.filter((node) => node.type === "award").length ? relatedNodes.filter((node) => node.type === "award").slice(0, 6).map((node) => <Field key={node.id} label={typeLabels[node.type]} value={node.label} />) : <Field label="Awards" value="None in current graph" />}
+        {relatedAwards.length ? relatedAwards.slice(0, 6).map((node) => <Field key={node.id} label={typeLabels[node.type]} value={node.label} />) : <Field label="Awards" value="None in current graph" />}
       </DetailSection>
 
       <DetailSection title="Documents">
@@ -399,6 +634,25 @@ function DetailsPanel({
   );
 }
 
+function GraphStat({
+  label,
+  value,
+  tone = "neutral"
+}: {
+  label: string;
+  value: number;
+  tone?: "neutral" | "danger";
+}) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium ${
+      tone === "danger" ? "border-danger/30 bg-danger/10 text-danger" : "border-border bg-bg-2/50 text-muted"
+    }`}>
+      <span className="tabular font-semibold text-text">{value}</span>
+      {label}
+    </span>
+  );
+}
+
 function DetailSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section className="mt-5">
@@ -417,13 +671,22 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function toFlowNodes(graph: RelationshipGraph): Node<FlowNodeData>[] {
+function toFlowNodes(graph: RelationshipGraph, rankdir: LayoutMode, fullscreen = false): Node<FlowNodeData>[] {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
-  dagreGraph.setGraph({ rankdir: "LR", ranksep: 150, nodesep: 70, marginx: 40, marginy: 40 });
+  const large = graph.nodes.length > 80;
+  const huge = graph.nodes.length > 220;
+  dagreGraph.setGraph({
+    rankdir,
+    ranksep: rankdir === "LR" ? (huge ? 360 : large ? 280 : 190) : (huge ? 230 : large ? 180 : 128),
+    nodesep: rankdir === "LR" ? (huge ? 180 : large ? 132 : 88) : (huge ? 170 : large ? 136 : 104),
+    edgesep: large ? 48 : 28,
+    marginx: fullscreen ? 180 : 96,
+    marginy: fullscreen ? 180 : 96
+  });
 
-  graph.nodes.forEach((node) => dagreGraph.setNode(node.id, { width: 280, height: 132 }));
-  graph.edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
+  graph.nodes.forEach((node) => dagreGraph.setNode(node.id, { width: 300, height: 132 }));
+  graph.edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target, { weight: edge.type.includes("indicator") ? 2 : 1 }));
   dagre.layout(dagreGraph);
 
   return graph.nodes.map((node) => {
@@ -431,25 +694,28 @@ function toFlowNodes(graph: RelationshipGraph): Node<FlowNodeData>[] {
     return {
       id: node.id,
       type: "investigation",
-      data: { graphNode: node, selected: false, connected: false, dimmed: false, matched: false },
-      position: { x: position.x - 140, y: position.y - 66 }
+      data: { graphNode: node, selected: false, connected: false, dimmed: false, layoutMode: rankdir, matched: false },
+      position: { x: position.x - 150, y: position.y - 66 }
     };
   });
 }
 
 function toFlowEdges(graph: RelationshipGraph): Edge[] {
+  const large = graph.nodes.length > 80;
   return graph.edges.map((edge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
+    data: { graphType: edge.type },
     animated: true,
     label: edge.label,
     markerEnd: { type: MarkerType.ArrowClosed, color: edgeColors[edge.type] },
-    style: { stroke: edgeColors[edge.type], strokeWidth: edge.type.includes("indicator") ? 2.2 : 1.6 },
-    labelStyle: { fill: "#93a1b5", fontSize: 11, fontWeight: 600 },
+    style: { stroke: edgeColors[edge.type], strokeWidth: edge.type.includes("indicator") ? 2.2 : 1.45, opacity: large ? 0.82 : 1 },
+    labelStyle: { fill: "#93a1b5", fontSize: large ? 10 : 11, fontWeight: 600 },
     labelBgStyle: { fill: "#111823", fillOpacity: 0.92 },
     labelBgPadding: [6, 3] as [number, number],
     labelBgBorderRadius: 6,
+    pathOptions: { borderRadius: large ? 22 : 14, offset: large ? 42 : 28 },
     type: "smoothstep"
   }));
 }
@@ -497,7 +763,8 @@ function applyEdgeHighlights(edges: Edge[], graph: RelationshipGraph, selectedIt
     const isSelectedEdge = selectedItem?.kind === "edge" && selectedItem.id === edge.id;
     const isConnected = connectedNodeIds.size === 0 || (connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target));
     const active = isSelectedEdge || (selectedItem !== null && isConnected);
-    const baseStroke = (edge.style as { stroke?: string } | undefined)?.stroke;
+    const graphType = (edge.data as { graphType?: GraphEdgeType } | undefined)?.graphType;
+    const baseStroke = graphType ? edgeColors[graphType] : (edge.style as { stroke?: string } | undefined)?.stroke;
     return {
       ...edge,
       animated: isConnected,
@@ -552,13 +819,20 @@ function renderNodeFacts(node: RelationshipGraphNode): { label: string; value: s
   return [{ label: "Name", value: node.label }];
 }
 
-function filterGraphByType(graph: RelationshipGraph, enabledTypes: Set<GraphNodeType>): RelationshipGraph {
-  const nodes = graph.nodes.filter((node) => enabledTypes.has(node.type));
+function filterGraphByType(graph: RelationshipGraph, enabledTypes: Set<GraphNodeType>, collapsedTypes: Set<GraphNodeType>): RelationshipGraph {
+  const nodes = graph.nodes.filter((node) => enabledTypes.has(node.type) && !collapsedTypes.has(node.type));
   const nodeIds = new Set(nodes.map((node) => node.id));
   return {
     nodes,
     edges: graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
   };
+}
+
+function countNodeTypes(nodes: RelationshipGraphNode[]): Partial<Record<GraphNodeType, number>> {
+  return nodes.reduce<Partial<Record<GraphNodeType, number>>>((counts, node) => {
+    counts[node.type] = (counts[node.type] ?? 0) + 1;
+    return counts;
+  }, {});
 }
 
 function nodeIcon(type: GraphNodeType) {

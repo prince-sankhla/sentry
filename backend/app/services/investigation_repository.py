@@ -8,7 +8,7 @@ real imported PostgreSQL data instead of raw files on disk.
 
 from __future__ import annotations
 
-from sqlalchemy import case, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.connectors.base import (
@@ -19,8 +19,19 @@ from app.connectors.base import (
     NormalizedSourceMetadata,
     NormalizedTender,
 )
-from app.connectors.common.source_priority import _SOURCE_RANK, _UNKNOWN_RANK
 from app.models import Award, Company, Document, Tender
+from app.services.search_query import (
+    entity_matches,
+    entity_relevance_score,
+    matches,
+    relevance_score,
+    source_rank_ordering,
+)
+
+# International / foreign-financier sources excluded from India-targeted entity
+# investigations (country isolation). World Bank / ADB / UN / Prozorro data is
+# never merged into an Indian entity's package unless explicitly requested.
+_INTERNATIONAL_SOURCES = ("world_bank", "adb", "un_procurement", "prozorro")
 
 
 class DatabaseRecordSource:
@@ -35,33 +46,37 @@ class DatabaseRecordSource:
         *,
         source_names: list[str] | None = None,
         limit: int = 25,
+        precision: bool = False,
+        aliases: list[str] | None = None,
+        indian_only: bool = False,
     ) -> list[NormalizedProcurementRecord]:
-        term = f"%{query.strip()}%"
         if not query.strip():
             return []
 
-        company_tender_ids = (
-            select(Award.tender_id).join(Company, Award.company_id == Company.id).where(Company.name.ilike(term))
-        )
-        conditions = or_(
-            Tender.title.ilike(term),
-            Tender.procuring_entity.ilike(term),
-            Tender.reference_number.ilike(term),
-            Tender.description.ilike(term),
-            Tender.id.in_(company_tender_ids),
-        )
+        if precision:
+            # Precision retrieval for entity investigations: a record must
+            # DIRECTLY reference the entity (awarded supplier / buyer / title /
+            # reference or a known alias) — no synonym-expanded FTS, which is
+            # what mixes in unrelated procurements. Precision before recall.
+            where_clause = entity_matches(query, aliases=aliases)
+            relevance = entity_relevance_score(query, aliases=aliases)
+        else:
+            # Ranked retrieval: full-text + fuzzy trigram + synonym expansion.
+            where_clause = matches(query)
+            relevance = relevance_score(query)
+
         statement = (
             select(Tender)
-            .where(conditions)
+            .where(where_clause)
             .options(
                 selectinload(Tender.awards).joinedload(Award.company),
                 selectinload(Tender.documents),
             )
-            # Indian procurement first: rank Indian sources ahead of international
-            # ones, then fall back to recency. This is the primary investigation
-            # retrieval path, so every package is Indian-weighted by construction.
+            # Indian procurement first, then relevance, then recency. Every
+            # package is both relevance-ranked and Indian-weighted by construction.
             .order_by(
-                _source_rank_ordering().asc(),
+                source_rank_ordering().asc(),
+                relevance.desc(),
                 Tender.published_date.desc().nullslast(),
                 Tender.created_at.desc(),
             )
@@ -69,6 +84,11 @@ class DatabaseRecordSource:
         )
         if source_names:
             statement = statement.where(Tender.source_name.in_(source_names))
+        if indian_only:
+            # Country isolation: this deployment targets Indian procurement — never
+            # merge foreign / international-financier records (World Bank, ADB, UN,
+            # Prozorro) into an entity investigation unless explicitly requested.
+            statement = statement.where(Tender.source_name.notin_(_INTERNATIONAL_SOURCES))
 
         return [self._to_record(tender) for tender in self.session.scalars(statement).unique()]
 
@@ -143,17 +163,3 @@ class DatabaseRecordSource:
             source_url=source_url,
             retrieved_at=getattr(row, "retrieved_at", None),
         )
-
-
-def _source_rank_ordering():
-    """SQL CASE expression mapping ``Tender.source_name`` to its Indian-first rank.
-
-    Mirrors ``source_priority.source_rank`` for the ranked sources so the DB can
-    order Indian procurement ahead of international data in a single query.
-    Unranked sources fall to the default bucket and then to recency ordering.
-    """
-    return case(
-        {name: rank for name, rank in _SOURCE_RANK.items()},
-        value=Tender.source_name,
-        else_=_UNKNOWN_RANK,
-    )

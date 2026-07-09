@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(../backend/.venv/Scripts/python.exe -c ' *)"
+      "Bash(../backend/.venv/Scripts/python.exe -c ' *)",
+      "Bash(git -C /c/projects/sentry diff --name-only)",
+      "Bash(backend/.venv/Scripts/python.exe scripts/seed_indian_procurement.py)",
+      "Read(//c/Users/mayan/.claude/projects/C--projects-sentry/memory/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\mayan\\.claude\\projects\\C--projects-sentry\\memory"
     ]
   }
 }

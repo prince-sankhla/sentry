@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # Anthropic (official SDK)
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-opus-4-8"
+    # Optional Anthropic-compatible endpoint (e.g. a proxy/gateway). When unset the
+    # SDK uses the official api.anthropic.com base URL.
+    anthropic_base_url: str | None = None
 
     # OpenRouter (OpenAI-compatible REST)
     openrouter_api_key: str | None = None
@@ -44,7 +47,7 @@ class Settings(BaseSettings):
 
     # Google Gemini (Generative Language REST)
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-2.5-flash"
 
     @field_validator("backend_cors_origins", mode="before")
     @classmethod

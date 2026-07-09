@@ -1,24 +1,20 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.connectors.common.source_priority import _SOURCE_RANK, _UNKNOWN_RANK
 from app.models import Company, Tender
 from app.schemas.profiles import AutocompleteResponse, SearchHit, SearchResponse
+from app.services.search_query import matches, relevance_score, source_rank_ordering
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 
 def _tender_source_rank():
     """Indian-first source ordering for tender search (lower rank shown first)."""
-    return case(
-        {name: rank for name, rank in _SOURCE_RANK.items()},
-        value=Tender.source_name,
-        else_=_UNKNOWN_RANK,
-    )
+    return source_rank_ordering()
 
 
 @router.get("", response_model=SearchResponse)
@@ -29,16 +25,29 @@ def global_search(
 ) -> SearchResponse:
     term = f"%{q.strip()}%"
 
+    # Ranked full-text + fuzzy + synonym search, Indian procurement first.
     tenders = db.scalars(
         select(Tender)
-        .where(or_(Tender.title.ilike(term), Tender.reference_number.ilike(term), Tender.procuring_entity.ilike(term)))
-        .order_by(_tender_source_rank().asc(), Tender.published_date.desc().nullslast())
+        .where(matches(q))
+        .order_by(
+            _tender_source_rank().asc(),
+            relevance_score(q).desc(),
+            Tender.published_date.desc().nullslast(),
+        )
         .limit(limit)
     ).all()
-    companies = db.scalars(select(Company).where(Company.name.ilike(term)).order_by(Company.name).limit(limit)).all()
+    companies = db.scalars(
+        select(Company)
+        .where(or_(Company.name.ilike(term), Company.name.op("%")(q.strip())))
+        .order_by(func.similarity(Company.name, q.strip()).desc(), Company.name)
+        .limit(limit)
+    ).all()
     buyer_rows = db.execute(
         select(Tender.procuring_entity, func.count())
-        .where(Tender.procuring_entity.ilike(term), Tender.procuring_entity.is_not(None))
+        .where(
+            or_(Tender.procuring_entity.ilike(term), Tender.procuring_entity.op("%")(q.strip())),
+            Tender.procuring_entity.is_not(None),
+        )
         .group_by(Tender.procuring_entity)
         .order_by(func.count().desc())
         .limit(limit)
@@ -74,8 +83,12 @@ def autocomplete(
 
     for t in db.scalars(
         select(Tender)
-        .where(or_(Tender.title.ilike(term), Tender.reference_number.ilike(term)))
-        .order_by(_tender_source_rank().asc(), Tender.published_date.desc().nullslast())
+        .where(matches(q))
+        .order_by(
+            _tender_source_rank().asc(),
+            relevance_score(q).desc(),
+            Tender.published_date.desc().nullslast(),
+        )
         .limit(per)
     ):
         suggestions.append(SearchHit(type="tender", id=str(t.id), label=t.title, sublabel=t.reference_number))

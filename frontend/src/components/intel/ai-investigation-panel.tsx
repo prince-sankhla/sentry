@@ -134,7 +134,16 @@ export function AiInvestigationPanel({
             ) : (
               <>
                 <Activity className="h-3 w-3 text-accent" />
-                Deterministic reasoning composed directly from procurement evidence — no external model was used.
+                {reasoning.fallback_reason === "provider_error"
+                  ? `Deterministic reasoning — the configured provider${
+                      reasoning.provider ? ` (${providerDisplayName(reasoning.provider, reasoning.model)})` : ""
+                    } was unavailable, so a safe evidence-composed report was produced.`
+                  : reasoning.fallback_reason === "grounding_guard"
+                    ? `Deterministic reasoning — ${providerDisplayName(
+                        reasoning.provider,
+                        reasoning.model
+                      )}'s phrasing failed the grounding guard, so a safe evidence-composed report was produced.`
+                    : "Deterministic reasoning composed directly from procurement evidence — no LLM provider is configured."}
               </>
             )}
           </div>

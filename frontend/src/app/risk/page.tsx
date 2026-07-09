@@ -33,8 +33,8 @@ export default async function RiskPage() {
     <PageShell>
       <PageHeader
         eyebrow="Intelligence"
-        title="Risk Monitor"
-        subtitle="Red-flag indicators computed live across every imported tender, award, and buyer-supplier relationship."
+        title="Procurement Risk Assessment"
+        subtitle="Analytical observations computed live across every imported tender, award, and buyer-supplier relationship."
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">

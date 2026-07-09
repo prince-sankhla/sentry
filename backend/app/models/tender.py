@@ -2,9 +2,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, DateTime, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Date, DateTime, FetchedValue, Numeric, String, Text, func
+from sqlalchemy.dialects.postgresql import TSVECTOR, UUID as PostgresUUID
+from sqlalchemy.orm import Mapped, deferred, mapped_column, relationship
 
 from app.models.base import Base
 
@@ -45,6 +45,19 @@ class Tender(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    # DB-generated full-text search vector (see migration f4a2c8d15e30). Deferred
+    # so it is never loaded into normal reads; used only in search WHERE/ORDER BY.
+    # FetchedValue + no insert/update so ORM never writes the GENERATED column.
+    search_vector: Mapped[str | None] = deferred(
+        mapped_column(
+            TSVECTOR,
+            nullable=True,
+            server_default=FetchedValue(),
+            server_onupdate=FetchedValue(),
+        )
+    )
+    __mapper_args__ = {"eager_defaults": False}
 
     awards: Mapped[list["Award"]] = relationship(back_populates="tender")
     documents: Mapped[list["Document"]] = relationship(back_populates="tender")

@@ -516,14 +516,59 @@ export type InvestigationGraphSeed = {
 export type InvestigationPackage = {
   plan: InvestigationPlan;
   records: InvestigationProcurementRecord[];
+  // Canonical entity resolution of the investigation subject (companies AND
+  // government buyers), computed before retrieval. Present from the backend
+  // /execute + /stream report package.
+  resolved_entities: EntityResolutionResult | null;
+  records_from_resolved_entity: boolean;
   canonical_companies: InvestigationCanonicalCompany[];
   entities: unknown[];
   evidence: unknown[];
   timeline: InvestigationTimelineEvent[];
   graph_seeds: InvestigationGraphSeed[];
+  // Complete typed graph of the whole package. The backend node/edge shape is
+  // structurally identical to RelationshipGraph, so it renders directly.
+  graph: RelationshipGraph;
   indicators: InvestigationProcurementIndicator[];
   step_results: InvestigationStepResult[];
 };
+
+/* -------------------------------------------------- canonical entity resolution */
+
+export type EntityCandidate = {
+  entity_id: string;
+  canonical_name: string;
+  entity_type: string;
+  registration_number: string | null;
+  aliases: string[];
+  match_type: string;
+  match_reason: string;
+  score: number;
+  confidence: number;
+  tender_count: number;
+  award_count: number;
+  sources: string[];
+};
+
+export type EntityResolutionResult = {
+  query: string;
+  resolved: boolean;
+  requires_disambiguation: boolean;
+  candidates: EntityCandidate[];
+  selected_entity_id: string | null;
+  reason: string;
+};
+
+/**
+ * Resolve free text to ranked canonical procurement entities.
+ *
+ * Backs the entity-search experience: investigations must start from a verified
+ * entity, never arbitrary text, so the UI resolves suggestions against this
+ * endpoint and only enables "Investigate" once one candidate is selected.
+ */
+export function resolveEntity(query: string, signal?: AbortSignal): Promise<EntityResolutionResult> {
+  return apiPost<EntityResolutionResult>("/api/investigations/resolve-entity", { query }, signal);
+}
 
 export type InvestigationProcurementIndicator = {
   type: string;
@@ -620,6 +665,7 @@ export type InvestigationReasoning = {
   generated_by: "llm" | "deterministic";
   provider: string | null;
   model: string | null;
+  fallback_reason: "no_provider" | "provider_error" | "grounding_guard" | null;
   executive_summary: string;
   risk_level: InvestigationRiskLevel;
   risk_rationale: string[];
@@ -631,7 +677,91 @@ export type InvestigationReasoning = {
   grounding: GroundingReport;
   analyst_trace: AnalystStep[];
   prior_investigations: MemoryHit[];
+  analyst_report: AnalystReport | null;
   insufficient_evidence: boolean;
+};
+
+/* -------------------------------------------------- structured analyst report */
+
+export type ConfidenceDimension = {
+  key: string;
+  label: string;
+  score: number;
+  detail: string;
+};
+
+export type ConfidenceAssessment = {
+  score: number;
+  level: "high" | "moderate" | "low" | "very_low";
+  dimensions: ConfidenceDimension[];
+  explanation: string;
+};
+
+export type Contradiction = {
+  type: string;
+  severity: "low" | "medium" | "high";
+  summary: string;
+  detail: string;
+  related_tenders: string[];
+  related_entities: string[];
+};
+
+export type BuyerInsight = {
+  name: string;
+  tender_count: number;
+  award_count: number;
+  total_award_value: string | null;
+  currency: string | null;
+  top_suppliers: string[];
+  concentration_pct: number | null;
+  note: string;
+};
+
+export type SupplierInsight = {
+  name: string;
+  award_count: number;
+  total_award_value: string | null;
+  currency: string | null;
+  buyers: string[];
+  single_buyer_dependence: boolean;
+  note: string;
+};
+
+export type AwardAnalysis = {
+  total_awards: number;
+  valued_awards: number;
+  total_value: string | null;
+  currency: string | null;
+  largest_award_value: string | null;
+  largest_award_supplier: string | null;
+  largest_award_tender: string | null;
+  note: string;
+};
+
+export type TimelineAnalysis = {
+  event_count: number;
+  first_event: string | null;
+  last_event: string | null;
+  span_days: number | null;
+  fast_awards: number;
+  note: string;
+};
+
+export type ProcurementPattern = {
+  pattern: string;
+  detail: string;
+  supporting_tenders: string[];
+};
+
+export type AnalystReport = {
+  procurement_patterns: ProcurementPattern[];
+  buyer_analysis: BuyerInsight[];
+  supplier_analysis: SupplierInsight[];
+  award_analysis: AwardAnalysis | null;
+  timeline_analysis: TimelineAnalysis | null;
+  contradictions: Contradiction[];
+  missing_evidence: string[];
+  confidence_assessment: ConfidenceAssessment | null;
 };
 
 export type InvestigationReport = {
@@ -661,6 +791,8 @@ export type InvestigationStreamStep = {
 export type InvestigationStreamHandlers = {
   onStep?: (step: InvestigationStreamStep) => void;
   onPlan?: (plan: InvestigationPlan) => void;
+  // Canonical entity candidates resolved before retrieval (SSE "candidates" frame).
+  onCandidates?: (resolution: EntityResolutionResult) => void;
   onReport?: (report: InvestigationReport) => void;
   onError?: (message: string) => void;
 };
@@ -686,7 +818,7 @@ async function apiGet<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function apiPost<T>(path: string, body: unknown): Promise<T> {
+async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${backendUrl}${path}`, {
     method: "POST",
     cache: "no-store",
@@ -694,7 +826,8 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
       Accept: "application/json",
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal
   });
 
   if (!response.ok) {
@@ -868,6 +1001,9 @@ export function streamInvestigation(
           break;
         case "plan":
           handlers.onPlan?.(payload as InvestigationPlan);
+          break;
+        case "candidates":
+          handlers.onCandidates?.(payload as EntityResolutionResult);
           break;
         case "report":
           handlers.onReport?.(payload as InvestigationReport);

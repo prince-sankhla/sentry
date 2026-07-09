@@ -1,11 +1,14 @@
 import { Activity, Building2, FileText, Landmark, TrendingUp } from "lucide-react";
-import { getAnalyticsOverview } from "@/lib/api";
+import { AreaTrend, DonutChart, HBarChart } from "@/components/charts";
 import { PageHeader, PageShell, RankBar } from "@/components/ui/page";
 import { Section, StatCard } from "@/components/ui/card";
 import { ErrorState, EmptyState } from "@/components/ui/states";
+import { getAnalyticsOverview } from "@/lib/api";
 import { formatCompactMoney, formatNumber } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const REPORT_CHART_COLORS = ["#d29a4e", "#5f92c2", "#3ec08a", "#e0a63e", "#46b4c4", "#8a94a4"] as const;
 
 export default async function ReportsPage() {
   let data;
@@ -21,10 +24,36 @@ export default async function ReportsPage() {
   }
 
   const { totals, top_buyers, top_suppliers, monthly, sources } = data;
-  const maxMonthly = Math.max(1, ...monthly.map((m) => Number(m.value) || 0));
   const maxBuyer = Math.max(1, ...top_buyers.map((b) => Number(b.total_value) || 0));
-  const maxSupplier = Math.max(1, ...top_suppliers.map((s) => Number(s.total_value) || 0));
   const maxSource = Math.max(1, ...sources.map((s) => s.tenders));
+  const distributionSlices = sources.slice(0, 6).map((s, index) => ({
+    name: s.source_name,
+    value: s.tenders,
+    color: REPORT_CHART_COLORS[index % REPORT_CHART_COLORS.length]
+  }));
+  const controlChecks = [
+    {
+      label: "Single-bidder exposure",
+      value: totals.single_bidder_tenders,
+      max: Math.max(1, totals.tenders),
+      meta: `${formatNumber(totals.single_bidder_tenders)} tenders`,
+      tone: "accent" as const
+    },
+    {
+      label: "Award conversion",
+      value: totals.awards,
+      max: Math.max(1, totals.tenders),
+      meta: `${formatNumber(totals.awards)} awards`,
+      tone: "success" as const
+    },
+    {
+      label: "Supplier coverage",
+      value: totals.companies,
+      max: Math.max(1, totals.buyers + totals.companies),
+      meta: `${formatNumber(totals.companies)} companies`,
+      tone: "info" as const
+    }
+  ];
 
   return (
     <PageShell>
@@ -47,26 +76,12 @@ export default async function ReportsPage() {
             {monthly.length === 0 ? (
               <EmptyState message="No dated tenders available to chart." />
             ) : (
-              <div className="flex h-52 items-end gap-1.5">
-                {monthly.map((m) => {
-                  const h = Math.max(4, Math.round(((Number(m.value) || 0) / maxMonthly) * 100));
-                  return (
-                    <div key={m.month} className="group flex flex-1 flex-col items-center gap-2">
-                      <div className="relative flex w-full flex-1 items-end">
-                        <div
-                          className="w-full rounded-t bg-gradient-to-t from-accent/30 to-accent/70 transition group-hover:from-accent/50 group-hover:to-accent"
-                          style={{ height: `${h}%` }}
-                        >
-                          <div className="pointer-events-none absolute -top-8 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-elevated px-2 py-1 text-[11px] text-text group-hover:block">
-                            {formatCompactMoney(m.value)} · {m.tenders} tenders
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-faint">{m.month.slice(2)}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <AreaTrend
+                categories={monthly.map((m) => m.month.slice(2))}
+                values={monthly.map((m) => Number(m.value) || 0)}
+                height={260}
+                valueFormatter={(v) => formatCompactMoney(String(v))}
+              />
             )}
           </Section>
         </div>
@@ -82,10 +97,34 @@ export default async function ReportsPage() {
                   label={s.source_name}
                   value={s.tenders}
                   max={maxSource}
-                  meta={`${s.tenders}`}
+                  meta={formatNumber(s.tenders)}
                   tone="info"
                 />
               ))}
+            </div>
+          )}
+        </Section>
+
+        <Section eyebrow="Distribution" title="Procurement distribution">
+          {distributionSlices.length === 0 ? (
+            <EmptyState message="No distribution data." />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-[220px_1fr] lg:grid-cols-1">
+              <DonutChart
+                slices={distributionSlices}
+                centerValue={formatNumber(totals.tenders)}
+                centerLabel="Records"
+                height={210}
+              />
+              <div className="space-y-2">
+                {distributionSlices.map((slice) => (
+                  <div className="flex items-center gap-2 text-sm" key={slice.name}>
+                    <span className="h-2.5 w-2.5 rounded-sm" style={{ background: slice.color }} />
+                    <span className="min-w-0 flex-1 truncate text-muted">{slice.name}</span>
+                    <span className="tabular font-semibold text-text">{formatNumber(slice.value)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </Section>
@@ -101,7 +140,7 @@ export default async function ReportsPage() {
                   label={b.buyer}
                   value={Number(b.total_value) || 0}
                   max={maxBuyer}
-                  meta={`${formatCompactMoney(b.total_value)} · ${b.awards} awards`}
+                  meta={`${formatCompactMoney(b.total_value)} | ${b.awards} awards`}
                 />
               ))}
             </div>
@@ -112,19 +151,13 @@ export default async function ReportsPage() {
           {top_suppliers.length === 0 ? (
             <EmptyState message="No supplier data." />
           ) : (
-            <div className="space-y-3.5">
-              {top_suppliers.map((s) => (
-                <RankBar
-                  key={s.company_id}
-                  label={s.name}
-                  value={Number(s.total_value) || 0}
-                  max={maxSupplier}
-                  meta={`${formatCompactMoney(s.total_value)} · ${s.awards} awards`}
-                  href={`/companies/${s.company_id}`}
-                  tone="success"
-                />
-              ))}
-            </div>
+            <HBarChart
+              labels={top_suppliers.slice(0, 8).map((s) => s.name)}
+              values={top_suppliers.slice(0, 8).map((s) => Number(s.total_value) || 0)}
+              color="#3ec08a"
+              height={260}
+              valueFormatter={(v) => formatCompactMoney(String(v))}
+            />
           )}
         </Section>
 
@@ -136,6 +169,21 @@ export default async function ReportsPage() {
             <Metric icon={<Landmark className="h-4 w-4" />} label="Buyers" value={formatNumber(totals.buyers)} />
             <Metric label="Total tender value" value={formatCompactMoney(totals.total_tender_value)} />
             <Metric label="Avg. tender" value={formatCompactMoney(totals.average_tender_value)} />
+          </div>
+        </Section>
+
+        <Section eyebrow="Controls" title="Procurement control checks">
+          <div className="space-y-3.5">
+            {controlChecks.map((check) => (
+              <RankBar
+                key={check.label}
+                label={check.label}
+                value={check.value}
+                max={check.max}
+                meta={check.meta}
+                tone={check.tone}
+              />
+            ))}
           </div>
         </Section>
       </div>

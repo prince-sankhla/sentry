@@ -1,0 +1,686 @@
+{
+  "tenders": [
+    {
+      "reference_number": "NHAI/2026/DEL-MEE/001",
+      "title": "Six-laning of Delhi-Meerut Expressway Package III",
+      "description": "Six-laning of Delhi-Meerut Expressway Package III",
+      "procuring_entity": "National Highways Authority of India||NHAI||PIU Division",
+      "published_date": "2026-01-05",
+      "closing_date": "2026-02-10",
+      "estimated_value": "850000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "NHAI/2026/DEL-MEE/001",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=NHAI/2026/DEL-MEE/001",
+      "awards": [
+        [
+          "L&T",
+          "820000000",
+          "2026-03-01"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice NHAI/2026/DEL-MEE/001",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/NHAI/2026/DEL-MEE/001.pdf"
+        },
+        {
+          "title": "Bill of Quantities NHAI/2026/DEL-MEE/001",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/NHAI/2026/DEL-MEE/001.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "NHAI/2026/DEL-MEE/002",
+      "title": "Construction of ROB on NH-334 near Ghaziabad",
+      "description": "Construction of ROB on NH-334 near Ghaziabad",
+      "procuring_entity": "National Highways Authority of India||NHAI||PIU Division",
+      "published_date": "2026-01-08",
+      "closing_date": "2026-02-14",
+      "estimated_value": "1200000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "NHAI/2026/DEL-MEE/002",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=NHAI/2026/DEL-MEE/002",
+      "awards": [
+        [
+          "L&T",
+          "1150000000",
+          "2026-03-05"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice NHAI/2026/DEL-MEE/002",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/NHAI/2026/DEL-MEE/002.pdf"
+        },
+        {
+          "title": "Bill of Quantities NHAI/2026/DEL-MEE/002",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/NHAI/2026/DEL-MEE/002.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "NHAI/2026/MUM-VAD/003",
+      "title": "Mumbai-Vadodara Expressway earthwork Package VII",
+      "description": "Mumbai-Vadodara Expressway earthwork Package VII",
+      "procuring_entity": "National Highways Authority of India||NHAI||PIU Division",
+      "published_date": "2026-01-10",
+      "closing_date": "2026-02-20",
+      "estimated_value": "6400000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "NHAI/2026/MUM-VAD/003",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=NHAI/2026/MUM-VAD/003",
+      "awards": [
+        [
+          "AFCONS",
+          "6200000000",
+          "2026-03-10"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice NHAI/2026/MUM-VAD/003",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/NHAI/2026/MUM-VAD/003.pdf"
+        },
+        {
+          "title": "Bill of Quantities NHAI/2026/MUM-VAD/003",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/NHAI/2026/MUM-VAD/003.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "NHAI/2026/AMR-JAM/004",
+      "title": "Amritsar-Jamnagar corridor structures Package XII",
+      "description": "Amritsar-Jamnagar corridor structures Package XII",
+      "procuring_entity": "National Highways Authority of India||NHAI||PIU Division",
+      "published_date": "2026-01-12",
+      "closing_date": "2026-02-22",
+      "estimated_value": "4300000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "NHAI/2026/AMR-JAM/004",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=NHAI/2026/AMR-JAM/004",
+      "awards": [
+        [
+          "GRIL",
+          "4180000000",
+          "2026-03-12"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice NHAI/2026/AMR-JAM/004",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/NHAI/2026/AMR-JAM/004.pdf"
+        },
+        {
+          "title": "Bill of Quantities NHAI/2026/AMR-JAM/004",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/NHAI/2026/AMR-JAM/004.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "NHAI/2026/BLR-CHN/005",
+      "title": "Bengaluru-Chennai Expressway pavement Package II",
+      "description": "Bengaluru-Chennai Expressway pavement Package II",
+      "procuring_entity": "National Highways Authority of India||NHAI||PIU Division",
+      "published_date": "2026-01-15",
+      "closing_date": "2026-02-25",
+      "estimated_value": "3900000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "NHAI/2026/BLR-CHN/005",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=NHAI/2026/BLR-CHN/005",
+      "awards": [
+        [
+          "L&T",
+          "3800000000",
+          "2026-03-15"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice NHAI/2026/BLR-CHN/005",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/NHAI/2026/BLR-CHN/005.pdf"
+        },
+        {
+          "title": "Bill of Quantities NHAI/2026/BLR-CHN/005",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/NHAI/2026/BLR-CHN/005.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "NHAI/2026/TOLL/006",
+      "title": "Operation and maintenance of toll plaza NH-48",
+      "description": "Operation and maintenance of toll plaza NH-48",
+      "procuring_entity": "National Highways Authority of India||NHAI||PIU Division",
+      "published_date": "2026-02-01",
+      "closing_date": "2026-02-04",
+      "estimated_value": "550000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "NHAI/2026/TOLL/006",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=NHAI/2026/TOLL/006",
+      "awards": [
+        [
+          "KEC",
+          "540000000",
+          "2026-02-06"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice NHAI/2026/TOLL/006",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/NHAI/2026/TOLL/006.pdf"
+        },
+        {
+          "title": "Bill of Quantities NHAI/2026/TOLL/006",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/NHAI/2026/TOLL/006.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "CPWD/2026/NDMC/010",
+      "title": "Construction of office complex at Nirman Bhawan New Delhi",
+      "description": "Construction of office complex at Nirman Bhawan New Delhi",
+      "procuring_entity": "Central Public Works Department||CPWD||Central Zone",
+      "published_date": "2026-01-06",
+      "closing_date": "2026-02-11",
+      "estimated_value": "2100000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "CPWD/2026/NDMC/010",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=CPWD/2026/NDMC/010",
+      "awards": [
+        [
+          "NBCC",
+          "2050000000",
+          "2026-03-02"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice CPWD/2026/NDMC/010",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/CPWD/2026/NDMC/010.pdf"
+        },
+        {
+          "title": "Bill of Quantities CPWD/2026/NDMC/010",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/CPWD/2026/NDMC/010.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "CPWD/2026/HOSP/011",
+      "title": "Redevelopment of Safdarjung Hospital Block C",
+      "description": "Redevelopment of Safdarjung Hospital Block C",
+      "procuring_entity": "Central Public Works Department||CPWD||Central Zone",
+      "published_date": "2026-01-09",
+      "closing_date": "2026-02-15",
+      "estimated_value": "1800000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "CPWD/2026/HOSP/011",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=CPWD/2026/HOSP/011",
+      "awards": [
+        [
+          "TATA",
+          "1760000000",
+          "2026-03-06"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice CPWD/2026/HOSP/011",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/CPWD/2026/HOSP/011.pdf"
+        },
+        {
+          "title": "Bill of Quantities CPWD/2026/HOSP/011",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/CPWD/2026/HOSP/011.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "CPWD/2026/QTR/012",
+      "title": "Construction of Type-IV government quarters Delhi",
+      "description": "Construction of Type-IV government quarters Delhi",
+      "procuring_entity": "Central Public Works Department||CPWD||Central Zone",
+      "published_date": "2026-01-11",
+      "closing_date": "2026-02-18",
+      "estimated_value": "950000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "CPWD/2026/QTR/012",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=CPWD/2026/QTR/012",
+      "awards": [
+        [
+          "NBCC",
+          "930000000",
+          "2026-03-08"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice CPWD/2026/QTR/012",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/CPWD/2026/QTR/012.pdf"
+        },
+        {
+          "title": "Bill of Quantities CPWD/2026/QTR/012",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/CPWD/2026/QTR/012.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "CPWD/2026/ELEC/013",
+      "title": "Electrical works for CGO Complex modernization",
+      "description": "Electrical works for CGO Complex modernization",
+      "procuring_entity": "Central Public Works Department||CPWD||Central Zone",
+      "published_date": "2026-02-02",
+      "closing_date": "2026-02-05",
+      "estimated_value": "420000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "CPWD/2026/ELEC/013",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=CPWD/2026/ELEC/013",
+      "awards": [
+        [
+          "SIEMENS",
+          "410000000",
+          "2026-02-07"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice CPWD/2026/ELEC/013",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/CPWD/2026/ELEC/013.pdf"
+        },
+        {
+          "title": "Bill of Quantities CPWD/2026/ELEC/013",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/CPWD/2026/ELEC/013.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "RAILTEL/2026/OFC/020",
+      "title": "Laying of optical fibre cable along Northern Railway zone",
+      "description": "Laying of optical fibre cable along Northern Railway zone",
+      "procuring_entity": "RailTel Corporation of India Limited||Network Operations",
+      "published_date": "2026-01-07",
+      "closing_date": "2026-02-12",
+      "estimated_value": "1400000000",
+      "currency": "INR",
+      "source_name": "gem",
+      "source_record_id": "RAILTEL/2026/OFC/020",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=RAILTEL/2026/OFC/020",
+      "awards": [
+        [
+          "BEL",
+          "1360000000",
+          "2026-03-03"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice RAILTEL/2026/OFC/020",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/RAILTEL/2026/OFC/020.pdf"
+        },
+        {
+          "title": "Bill of Quantities RAILTEL/2026/OFC/020",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/RAILTEL/2026/OFC/020.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "RAILTEL/2026/DC/021",
+      "title": "Establishment of Tier-III data centre at Secunderabad",
+      "description": "Establishment of Tier-III data centre at Secunderabad",
+      "procuring_entity": "RailTel Corporation of India Limited||Network Operations",
+      "published_date": "2026-01-13",
+      "closing_date": "2026-02-19",
+      "estimated_value": "2600000000",
+      "currency": "INR",
+      "source_name": "gem",
+      "source_record_id": "RAILTEL/2026/DC/021",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=RAILTEL/2026/DC/021",
+      "awards": [
+        [
+          "BHEL",
+          "2540000000",
+          "2026-03-09"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice RAILTEL/2026/DC/021",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/RAILTEL/2026/DC/021.pdf"
+        },
+        {
+          "title": "Bill of Quantities RAILTEL/2026/DC/021",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/RAILTEL/2026/DC/021.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "RAILTEL/2026/WIFI/022",
+      "title": "RailWire public Wi-Fi expansion at 200 stations",
+      "description": "RailWire public Wi-Fi expansion at 200 stations",
+      "procuring_entity": "RailTel Corporation of India Limited||Network Operations",
+      "published_date": "2026-01-16",
+      "closing_date": "2026-02-24",
+      "estimated_value": "700000000",
+      "currency": "INR",
+      "source_name": "gem",
+      "source_record_id": "RAILTEL/2026/WIFI/022",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=RAILTEL/2026/WIFI/022",
+      "awards": [
+        [
+          "BEL",
+          "680000000",
+          "2026-03-16"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice RAILTEL/2026/WIFI/022",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/RAILTEL/2026/WIFI/022.pdf"
+        },
+        {
+          "title": "Bill of Quantities RAILTEL/2026/WIFI/022",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/RAILTEL/2026/WIFI/022.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "BHEL/2026/BOILER/030",
+      "title": "Supply of boiler components for Telangana STPP",
+      "description": "Supply of boiler components for Telangana STPP",
+      "procuring_entity": "Bharat Heavy Electricals Limited||Corporate Procurement",
+      "published_date": "2026-01-14",
+      "closing_date": "2026-02-21",
+      "estimated_value": "3100000000",
+      "currency": "INR",
+      "source_name": "gem",
+      "source_record_id": "BHEL/2026/BOILER/030",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=BHEL/2026/BOILER/030",
+      "awards": [
+        [
+          "L&T",
+          "3020000000",
+          "2026-03-11"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice BHEL/2026/BOILER/030",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/BHEL/2026/BOILER/030.pdf"
+        },
+        {
+          "title": "Bill of Quantities BHEL/2026/BOILER/030",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/BHEL/2026/BOILER/030.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "BHEL/2026/TURB/031",
+      "title": "Manufacture of steam turbine rotors Haridwar unit",
+      "description": "Manufacture of steam turbine rotors Haridwar unit",
+      "procuring_entity": "Bharat Heavy Electricals Limited||Corporate Procurement",
+      "published_date": "2026-01-18",
+      "closing_date": "2026-02-26",
+      "estimated_value": "2100000000",
+      "currency": "INR",
+      "source_name": "gem",
+      "source_record_id": "BHEL/2026/TURB/031",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=BHEL/2026/TURB/031",
+      "awards": [
+        [
+          "SIEMENS",
+          "2050000000",
+          "2026-03-18"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice BHEL/2026/TURB/031",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/BHEL/2026/TURB/031.pdf"
+        },
+        {
+          "title": "Bill of Quantities BHEL/2026/TURB/031",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/BHEL/2026/TURB/031.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "BEL/2026/RADAR/040",
+      "title": "Supply of radar sub-assemblies for coastal surveillance",
+      "description": "Supply of radar sub-assemblies for coastal surveillance",
+      "procuring_entity": "Bharat Electronics Limited||Bangalore Complex",
+      "published_date": "2026-01-17",
+      "closing_date": "2026-02-23",
+      "estimated_value": "1800000000",
+      "currency": "INR",
+      "source_name": "gem",
+      "source_record_id": "BEL/2026/RADAR/040",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=BEL/2026/RADAR/040",
+      "awards": [
+        [
+          "BEL",
+          "1760000000",
+          "2026-03-17"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice BEL/2026/RADAR/040",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/BEL/2026/RADAR/040.pdf"
+        },
+        {
+          "title": "Bill of Quantities BEL/2026/RADAR/040",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/BEL/2026/RADAR/040.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "BEL/2026/SEMI/041",
+      "title": "Procurement of semiconductor wafers for defence electronics",
+      "description": "Procurement of semiconductor wafers for defence electronics",
+      "procuring_entity": "Bharat Electronics Limited||Bangalore Complex",
+      "published_date": "2026-02-03",
+      "closing_date": "2026-02-06",
+      "estimated_value": "900000000",
+      "currency": "INR",
+      "source_name": "gem",
+      "source_record_id": "BEL/2026/SEMI/041",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=BEL/2026/SEMI/041",
+      "awards": [
+        [
+          "BHEL",
+          "880000000",
+          "2026-02-08"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice BEL/2026/SEMI/041",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/BEL/2026/SEMI/041.pdf"
+        },
+        {
+          "title": "Bill of Quantities BEL/2026/SEMI/041",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/BEL/2026/SEMI/041.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "DU/2026/LAB/050",
+      "title": "Modernization of physics research laboratory North Campus",
+      "description": "Modernization of physics research laboratory North Campus",
+      "procuring_entity": "Delhi University||Central Office - DU||Engineering - DU",
+      "published_date": "2026-01-20",
+      "closing_date": "2026-02-27",
+      "estimated_value": "120000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "DU/2026/LAB/050",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=DU/2026/LAB/050",
+      "awards": [
+        [
+          "TATA",
+          "118000000",
+          "2026-03-20"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice DU/2026/LAB/050",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/DU/2026/LAB/050.pdf"
+        },
+        {
+          "title": "Bill of Quantities DU/2026/LAB/050",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/DU/2026/LAB/050.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "DU/2026/HOSTEL/051",
+      "title": "Construction of postgraduate hostel block South Campus",
+      "description": "Construction of postgraduate hostel block South Campus",
+      "procuring_entity": "Delhi University||Central Office - DU||Engineering - DU",
+      "published_date": "2026-01-22",
+      "closing_date": "2026-03-01",
+      "estimated_value": "480000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "DU/2026/HOSTEL/051",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=DU/2026/HOSTEL/051",
+      "awards": [
+        [
+          "NBCC",
+          "470000000",
+          "2026-03-22"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice DU/2026/HOSTEL/051",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/DU/2026/HOSTEL/051.pdf"
+        },
+        {
+          "title": "Bill of Quantities DU/2026/HOSTEL/051",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/DU/2026/HOSTEL/051.pdf"
+        }
+      ]
+    },
+    {
+      "reference_number": "DU/2026/IT/052",
+      "title": "Supply and installation of campus-wide network switches",
+      "description": "Supply and installation of campus-wide network switches",
+      "procuring_entity": "Delhi University||Central Office - DU||Engineering - DU",
+      "published_date": "2026-01-25",
+      "closing_date": "2026-03-03",
+      "estimated_value": "95000000",
+      "currency": "INR",
+      "source_name": "cppp",
+      "source_record_id": "DU/2026/IT/052",
+      "source_url": "https://eprocure.gov.in/eprocure/app?tender=DU/2026/IT/052",
+      "awards": [
+        [
+          "BEL",
+          "93000000",
+          "2026-03-25"
+        ]
+      ],
+      "documents": [
+        {
+          "title": "Tender Notice DU/2026/IT/052",
+          "document_type": "tender_notice",
+          "url": "https://eprocure.gov.in/notice/DU/2026/IT/052.pdf"
+        },
+        {
+          "title": "Bill of Quantities DU/2026/IT/052",
+          "document_type": "boq",
+          "url": "https://eprocure.gov.in/boq/DU/2026/IT/052.pdf"
+        }
+      ]
+    }
+  ],
+  "suppliers": {
+    "L&T": {
+      "name": "Larsen & Toubro Limited",
+      "registration_number": "L99999MH1946PLC000527"
+    },
+    "TATA": {
+      "name": "Tata Projects Limited",
+      "registration_number": "U45201AP1979PLC057293"
+    },
+    "BHEL": {
+      "name": "Bharat Heavy Electricals Limited",
+      "registration_number": "L74899DL1964GOI004281"
+    },
+    "BEL": {
+      "name": "Bharat Electronics Limited",
+      "registration_number": "L32309KA1954GOI000787"
+    },
+    "RAILTEL": {
+      "name": "RailTel Corporation of India Limited",
+      "registration_number": "L64202DL2000GOI107905"
+    },
+    "KEC": {
+      "name": "KEC International Limited",
+      "registration_number": "L45200MH2005PLC152061"
+    },
+    "SIEMENS": {
+      "name": "Siemens Limited",
+      "registration_number": "L28920MH1957PLC010839"
+    },
+    "NBCC": {
+      "name": "NBCC (India) Limited",
+      "registration_number": "L74899DL1960GOI003335"
+    },
+    "AFCONS": {
+      "name": "Afcons Infrastructure Limited",
+      "registration_number": "U45200MH1976PLC019335"
+    },
+    "GRIL": {
+      "name": "G R Infraprojects Limited",
+      "registration_number": "L45201RJ1995PLC009335"
+    }
+  }
+}

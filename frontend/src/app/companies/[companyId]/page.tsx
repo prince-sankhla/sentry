@@ -178,7 +178,7 @@ export default async function CompanyInvestigationPage({ params, searchParams }:
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-            <Section eyebrow="Phase 1" title="Procurement Intelligence">
+            <Section eyebrow="Risk" title="Procurement Intelligence">
               <IntelligenceSignals signals={overview.intelligence.signals} />
             </Section>
 
@@ -246,8 +246,8 @@ export default async function CompanyInvestigationPage({ params, searchParams }:
             <Section eyebrow="Timeline" title="Activity Timeline">
               <Timeline items={timelineItems} />
             </Section>
-            <Section eyebrow="Evidence" title="Evidence">
-              <EmptyState title="No evidence attached" message="Documents, screenshots, and analyst evidence can be attached here when available." />
+            <Section eyebrow="Evidence" title="Evidence Docket">
+              <EvidenceDocket signals={overview.intelligence.signals} awards={awards.pagination.total} tenders={tenders.pagination.total} />
             </Section>
           </div>
         </div>
@@ -283,7 +283,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function IntelligenceSignals({ signals }: { signals: ProcurementIntelligenceSignal[] }) {
   if (signals.length === 0) {
-    return <EmptyState message="No Phase 1 procurement intelligence signals were detected." />;
+    return <EmptyState message="No procurement intelligence signals were detected for this company." />;
   }
 
   return (
@@ -314,6 +314,39 @@ function IntelligenceSignals({ signals }: { signals: ProcurementIntelligenceSign
           ) : null}
         </div>
       ))}
+    </div>
+  );
+}
+
+function EvidenceDocket({
+  signals,
+  awards,
+  tenders
+}: {
+  signals: ProcurementIntelligenceSignal[];
+  awards: number;
+  tenders: number;
+}) {
+  const evidenceItems = signals.flatMap((signal) => signal.evidence).slice(0, 6);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        <Metric label="Signals" value={formatInteger(signals.length)} />
+        <Metric label="Tenders" value={formatInteger(tenders)} />
+        <Metric label="Awards" value={formatInteger(awards)} />
+      </div>
+      {evidenceItems.length === 0 ? (
+        <EmptyState title="No cited evidence" message="The current company file has no extracted evidence references." />
+      ) : (
+        <ul className="space-y-2">
+          {evidenceItems.map((item, index) => (
+            <li className="rounded-[12px] border border-border bg-bg-2/40 p-3 text-sm text-muted" key={`${item}-${index}`}>
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

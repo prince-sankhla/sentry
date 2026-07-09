@@ -29,6 +29,7 @@ extra SDKs are required to enable them.
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from typing import Protocol
 
@@ -36,9 +37,47 @@ import httpx
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
+
 
 class LLMUnavailableError(RuntimeError):
     """Raised when a live model call is attempted but the provider is not usable."""
+
+
+# Provider-infrastructure error/refusal phrases that some gateways return with an
+# HTTP 200 body instead of an error status. Such a response is NOT a successful
+# analytical answer, so it must never be attributed to the model or shown as the
+# report — it is treated as provider-unavailable and triggers the fallback chain.
+# Kept deliberately specific to provider/auth/quota plumbing so a genuine
+# procurement summary (which would never contain these phrases) is never rejected.
+_PROVIDER_NOISE_SENTINELS: tuple[str, ...] = (
+    "access denied: this service is restricted",
+    "service is restricted to authorized use",
+    "unauthorized client",
+    "invalid api key",
+    "incorrect api key",
+    "invalid x-api-key",
+    "authentication_error",
+    "authentication failed",
+    "permission_error",
+    "rate limit exceeded",
+    "rate_limit_error",
+    "quota exceeded",
+    "insufficient_quota",
+    "you exceeded your current quota",
+    "overloaded_error",
+    "the model is overloaded",
+)
+
+
+def _looks_like_provider_noise(text: str) -> bool:
+    """True when a 200-body is actually a provider auth/quota/refusal message.
+
+    Only inspects the head of the response (these messages lead), so a long,
+    genuine analytical answer that happens to mention a term later is unaffected.
+    """
+    head = text[:240].casefold()
+    return any(sentinel in head for sentinel in _PROVIDER_NOISE_SENTINELS)
 
 
 class LLMClient(Protocol):
@@ -58,7 +97,9 @@ class AnthropicLLMClient:
 
     provider = "anthropic"
 
-    def __init__(self, api_key: str, model: str, max_tokens: int, timeout: float) -> None:
+    def __init__(
+        self, api_key: str, model: str, max_tokens: int, timeout: float, base_url: str | None = None
+    ) -> None:
         self.model = model
         self._max_tokens = max_tokens
         self._timeout = timeout
@@ -68,7 +109,12 @@ class AnthropicLLMClient:
             raise LLMUnavailableError(
                 "anthropic package is not installed; install it to enable the Anthropic provider"
             ) from exc
-        self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+        # Only pass base_url when configured so the SDK default (api.anthropic.com)
+        # is used otherwise; a custom Anthropic-compatible endpoint is honoured here.
+        kwargs = {"api_key": api_key, "timeout": timeout}
+        if base_url:
+            kwargs["base_url"] = base_url
+        self._client = anthropic.Anthropic(**kwargs)
 
     def complete(self, *, system: str, prompt: str, max_tokens: int | None = None) -> str:
         try:
@@ -222,17 +268,28 @@ class ChainedLLMClient:
         for name, factory in self._factories:
             client = self._client_for(name, factory)
             if client is None:
+                logger.warning("LLM provider %s unavailable (not configured / init failed)", name)
                 errors.append(f"{name}: unavailable")
                 continue
             try:
                 text = client.complete(system=system, prompt=prompt, max_tokens=max_tokens)
             except LLMUnavailableError as exc:
+                # Surface the real provider error instead of silently falling back.
+                logger.warning("LLM provider %s failed: %s", name, exc)
                 errors.append(str(exc))
+                continue
+            # A 200-body that is actually an auth/quota/refusal message is not a
+            # successful answer — skip this provider and try the next one.
+            if _looks_like_provider_noise(text):
+                logger.warning("LLM provider %s returned a restricted/error response; skipping", name)
+                errors.append(f"{name}: provider returned a restricted/error response")
                 continue
             # success — record attribution
             self.provider = client.provider
             self.model = client.model
+            logger.info("LLM reasoning authored by %s (%s)", client.provider, client.model)
             return text
+        logger.warning("All LLM providers failed: %s", "; ".join(errors))
         raise LLMUnavailableError("all providers failed: " + "; ".join(errors))
 
 
@@ -255,6 +312,7 @@ def _build_factories(settings) -> list[tuple[str, callable]]:
                 model=settings.anthropic_model,
                 max_tokens=max_tokens,
                 timeout=timeout,
+                base_url=settings.anthropic_base_url,
             )
             if settings.anthropic_api_key
             else None

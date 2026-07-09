@@ -5,6 +5,7 @@ import re
 from app.connectors import SourceManager
 from app.connectors.common.source_priority import prioritize_source_names
 from app.schemas.investigation_planner import InvestigationPlan, InvestigationPlanStep, InvestigationType
+from app.services.investigation_intent import detect_intent
 
 
 TYPE_KEYWORDS: dict[InvestigationType, tuple[str, ...]] = {
@@ -55,18 +56,23 @@ class InvestigationPlanner:
         self.source_manager = source_manager or SourceManager()
 
     def build_plan(self, query: str, source_names: list[str] | None = None) -> InvestigationPlan:
-        normalized_query = _clean_query(query)
-        investigation_type, confidence = self.detect_type(normalized_query)
+        # Intent detection V2: determine WHAT is being investigated and separate the
+        # entity from any aspect modifier ("… directors"), so the planner receives a
+        # clean entity query — never raw text that would contaminate retrieval.
+        intent = detect_intent(query)
+        entity_query = intent.entity_query or _clean_query(query)
+        investigation_type = intent.investigation_type
+        confidence = intent.confidence
         connectors = self._select_connectors(source_names)
         modules = MODULE_ORDER[investigation_type]
         steps = self._build_steps(
-            query=normalized_query,
+            query=entity_query,
             investigation_type=investigation_type,
             modules=modules,
             connectors=connectors,
         )
         return InvestigationPlan(
-            query=normalized_query,
+            query=entity_query,
             investigation_type=investigation_type,
             confidence=confidence,
             connectors=connectors,

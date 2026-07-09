@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowRight,
   Award,
   Building2,
   Check,
@@ -13,10 +12,9 @@ import {
   Globe2,
   Lightbulb,
   Loader2,
+  Maximize2,
   Network,
-  RotateCcw,
   Search,
-  Sparkles,
   X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -24,8 +22,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { RelationshipGraphExplorer } from "@/app/graph/relationship-graph";
 import { CommandCenter } from "@/app/command-center";
+import { EntitySearch, type PinnedEntity } from "@/components/search/entity-search";
 import { EvidenceCard, type EvidenceItem } from "@/components/intel/evidence-card";
 import { AiInvestigationPanel } from "@/components/intel/ai-investigation-panel";
+import { AnalystReportSections } from "@/components/intel/analyst-report";
 import { AnalystTrace } from "@/components/intel/analyst-trace";
 import { EvidenceLedger } from "@/components/intel/evidence-ledger";
 import { GroundingCard } from "@/components/intel/grounding-card";
@@ -40,8 +40,8 @@ import {
   getProcurementEvidence,
   searchWebEvidence,
   streamInvestigation,
+  type EntityResolutionResult,
   type InvestigationPackage,
-  type InvestigationProcurementRecord,
   type InvestigationReasoning,
   type InvestigationStreamStep,
   type LLMProviderStatus,
@@ -66,74 +66,10 @@ const STEP_TEMPLATE: Step[] = [
   { key: "reasoning", name: "Reason & generate findings", status: "pending" }
 ];
 
-/* ============================================================ graph builder */
-
-function buildGraphFromRecords(records: InvestigationProcurementRecord[]): RelationshipGraph {
-  const nodes = new Map<string, RelationshipGraph["nodes"][number]>();
-  const edges: RelationshipGraph["edges"] = [];
-  const addNode = (n: RelationshipGraph["nodes"][number]) => {
-    if (!nodes.has(n.id)) nodes.set(n.id, n);
-  };
-  const addEdge = (e: RelationshipGraph["edges"][number]) => {
-    if (!edges.some((x) => x.id === e.id)) edges.push(e);
-  };
-
-  for (const r of records) {
-    const t = r.tender;
-    const tId = `t:${t.reference_number}`;
-    addNode({
-      id: tId,
-      type: "tender",
-      label: t.title || t.reference_number,
-      data: {
-        reference_number: t.reference_number,
-        buyer: t.procuring_entity,
-        estimated_value: t.estimated_value,
-        currency: t.currency,
-        published_date: t.published_date,
-        source: t.metadata?.source_name
-      }
-    });
-
-    if (t.procuring_entity) {
-      const bId = `b:${t.procuring_entity.toLowerCase()}`;
-      addNode({ id: bId, type: "buyer", label: t.procuring_entity, data: { role: "Procuring entity" } });
-      addEdge({ id: `${bId}->${tId}`, source: bId, target: tId, type: "buyer_tender", label: "issued", data: {} });
-    }
-
-    for (const c of r.companies) {
-      const cId = `c:${c.name.toLowerCase()}`;
-      addNode({
-        id: cId,
-        type: "company",
-        label: c.name,
-        data: { registration_number: c.registration_number, source: c.metadata?.source_name }
-      });
-      addEdge({ id: `${cId}~${tId}`, source: cId, target: tId, type: "company_tender", label: "participated", data: {} });
-    }
-
-    for (const a of r.awards) {
-      const cId = `c:${a.company_name.toLowerCase()}`;
-      addNode({ id: cId, type: "company", label: a.company_name, data: { registration_number: a.company_registration_number } });
-      addEdge({
-        id: `${tId}=>${cId}`,
-        source: tId,
-        target: cId,
-        type: "tender_award",
-        label: a.award_value ? formatCompactMoney(a.award_value, a.currency) : "awarded",
-        data: { award_value: a.award_value, currency: a.currency, award_date: a.award_date }
-      });
-    }
-  }
-
-  return { nodes: [...nodes.values()], edges };
-}
-
 /* ============================================================ root */
 
 export function InvestigationWorkspace({ initialQuery }: { initialQuery: string }) {
   const router = useRouter();
-  const [input, setInput] = useState(initialQuery);
   const [activeQuery, setActiveQuery] = useState(initialQuery);
   const [steps, setSteps] = useState<Step[]>([]);
   const [running, setRunning] = useState(false);
@@ -141,6 +77,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
   const [pkg, setPkg] = useState<InvestigationPackage | null>(null);
   const [reasoning, setReasoning] = useState<InvestigationReasoning | null>(null);
   const [graph, setGraph] = useState<RelationshipGraph | null>(null);
+  const [resolution, setResolution] = useState<EntityResolutionResult | null>(null);
   const [webPages, setWebPages] = useState<StoredWebPage[]>([]);
   const [webBusy, setWebBusy] = useState(false);
   const [processingMs, setProcessingMs] = useState<number | null>(null);
@@ -164,6 +101,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
     setPkg(null);
     setReasoning(null);
     setGraph(null);
+    setResolution(null);
     setWebPages([]);
     setProcessingMs(null);
     startedAtRef.current = performance.now();
@@ -180,11 +118,17 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
 
     abortRef.current = streamInvestigation(query, {
       onStep: applyStep,
+      onCandidates: (res) => setResolution(res),
       onReport: (report) => {
         if (startedAtRef.current != null) setProcessingMs(performance.now() - startedAtRef.current);
         setPkg(report.package);
         setReasoning(report.reasoning);
-        setGraph(buildGraphFromRecords(report.package.records));
+        // Consume the backend-generated graph exactly as returned. The package
+        // graph is the single source of truth (tenders, buyers, companies,
+        // awards, evidence, indicators, documents); never rebuild it here.
+        setGraph(report.package.graph);
+        // The report package also carries the final resolved entities.
+        if (report.package.resolved_entities) setResolution(report.package.resolved_entities);
         setRunning(false);
         // best-effort: pull already-stored web procurement evidence (DB, fast)
         getProcurementEvidence(query, 12)
@@ -207,18 +151,21 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
     return () => abortRef.current?.();
   }, [initialQuery, runInvestigation]);
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const q = input.trim();
-    if (!q) return;
-    setActiveQuery(q);
-    router.push(`/?q=${encodeURIComponent(q)}`);
-    runInvestigation(q);
-  }
+  // Investigations start ONLY from a verified, selected canonical entity — never
+  // from arbitrary free text. The entity-search component enforces selection;
+  // this runs the existing pipeline on the locked entity's canonical name.
+  const investigateEntity = useCallback(
+    (entity: PinnedEntity) => {
+      const query = entity.canonical_name;
+      setActiveQuery(query);
+      router.push(`/?q=${encodeURIComponent(query)}`);
+      runInvestigation(query);
+    },
+    [router, runInvestigation]
+  );
 
   const launchFollowUp = useCallback(
     (query: string) => {
-      setInput(query);
       setActiveQuery(query);
       router.push(`/?q=${encodeURIComponent(query)}`);
       runInvestigation(query);
@@ -228,11 +175,11 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
 
   function reset() {
     abortRef.current?.();
-    setInput("");
     setActiveQuery("");
     setPkg(null);
     setReasoning(null);
     setGraph(null);
+    setResolution(null);
     setSteps([]);
     setWebPages([]);
     setProcessingMs(null);
@@ -255,14 +202,19 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
 
   return (
     <PageShell>
-      <WorkspaceSearch
-        input={input}
-        setInput={setInput}
-        onSubmit={submit}
-        activeQuery={activeQuery}
+      <EntitySearch
         running={running}
+        activeQuery={activeQuery}
+        onInvestigate={investigateEntity}
         onReset={reset}
-        providerStatus={providerStatus}
+        providerBadge={
+          providerStatus ? (
+            <ProviderBadge
+              generatedBy={providerStatus.mode === "llm" ? "llm" : "deterministic"}
+              provider={providerStatus.providers[0]}
+            />
+          ) : null
+        }
       />
 
       {(running || steps.length > 0) && steps.some((s) => s.status !== "pending") && (
@@ -283,6 +235,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
           pkg={pkg}
           reasoning={reasoning}
           graph={graph}
+          resolution={resolution}
           webPages={webPages}
           onWebSearch={runWebSearch}
           webBusy={webBusy}
@@ -291,83 +244,6 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
         />
       )}
     </PageShell>
-  );
-}
-
-/* ============================================================ search bar */
-
-function WorkspaceSearch({
-  input,
-  setInput,
-  onSubmit,
-  activeQuery,
-  running,
-  onReset,
-  providerStatus
-}: {
-  input: string;
-  setInput: (v: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  activeQuery: string;
-  running: boolean;
-  onReset: () => void;
-  providerStatus: LLMProviderStatus | null;
-}) {
-  return (
-    <div className="animate-rise">
-      <div className="mb-1.5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-          <Sparkles className="h-3.5 w-3.5" /> AI Investigation Workspace
-        </div>
-        {providerStatus && (
-          <ProviderBadge
-            generatedBy={providerStatus.mode === "llm" ? "llm" : "deterministic"}
-            provider={providerStatus.providers[0]}
-          />
-        )}
-      </div>
-      <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Investigate an entity, e.g. “Find suspicious road tenders in Rajasthan”"
-            className="h-12 w-full rounded-xl border border-border bg-surface pl-11 pr-4 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/60"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={running}
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-accent px-6 text-sm font-semibold text-bg transition hover:bg-accent-hi disabled:opacity-60"
-        >
-          {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-          {running ? "Investigating" : "Investigate"}
-        </button>
-        {activeQuery && (
-          <button
-            type="button"
-            onClick={onReset}
-            aria-label="Reset investigation"
-            title="Reset investigation"
-            className="flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm text-muted transition hover:text-text"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
-        )}
-      </form>
-      {activeQuery && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-muted">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
-            {activeQuery}
-            <button type="button" onClick={onReset} aria-label="Clear">
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        </div>
-      )}
-      <div className="rule mt-5" />
-    </div>
   );
 }
 
@@ -484,6 +360,7 @@ function InvestigationResults({
   pkg,
   reasoning,
   graph,
+  resolution,
   webPages,
   onWebSearch,
   webBusy,
@@ -494,12 +371,14 @@ function InvestigationResults({
   pkg: InvestigationPackage | null;
   reasoning: InvestigationReasoning;
   graph: RelationshipGraph | null;
+  resolution: EntityResolutionResult | null;
   webPages: StoredWebPage[];
   onWebSearch: () => void;
   webBusy: boolean;
   onFollowUp: (query: string) => void;
   processingMs: number | null;
 }) {
+  const [fullGraphOpen, setFullGraphOpen] = useState(false);
   const awards = useMemo(() => pkg?.records.flatMap((r) => r.awards) ?? [], [pkg]);
   const awardedValue = useMemo(() => awards.reduce((s, a) => s + (Number(a.award_value) || 0), 0), [awards]);
 
@@ -518,10 +397,35 @@ function InvestigationResults({
 
   const hasRecords = (pkg?.records.length ?? 0) > 0;
 
+  // Node-type breakdown of the backend graph. Rendered so an analyst can confirm
+  // the graph faithfully represents the package (evidence/indicator/company/
+  // buyer/award nodes all present) and the counts match the backend exactly.
+  const graphStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const n of graph?.nodes ?? []) counts[n.type] = (counts[n.type] ?? 0) + 1;
+    return counts;
+  }, [graph]);
+
+  useEffect(() => {
+    if (!fullGraphOpen) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [fullGraphOpen]);
+
   return (
     <div className="mt-6 space-y-5">
-      {/* Flagship AI investigation panel — always shown, even when insufficient */}
-      <AiInvestigationPanel reasoning={reasoning} processingMs={processingMs} />
+      {/* Canonical entity resolution — never silently ignore backend candidates. */}
+      {resolution && resolution.candidates.length > 0 && (
+        <EntityCandidatesPanel resolution={resolution} onSelect={onFollowUp} />
+      )}
 
       {/* Prior related investigations (AI memory) surface even without records */}
       {reasoning.prior_investigations.length > 0 && !hasRecords && (
@@ -538,6 +442,79 @@ function InvestigationResults({
         />
       ) : (
         <>
+          {/* graph first: the relationship network is the primary investigation surface */}
+          <Section
+            eyebrow="Network"
+            title="Investigation graph"
+            action={
+              <div className="flex items-center gap-2">
+                <span className="hidden items-center gap-1.5 text-xs text-faint sm:inline-flex">
+                  <Network className="h-3.5 w-3.5" />
+                  {graph?.nodes.length ?? 0} nodes | {graph?.edges.length ?? 0} relationships
+                </span>
+                {Object.keys(graphStats).length > 0 && (
+                  <span className="hidden flex-wrap items-center gap-1.5 lg:inline-flex">
+                    {Object.entries(graphStats)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([type, count]) => (
+                        <span
+                          key={type}
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-[11px] font-medium text-muted"
+                        >
+                          {type}
+                          <span className="text-accent">{count}</span>
+                        </span>
+                      ))}
+                  </span>
+                )}
+                {graph && graph.nodes.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setFullGraphOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-accent"
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    Open Full Graph
+                  </button>
+                ) : null}
+              </div>
+            }
+          >
+            {graph && graph.nodes.length > 0 ? (
+              <div className="overflow-hidden rounded-[14px] border border-border">
+                <RelationshipGraphExplorer graph={graph} compact height={660} />
+              </div>
+            ) : (
+              <EmptyState message="No relationships could be built for this investigation." />
+            )}
+          </Section>
+
+          <AnimatePresence>
+            {fullGraphOpen && graph && graph.nodes.length > 0 ? (
+              <motion.div
+                aria-modal="true"
+                className="fixed inset-0 z-[100] h-dvh w-dvw overflow-hidden bg-bg"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                role="dialog"
+              >
+                <RelationshipGraphExplorer
+                  fullscreen
+                  graph={graph}
+                  onExitFullscreen={() => setFullGraphOpen(false)}
+                  subtitle={query}
+                  title="Full Investigation Graph"
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <AiInvestigationPanel reasoning={reasoning} processingMs={processingMs} />
+
+          {/* Structured analyst report — every grounded section rendered professionally */}
+          {reasoning.analyst_report && <AnalystReportSections report={reasoning.analyst_report} />}
+
           {/* KPI row */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatCard label="Records" value={String(pkg!.records.length)} tone="accent" icon={<FileText className="h-4 w-4" />} />
@@ -644,26 +621,6 @@ function InvestigationResults({
               )}
             </Section>
           </div>
-
-          {/* graph */}
-          <Section
-            eyebrow="Network"
-            title="Relationship graph"
-            action={
-              <span className="inline-flex items-center gap-1.5 text-xs text-faint">
-                <Network className="h-3.5 w-3.5" />
-                {graph?.nodes.length ?? 0} nodes · {graph?.edges.length ?? 0} edges
-              </span>
-            }
-          >
-            {graph && graph.nodes.length > 0 ? (
-              <div className="h-[520px] overflow-hidden rounded-[14px] border border-border">
-                <RelationshipGraphExplorer graph={graph} />
-              </div>
-            ) : (
-              <EmptyState message="No relationships could be built for this investigation." />
-            )}
-          </Section>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             {/* timeline */}
@@ -781,7 +738,36 @@ function InvestigationResults({
                     detail: pe?.contract_value
                       ? `Contract: ${pe.contract_value} ${pe.currency ?? ""}`.trim()
                       : pe?.government_buyer ?? null,
-                    kind: "web"
+                    kind: "web",
+                    evidenceType: pe ? "Procurement web evidence" : "Open-source page",
+                    citation: `${p.title ?? pe?.contract_title ?? "Web procurement evidence"}. ${p.source}. Retrieved ${formatDate(p.retrieved_at)}.`,
+                    relatedEntities: [
+                      pe?.company_name,
+                      ...(pe?.related_companies ?? []),
+                      ...p.extraction.company_mentions
+                    ].filter((value): value is string => Boolean(value)).slice(0, 6),
+                    relatedContracts: [
+                      pe?.contract_number,
+                      pe?.contract_title
+                    ].filter((value): value is string => Boolean(value)),
+                    relatedTenders: [
+                      pe?.tender_number,
+                      pe?.tender_title,
+                      pe?.tender_id
+                    ].filter((value): value is string => Boolean(value)),
+                    relatedOrganizations: [
+                      pe?.organization,
+                      pe?.government_buyer,
+                      ...p.extraction.organization_names,
+                      ...p.extraction.government_entities
+                    ].filter((value): value is string => Boolean(value)).slice(0, 6),
+                    tags: [
+                      pe?.tender_category,
+                      pe?.procurement_sector,
+                      pe?.country,
+                      p.source,
+                      ...p.extraction.dates.slice(0, 2)
+                    ].filter((value): value is string => Boolean(value)).slice(0, 6)
                   };
                   return <EvidenceCard key={p.id} item={ev} index={i} />;
                 })}
@@ -791,6 +777,68 @@ function InvestigationResults({
         </>
       )}
     </div>
+  );
+}
+
+/* ============================================================ entity candidates */
+
+function EntityCandidatesPanel({
+  resolution,
+  onSelect
+}: {
+  resolution: EntityResolutionResult;
+  onSelect: (query: string) => void;
+}) {
+  const { candidates, requires_disambiguation, resolved } = resolution;
+  const title = requires_disambiguation
+    ? "Multiple entities match — select one"
+    : "Resolved canonical entity";
+  const eyebrow = requires_disambiguation ? "Disambiguation" : "Entity resolution";
+
+  return (
+    <Section
+      eyebrow={eyebrow}
+      title={title}
+      action={
+        <span className="text-xs text-faint">
+          {candidates.length} candidate{candidates.length === 1 ? "" : "s"}
+          {resolved ? " · confident match" : ""}
+        </span>
+      }
+    >
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        {candidates.map((c) => {
+          const isBuyer = c.entity_type === "government_buyer";
+          const Icon = isBuyer ? Building2 : Award;
+          return (
+            <button
+              key={c.entity_id}
+              type="button"
+              onClick={() => onSelect(c.canonical_name)}
+              className="group flex flex-col gap-2 rounded-[14px] border border-border bg-bg-2/40 p-3.5 text-left transition hover:border-accent/40 hover:bg-bg-2/70"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-semibold text-fg">{c.canonical_name}</span>
+                </div>
+                <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                  {isBuyer ? "Buyer" : "Company"}
+                </span>
+              </div>
+              <p className="text-xs text-faint">{c.match_reason}</p>
+              <div className="mt-auto flex items-center gap-2 text-[11px] text-muted">
+                <span className="rounded bg-surface px-1.5 py-0.5">{c.match_type}</span>
+                <span>score {c.score}</span>
+                {c.tender_count > 0 && <span>· {c.tender_count} tenders</span>}
+                {c.award_count > 0 && <span>· {c.award_count} awards</span>}
+                <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-0 transition group-hover:opacity-100" />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </Section>
   );
 }
 

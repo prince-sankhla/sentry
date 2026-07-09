@@ -29,6 +29,7 @@ from app.schemas.analytics import (
 )
 from app.schemas.common import Pagination
 from app.services.procurement_intelligence import build_portfolio_risk
+from app.services.search_query import source_rank_ordering
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -166,8 +167,11 @@ def get_overview(db: Session = Depends(get_db)) -> OverviewResponse:
         buyers=buyers,
     )
 
+    # Indian procurement first: rank Indian buyers/suppliers ahead of
+    # international ones (by best/lowest source rank in the group), then by value.
     buyer_label = func.coalesce(Tender.procuring_entity, UNATTRIBUTED)
     buyer_value = func.coalesce(func.sum(Award.award_value), 0)
+    buyer_rank = func.min(source_rank_ordering())
     top_buyers = [
         TopBuyer(buyer=row[0], tenders=int(row[1]), awards=int(row[2]), total_value=row[3])
         for row in db.execute(
@@ -180,12 +184,13 @@ def get_overview(db: Session = Depends(get_db)) -> OverviewResponse:
             .select_from(Award)
             .join(Tender, Award.tender_id == Tender.id)
             .group_by(buyer_label)
-            .order_by(buyer_value.desc())
+            .order_by(buyer_rank.asc(), buyer_value.desc())
             .limit(8)
         ).all()
     ]
 
     supplier_value = func.coalesce(func.sum(Award.award_value), 0)
+    supplier_rank = func.min(source_rank_ordering())
     top_suppliers = [
         TopSupplier(company_id=row[0], name=row[1], awards=int(row[2]), total_value=row[3])
         for row in db.execute(
@@ -197,8 +202,9 @@ def get_overview(db: Session = Depends(get_db)) -> OverviewResponse:
             )
             .select_from(Award)
             .join(Company, Award.company_id == Company.id)
+            .join(Tender, Award.tender_id == Tender.id)
             .group_by(Company.id, Company.name)
-            .order_by(supplier_value.desc())
+            .order_by(supplier_rank.asc(), supplier_value.desc())
             .limit(8)
         ).all()
     ]

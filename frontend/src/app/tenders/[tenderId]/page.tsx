@@ -93,7 +93,7 @@ export default async function TenderDetailPage({ params }: PageProps) {
             )}
           </Section>
 
-          <Section eyebrow="Phase 1" title="Procurement Intelligence">
+          <Section eyebrow="Risk" title="Procurement Intelligence">
             <IntelligenceSignals signals={tender.intelligence.signals} />
           </Section>
 
@@ -103,8 +103,13 @@ export default async function TenderDetailPage({ params }: PageProps) {
             </Section>
           ) : null}
 
-          <Section eyebrow="Evidence" title="Evidence Placeholder">
-            <EmptyState title="No evidence attached" message="Supporting documents and analyst evidence can be attached here when available." />
+          <Section eyebrow="Evidence" title="Evidence Docket">
+            <EvidenceDocket
+              signals={tender.intelligence.signals}
+              awards={tender.awards.length}
+              companies={tender.participating_companies.length}
+              hasDocument={Boolean(tender.pdf_intelligence && !tender.pdf_intelligence.empty)}
+            />
           </Section>
         </div>
 
@@ -171,7 +176,7 @@ export default async function TenderDetailPage({ params }: PageProps) {
 
 function IntelligenceSignals({ signals }: { signals: ProcurementIntelligenceSignal[] }) {
   if (signals.length === 0) {
-    return <EmptyState message="No Phase 1 procurement intelligence signals were detected." />;
+    return <EmptyState message="No procurement intelligence signals were detected for this tender." />;
   }
 
   return (
@@ -202,6 +207,51 @@ function IntelligenceSignals({ signals }: { signals: ProcurementIntelligenceSign
           ) : null}
         </div>
       ))}
+    </div>
+  );
+}
+
+function EvidenceDocket({
+  signals,
+  awards,
+  companies,
+  hasDocument
+}: {
+  signals: ProcurementIntelligenceSignal[];
+  awards: number;
+  companies: number;
+  hasDocument: boolean;
+}) {
+  const evidenceItems = signals.flatMap((signal) => signal.evidence).slice(0, 6);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <DocketMetric label="Signals" value={String(signals.length)} />
+        <DocketMetric label="Awards" value={String(awards)} />
+        <DocketMetric label="Companies" value={String(companies)} />
+        <DocketMetric label="Document" value={hasDocument ? "Parsed" : "None"} />
+      </div>
+      {evidenceItems.length === 0 ? (
+        <EmptyState title="No cited evidence" message="The current tender file has no extracted evidence references." />
+      ) : (
+        <ul className="space-y-2">
+          {evidenceItems.map((item, index) => (
+            <li className="rounded-[12px] border border-border bg-bg-2/40 p-3 text-sm text-muted" key={`${item}-${index}`}>
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DocketMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[12px] border border-border bg-bg-2/40 p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-faint">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-text">{value}</div>
     </div>
   );
 }

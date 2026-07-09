@@ -84,7 +84,59 @@ class WebSearchResponse(BaseModel):
     downloaded_pages: int
     stored_pages: list[StoredPage]
     duplicates_skipped: int
+    rejected_non_procurement: int = 0
 
 
 class ProcurementEvidenceResponse(BaseModel):
     items: list[StoredPage]
+
+
+# --------------------------------------------------------------------------- intelligence
+
+class ProcurementIntelligenceItem(BaseModel):
+    """One analyst-grade evidence item with full provenance and linkage.
+
+    Every field the Procurement Intelligence Engine promises for a result lives
+    here: the source, what kind of evidence it is, how confident we are, when it
+    was published, its original URL, a ready-to-paste citation, a summary, and
+    every entity/tender/contract/organization/investigation it relates to.
+    """
+
+    id: str
+    # provenance
+    source: str
+    source_type: str
+    evidence_type: str
+    cluster: str
+    confidence: float = Field(ge=0, le=1)
+    confidence_tier: str
+    publication_date: str | None = None
+    url: str
+    citation: str
+    evidence_summary: str
+    # linkage
+    related_entities: list[str] = Field(default_factory=list)
+    related_tenders: list[str] = Field(default_factory=list)
+    related_contracts: list[str] = Field(default_factory=list)
+    related_organizations: list[str] = Field(default_factory=list)
+    related_investigations: list[str] = Field(default_factory=list)
+    # audit trail for the classification
+    matched_terms: list[str] = Field(default_factory=list)
+    retrieved_at: datetime
+
+
+class EvidenceCluster(BaseModel):
+    """A group of evidence items under one of the seven investigation buckets."""
+
+    cluster: str
+    label: str
+    count: int
+    items: list[ProcurementIntelligenceItem] = Field(default_factory=list)
+
+
+class ProcurementIntelligenceResponse(BaseModel):
+    """Clustered, analyst-grade procurement intelligence for a subject."""
+
+    query: str
+    total_items: int
+    clusters: list[EvidenceCluster] = Field(default_factory=list)

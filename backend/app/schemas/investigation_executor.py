@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.entity_resolution import EntityResolutionResult
 from app.schemas.investigation_planner import InvestigationPlan
 
 
@@ -133,6 +134,43 @@ class InvestigationGraphSeed(BaseModel):
     source_record_id: str
 
 
+class InvestigationGraphNode(BaseModel):
+    """A typed node in the complete investigation graph.
+
+    ``type`` matches the frontend graph vocabulary (company, tender, award,
+    buyer, indicator, evidence, document, organization) so the package graph can
+    be rendered directly without a separate query.
+    """
+
+    id: str
+    type: str
+    label: str
+    data: dict = Field(default_factory=dict)
+
+
+class InvestigationGraphEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    type: str
+    label: str = ""
+    data: dict = Field(default_factory=dict)
+
+
+class InvestigationGraph(BaseModel):
+    """A faithful, complete graph of the Investigation Package.
+
+    Every entity the report contains — tenders, buyers, companies, awards,
+    evidence, documents, procurement indicators and organizations — has a
+    corresponding node, and every relationship a corresponding edge. The graph
+    must never show zero evidence or zero indicator nodes when the package
+    contains them.
+    """
+
+    nodes: list[InvestigationGraphNode] = Field(default_factory=list)
+    edges: list[InvestigationGraphEdge] = Field(default_factory=list)
+
+
 class RiskTimelineEvent(BaseModel):
     """A dated event supporting a risk indicator (award, publication, closing)."""
 
@@ -176,11 +214,20 @@ class InvestigationStepResult(BaseModel):
 class InvestigationPackage(BaseModel):
     plan: InvestigationPlan
     records: list[InvestigationProcurementRecord] = Field(default_factory=list)
+    # Canonical entity resolution of the investigation subject (companies AND
+    # government buyers) computed BEFORE retrieval. Carries the ranked candidates
+    # and the disambiguation decision so the API response proves the
+    # investigation began from a resolved entity, not raw ambiguous text.
+    resolved_entities: EntityResolutionResult | None = None
+    records_from_resolved_entity: bool = False
     canonical_companies: list[CanonicalCompany] = Field(default_factory=list)
     entities: list[InvestigationEntity] = Field(default_factory=list)
     evidence: list[InvestigationEvidence] = Field(default_factory=list)
     timeline: list[InvestigationTimelineEvent] = Field(default_factory=list)
     graph_seeds: list[InvestigationGraphSeed] = Field(default_factory=list)
+    # Complete typed graph of the whole package (nodes+edges for tenders, buyers,
+    # companies, awards, evidence, documents, indicators, organizations).
+    graph: InvestigationGraph = Field(default_factory=InvestigationGraph)
     indicators: list[InvestigationProcurementIndicator] = Field(default_factory=list)
     step_results: list[InvestigationStepResult] = Field(default_factory=list)
 

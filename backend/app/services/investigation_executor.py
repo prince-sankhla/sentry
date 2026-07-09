@@ -21,7 +21,7 @@ from app.schemas.investigation_executor import (
     InvestigationTenderResult,
     InvestigationTimelineEvent,
 )
-from app.schemas.investigation_planner import InvestigationPlanStep, InvestigationType
+from app.schemas.investigation_planner import InvestigationPlanStep
 
 if TYPE_CHECKING:
     from app.services.investigation_planner import InvestigationPlanner
@@ -58,20 +58,100 @@ class InvestigationExecutor:
         else:
             pkg = InvestigationPackage(plan=request.plan)
 
+        # Expose the active plan so per-step retrieval can choose precision mode
+        # for entity-type investigations.
+        self._active_plan = request.plan
+
+        # Canonical entity resolution FIRST — every investigation begins by
+        # resolving the subject to a concrete entity (company or government
+        # buyer). The resolution is stored on the package (API + explainability)
+        # and its canonical names are reused as retrieval aliases so the whole
+        # pipeline runs on the resolved entity, not the raw ambiguous text.
+        self._resolution = self._resolve_subject(request.plan.query)
+        pkg.resolved_entities = self._resolution
+
         for step in request.plan.steps:
             step_result = await self._execute_step(pkg, step, request.limit_per_connector)
             pkg.step_results.append(step_result)
 
+        pkg.records_from_resolved_entity = bool(
+            self._resolution is not None and self._resolution.candidates and pkg.records
+        )
         self._finalize_package(pkg)
         return pkg
 
+    def _resolve_subject(self, query: str):
+        """Resolve the investigation subject to canonical entities (once).
+
+        Best-effort: on any failure (or non-DB record source) returns ``None`` and
+        the pipeline proceeds on the raw query, preserving prior behaviour.
+        """
+        from app.services.investigation_repository import DatabaseRecordSource
+
+        if not isinstance(self.record_source, DatabaseRecordSource):
+            return None
+        try:
+            from app.services.entity_resolution_service import resolve_entities
+
+            return resolve_entities(self.record_source.session, query, limit=5)
+        except Exception:
+            return None
+
+    # Investigation types that name a specific entity — retrieval for these must
+    # be precise (directly reference the entity), not topical/synonym-broad.
+    _ENTITY_TYPES = {"company", "supplier", "buyer", "director", "ministry", "contract"}
+
+    def _entity_aliases(self) -> list[str]:
+        """Canonical entity names for the subject, used to widen precision recall.
+
+        Reuses the resolution computed once in :meth:`execute` (companies AND
+        government buyers) and returns strong-match canonical names as aliases so
+        precision retrieval matches every genuine phrasing of the entity without
+        drifting to loosely related ones. Best-effort: no resolution → raw query.
+        """
+        resolution = getattr(self, "_resolution", None)
+        if resolution is None:
+            return []
+        names: list[str] = []
+        for candidate in resolution.candidates:
+            # Only fold in strong matches so retrieval does not drift to loosely
+            # related entities; exact/registration/alias/official_name qualify.
+            if candidate.match_type in {"exact", "registration", "alias", "official_name"}:
+                if candidate.canonical_name and candidate.canonical_name not in names:
+                    names.append(candidate.canonical_name)
+        return names
+
     def _search(self, query: str, connectors: list[str], limit_per_connector: int):
         """One search per step. Against the DB (source of truth) we query the
-        whole store; file-backed connectors are still queried per source."""
+        whole store; file-backed connectors are still queried per source.
+
+        For entity-type investigations we use precision retrieval so unrelated
+        procurements (matched only by shared/topical words) are never mixed into
+        the package. A precision pass that returns nothing falls back to the
+        broad pass so recall is preserved when an entity has sparse data.
+        """
         from app.services.investigation_repository import DatabaseRecordSource
+
+        investigation_type = getattr(getattr(self, "_active_plan", None), "investigation_type", None)
+        precision = investigation_type in self._ENTITY_TYPES
 
         if isinstance(self.record_source, DatabaseRecordSource):
             scaled = limit_per_connector * max(len(connectors), 1)
+            if precision:
+                # Entity investigations retrieve ONLY records that directly
+                # reference the resolved entity (its canonical name + verified
+                # aliases), and ONLY from Indian sources. We deliberately do NOT
+                # fall back to broad synonym search when this is empty: an entity
+                # with no Indian procurement record yields an empty package (→
+                # "insufficient evidence"), never a contaminated one full of
+                # unrelated buyers/suppliers/foreign projects that merely share a
+                # topical word. Correctness over recall.
+                aliases = self._entity_aliases()
+                return self.record_source.search(
+                    query, source_names=None, limit=scaled, precision=True,
+                    aliases=aliases, indian_only=True,
+                )
+            # Non-entity (topical/location) investigations keep broad retrieval.
             return self.record_source.search(query, source_names=None, limit=scaled)
         results = []
         for connector_name in connectors:
@@ -86,6 +166,7 @@ class InvestigationExecutor:
         Rebuilt from scratch on every execute() so the package stays consistent when
         an existing package is passed back in for incremental execution.
         """
+        from app.services.investigation_graph import build_investigation_graph
         from app.services.investigation_indicators import build_indicators
 
         pkg.entities = _build_entities(pkg)
@@ -93,6 +174,9 @@ class InvestigationExecutor:
         pkg.timeline = _build_timeline(pkg)
         pkg.graph_seeds = _build_graph_seeds(pkg)
         pkg.indicators = build_indicators(pkg)
+        # Complete graph LAST so it includes indicator + evidence nodes — the
+        # package graph must faithfully represent everything the report contains.
+        pkg.graph = build_investigation_graph(pkg)
 
     async def _execute_step(
         self, pkg: InvestigationPackage, step: InvestigationPlanStep, limit_per_connector: int
