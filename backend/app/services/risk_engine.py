@@ -50,6 +50,11 @@ _SEVERITY_SCORE = {"low": 25, "medium": 50, "high": 72, "critical": 92}
 _SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 _ORDER_SEVERITY = {v: k for k, v in _SEVERITY_ORDER.items()}
 
+# Minimum tenders in one buyer's same-day batch to flag contract fragmentation.
+# Conservative by design: municipal ward-works batches are common, so a handful of
+# same-day tenders is normal; the signal is a lead for review, not a determination.
+_FRAGMENTATION_MIN = 5
+
 
 @dataclass(frozen=True)
 class IndicatorDef:
@@ -104,6 +109,10 @@ INDICATOR_REGISTRY: dict[str, IndicatorDef] = {
         ("buyer", "awarded_supplier"), "The awarded supplier is the procuring entity itself."),
     "missing_documents": IndicatorDef("missing_documents", "Missing Documents", "process", "low",
         ("tender_reference", "documents"), "Tender has no attached procurement documents."),
+    "contract_fragmentation": IndicatorDef("contract_fragmentation", "Contract Fragmentation", "process", "medium",
+        ("buyer", "tender_reference", "estimated_value"),
+        "One buyer issues many tenders as a single same-day batch — a possible "
+        "requirement-splitting / threshold-avoidance pattern (tender-stage; requires review)."),
     # --- related-party overlaps (declared; trigger only with entity data) ---
     "gst_overlap": IndicatorDef("gst_overlap", "GST Overlap", "relationship", "critical",
         ("supplier_gst",), "Two ostensibly distinct suppliers share a GSTIN."),
@@ -179,6 +188,45 @@ def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
             "records": missing_doc_refs[:20],
             "entities": [],
         })
+
+    # Contract fragmentation: one procuring entity issuing many tenders as a single
+    # same-day batch (identical publish + closing dates) — a possible requirement-
+    # splitting / threshold-avoidance signature. Deterministic and package-only:
+    # group records by procuring entity, then by their (published, closing) date
+    # pair, and flag any batch at or above the fragmentation threshold. Tender-stage
+    # signal (needs no award data); severity is MEDIUM — a lead, never a conclusion.
+    by_buyer: dict[str, list] = {}
+    for r in pkg.records:
+        buyer = (r.tender.procuring_entity or "").strip()
+        if buyer:
+            by_buyer.setdefault(buyer, []).append(r)
+    for buyer, buyer_records in by_buyer.items():
+        if len(buyer_records) < _FRAGMENTATION_MIN:
+            continue
+        batches: dict[tuple, list] = {}
+        for r in buyer_records:
+            batches.setdefault((r.tender.published_date, r.tender.closing_date), []).append(r)
+        for (published, closing), batch in batches.items():
+            if published is None or closing is None or len(batch) < _FRAGMENTATION_MIN:
+                continue
+            values = [r.tender.estimated_value for r in batch if r.tender.estimated_value is not None]
+            total = sum(values) if values else None
+            duplicate_values = len(values) - len(set(values))
+            reason = (
+                f"{len(batch)} tenders from '{buyer}' share a single publication date "
+                f"({published}) and closing date ({closing})"
+            )
+            if total is not None:
+                reason += f", together totalling {total:,.0f}"
+            if duplicate_values > 0:
+                reason += f"; {duplicate_values} share an identical estimated value"
+            reason += " — a possible requirement-splitting pattern. Requires Investigator Review."
+            hits.append({
+                "type": "contract_fragmentation",
+                "reason": reason,
+                "records": [r.tender.reference_number for r in batch],
+                "entities": [buyer],
+            })
     return hits
 
 
