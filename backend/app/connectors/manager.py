@@ -9,6 +9,7 @@ from app.connectors.base import (
     NormalizedTender,
     SourceConnector,
 )
+from app.connectors.classification import is_enabled_by_default
 from app.connectors.common.source_priority import prioritize_source_names, source_rank
 from app.connectors.registry import discover_connectors
 
@@ -22,7 +23,16 @@ class SourceManager:
         # Always query Indian procurement sources first so results and the shared
         # search budget favour Indian data over international sources.
         if not source_names:
-            connectors = self.registry.all(data_root=self.data_root)
+            # India-first scope: the *default* (unscoped) enumeration only yields
+            # connectors enabled by default (Indian classes). International and
+            # Experimental connectors stay registered and reachable when named
+            # explicitly, but are excluded here unless re-enabled via env flag.
+            # See app/connectors/classification.py and INDIA_SCOPE_PLAN.md.
+            connectors = [
+                connector
+                for connector in self.registry.all(data_root=self.data_root)
+                if is_enabled_by_default(connector.metadata.name)
+            ]
             return sorted(connectors, key=lambda connector: source_rank(connector.metadata.name))
         ordered = prioritize_source_names(list(source_names))
         return [
