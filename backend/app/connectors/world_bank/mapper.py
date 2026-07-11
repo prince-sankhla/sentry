@@ -57,7 +57,17 @@ def map_notice(payload: dict[str, Any], source_url: str, retrieved_at: datetime)
         retrieved_at=retrieved_at,
     )
 
-    reference_number = f"WB:{bid_reference or notice_id}"
+    # `bid_reference_no` is NOT a unique key — a single solicitation is routinely
+    # split into many lots that all share it (e.g. LK-MOA-448081 covers 4 separate
+    # contract awards to the same supplier). Keying identity on it alone collapses
+    # distinct awards into one tender row, which erases both supplier-concentration
+    # and requirement-splitting signals — the exact patterns an investigation needs.
+    # Bind the globally-unique notice `id`, but keep the solicitation reference as a
+    # queryable prefix so lots under one solicitation can still be grouped
+    # (WHERE reference_number LIKE 'WB:<bid_reference>:%').
+    reference_number = _truncate(
+        f"WB:{bid_reference}:{notice_id}" if bid_reference else f"WB:{notice_id}", 100
+    )
     title = _truncate(description or project_name or f"World Bank procurement notice {notice_id}", 500)
     # NOTE (data semantics): for World Bank *contract-award* notices, `noticedate`
     # is the date the award notice was published — which is AFTER the tender
