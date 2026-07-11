@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from app.services.investigation_grounding import (
+    entity_atoms,
     numeric_atoms,
     verify_summary,
 )
@@ -86,6 +87,48 @@ class VerifySummaryTest(unittest.TestCase):
         verdict = verify_summary(summary, self._context())
         self.assertFalse(verdict.grounded)
         self.assertIn("20", verdict.ungrounded_numbers)
+
+
+class EntityAtomsTest(unittest.TestCase):
+    def test_designator_anchored_phrase_detected(self) -> None:
+        self.assertIn("reliance infrastructure ltd", entity_atoms("awarded to Reliance Infrastructure Ltd"))
+
+    def test_generic_prose_not_flagged(self) -> None:
+        # No organizational designator -> not an entity claim.
+        self.assertEqual(entity_atoms("Risk is HIGH and the assessment is preliminary"), set())
+
+    def test_sentence_initial_capital_not_flagged(self) -> None:
+        self.assertEqual(entity_atoms("Investigation reviewed twelve records"), set())
+
+
+class VerifyEntityGuardTest(unittest.TestCase):
+    def _context(self) -> str:
+        return (
+            "Subject: Acme Corp (type: supplier)\n"
+            "Procurement records: 12\n"
+            "Buyers observed: Public Works Department\n"
+            "- [high/85] Buyer Concentration: Acme wins tenders (tenders: T-1, T-2)"
+        )
+
+    def test_fabricated_company_is_rejected(self) -> None:
+        # "Reliance Infrastructure Ltd" never appears in the evidence context.
+        summary = "The award went to Reliance Infrastructure Ltd, indicating HIGH risk."
+        verdict = verify_summary(summary, self._context())
+        self.assertFalse(verdict.grounded)
+        self.assertIn("reliance infrastructure ltd", verdict.ungrounded_entities)
+
+    def test_grounded_company_passes(self) -> None:
+        # "Acme Corporation" — its significant token (acme) IS in the context.
+        summary = "Acme Corporation shows elevated concentration; risk is HIGH."
+        self.assertTrue(verify_summary(summary, self._context()).grounded)
+
+    def test_grounded_buyer_phrase_passes(self) -> None:
+        summary = "The Public Works Department concentrated its awards; risk is HIGH."
+        self.assertTrue(verify_summary(summary, self._context()).grounded)
+
+    def test_prose_without_entities_or_numbers_passes(self) -> None:
+        summary = "The assessment is preliminary; the evidence is thin but adverse."
+        self.assertTrue(verify_summary(summary, self._context()).grounded)
 
 
 if __name__ == "__main__":

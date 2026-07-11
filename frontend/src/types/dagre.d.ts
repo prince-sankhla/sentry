@@ -3,8 +3,14 @@ declare module "dagre" {
     rankdir?: string;
     ranksep?: number;
     nodesep?: number;
+    edgesep?: number;
     marginx?: number;
     marginy?: number;
+  };
+
+  type EdgeLabel = {
+    weight?: number;
+    minlen?: number;
   };
 
   type NodeLabel = {
@@ -18,7 +24,7 @@ declare module "dagre" {
     setDefaultEdgeLabel(callback: () => Record<string, unknown>): void;
     setGraph(label: GraphLabel): void;
     setNode(id: string, label: NodeLabel): void;
-    setEdge(source: string, target: string): void;
+    setEdge(source: string, target: string, label?: EdgeLabel): void;
     node(id: string): NodeLabel;
   }
 

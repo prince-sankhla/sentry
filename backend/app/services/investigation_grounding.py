@@ -65,6 +65,30 @@ _WORD_NUMBERS: dict[str, str] = {
 # Kept tiny on purpose — anything larger must trace to the context.
 _UBIQUITOUS: frozenset[str] = frozenset({"0", "1"})
 
+# Organizational designators that mark a capitalized phrase as a NAMED ENTITY
+# (a company or government body) rather than ordinary prose. A summary asserting
+# "awarded to X Ltd" or "the Y Corporation" is making an entity claim that must
+# trace to the evidence context — inventing a supplier/buyer is the highest-value
+# non-numeric fabrication a judge probes. We anchor on designators (not every
+# capitalized word) to keep the guard high-precision: sentence-initial words and
+# generic prose like "Risk is HIGH" never carry these, so they are never flagged.
+_ENTITY_DESIGNATORS: frozenset[str] = frozenset({
+    "ltd", "limited", "pvt", "private", "llp", "inc", "corp", "corporation",
+    "company", "co", "industries", "enterprises", "enterprise", "infrastructure",
+    "infra", "constructions", "construction", "builders", "engineers",
+    "engineering", "technologies", "solutions", "services", "systems", "nigam",
+    "authority", "board", "ministry", "department", "municipal", "municipality",
+    "corporation", "council", "commission", "agency", "trust", "foundation",
+    "gmbh", "plc", "sa", "ag", "bv", "nv",
+})
+
+# Words we ignore when checking whether an entity phrase traces to the context —
+# risk/section vocabulary that is not itself an evidentiary entity token.
+_ENTITY_STOPWORDS: frozenset[str] = frozenset({
+    "the", "a", "an", "of", "and", "risk", "high", "medium", "low", "critical",
+    "investigation", "tender", "award", "supplier", "buyer", "report", "analyst",
+})
+
 
 def _normalize_number(raw: str) -> str:
     """Canonicalize a numeric token for comparison.
@@ -93,12 +117,63 @@ def numeric_atoms(text: str) -> set[str]:
     return atoms
 
 
+def entity_atoms(text: str) -> set[str]:
+    """Every distinct NAMED ENTITY phrase asserted by ``text``.
+
+    A named entity is a run of capitalized tokens anchored by an organizational
+    designator (``... Ltd``, ``... Corporation``, ``... Nigam``). We return the
+    phrase casefolded so it can be checked against the evidence context. Prose
+    without a designator yields nothing, so ordinary capitalized words (sentence
+    starts, "HIGH", "Risk") never register as an entity claim.
+    """
+    entities: set[str] = set()
+    # Grow contiguous capitalized runs; a run is a named entity when any token in
+    # it is an organizational designator.
+    words = re.findall(r"[A-Za-z&.\-]+", text)
+    run: list[str] = []
+    for word in words:
+        is_cap = bool(word) and word[0].isupper()
+        if is_cap:
+            run.append(word)
+            continue
+        _flush_entity_run(run, entities)
+        run = []
+    _flush_entity_run(run, entities)
+    return entities
+
+
+def _flush_entity_run(run: list[str], out: set[str]) -> None:
+    """If a capitalized run contains an org designator, record it as an entity."""
+    if len(run) < 2:
+        return
+    lowered = [w.casefold().rstrip(".") for w in run]
+    if any(tok in _ENTITY_DESIGNATORS for tok in lowered):
+        out.add(" ".join(lowered))
+
+
+def _entity_is_grounded(entity: str, context_lower: str) -> bool:
+    """An entity phrase traces to context if the phrase appears verbatim, or all
+    of its significant (non-stopword, non-designator) tokens appear in context."""
+    if entity in context_lower:
+        return True
+    significant = [
+        tok for tok in entity.split()
+        if tok not in _ENTITY_STOPWORDS and tok not in _ENTITY_DESIGNATORS and len(tok) > 1
+    ]
+    if not significant:
+        # Phrase was only designators/stopwords (e.g. "the Corporation") — too
+        # generic to be a fabrication claim; do not flag.
+        return True
+    return all(tok in context_lower for tok in significant)
+
+
 @dataclass(frozen=True)
 class GroundingVerdict:
     """Result of verifying a generated summary against its evidence context."""
 
     grounded: bool
     ungrounded_numbers: list[str] = field(default_factory=list)
+    ungrounded_entities: list[str] = field(default_factory=list)
     reason: str = ""
 
 
@@ -111,7 +186,7 @@ def verify_summary(summary: str, context: str) -> GroundingVerdict:
     should discard it in favour of the deterministic composer.
     """
     if not summary.strip():
-        return GroundingVerdict(False, [], "empty summary")
+        return GroundingVerdict(False, [], [], "empty summary")
 
     context_numbers = numeric_atoms(context)
     summary_numbers = numeric_atoms(summary)
@@ -127,4 +202,23 @@ def verify_summary(summary: str, context: str) -> GroundingVerdict:
                 + ", ".join(ungrounded)
             ),
         )
-    return GroundingVerdict(grounded=True, reason="all quantities trace to evidence")
+
+    # Entity guard: reject any NAMED organization the evidence context does not
+    # contain. Numbers are the highest-value fabrication, but inventing a
+    # supplier/buyer is the next — and prose-only fabrications would otherwise
+    # slip past a numbers-only guard. Fail-safe: a false positive only costs the
+    # model's phrasing (caller falls back to the grounded deterministic composer).
+    context_lower = context.casefold()
+    ungrounded_entities = sorted(
+        e for e in entity_atoms(summary) if not _entity_is_grounded(e, context_lower)
+    )
+    if ungrounded_entities:
+        return GroundingVerdict(
+            grounded=False,
+            ungrounded_entities=ungrounded_entities,
+            reason=(
+                "summary names entities absent from the evidence context: "
+                + ", ".join(ungrounded_entities)
+            ),
+        )
+    return GroundingVerdict(grounded=True, reason="all quantities and named entities trace to evidence")

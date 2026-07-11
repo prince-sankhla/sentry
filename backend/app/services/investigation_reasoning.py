@@ -35,9 +35,11 @@ from app.schemas.investigation_reasoning import (
     ReasoningFinding,
     RiskLevel,
 )
+from app.schemas.investigation_risk import RiskAssessmentV2
 from app.services.investigation_analyst import run_analyst_trace
 from app.services.investigation_evidence import (
     build_evidence_ledger,
+    build_evidence_packet,
     citation_from_record,
     grounding_report,
 )
@@ -48,6 +50,7 @@ from app.services.investigation_memory import (
     InvestigationMemory,
     entry_from_investigation,
 )
+from app.services.risk_engine import assess_risk_v2
 
 logger = logging.getLogger(__name__)
 
@@ -100,20 +103,29 @@ def build_reasoning(
             prior_investigations=prior,
         )
 
+    # SINGLE SOURCE OF TRUTH — Deterministic Risk Engine V2. The executor already
+    # computes and attaches the V2 assessment during package finalisation; we only
+    # recompute it here if this package was built outside the executor (e.g. a
+    # direct build_reasoning call in a test). Overall severity, score, and
+    # confidence ALL flow from V2 so the risk reported by the engine, the
+    # reasoning layer, the LLM narrative, and the frontend can never diverge.
+    # Resolved BEFORE findings so each finding can carry V2's evidence-verification
+    # verdict (verified/probable/unknown).
+    risk_v2 = pkg.risk_assessment_v2 or assess_risk_v2(pkg)
+    pkg.risk_assessment_v2 = risk_v2
+
     findings = _findings_from_indicators(pkg)
 
-    # Weighted Procurement Integrity Assessment — risk is a weighted blend of
-    # distinct integrity factors, NOT a count of indicators. The banded level,
-    # score, and confidence all come from this explainable model; the rationale
-    # is the ranked factor breakdown so the verdict is fully auditable.
+    # The weighted integrity model remains as an explanatory sub-breakdown, but it
+    # is NO LONGER the risk verdict — V2 is. Kept for backward-compatible detail
+    # only; it never overrides the V2 severity or confidence below.
     integrity = assess_integrity(pkg)
-    risk_level = integrity.level
-    confidence = integrity.confidence
-    risk_rationale = [
-        f"{factor.label}: {factor.contribution:.0f} pts (weight {factor.weight:.0%}, strength {factor.strength:.0%})"
-        for factor in integrity.factors
-        if factor.contribution > 0
-    ][:6] or [f"{len(pkg.records)} records reviewed; no adverse integrity factors dominated"]
+
+    risk_level = risk_v2.overall_severity
+    confidence = risk_v2.confidence.score if risk_v2.confidence else integrity.confidence
+    risk_rationale = _risk_rationale_v2(risk_v2) or [
+        f"{len(pkg.records)} records reviewed; no adverse integrity patterns dominated"
+    ]
 
     recommendations = _recommendations(pkg, risk_level, findings)
     follow_ups = _follow_ups(pkg, subject, investigation_type)
@@ -123,7 +135,8 @@ def build_reasoning(
     evidence_ledger = build_evidence_ledger(pkg)
     total_citations = sum(len(f.citations) for f in findings)
     backed = sum(1 for f in findings if f.evidence_backed)
-    grounding = grounding_report(pkg, len(findings), backed, total_citations)
+    verified = sum(1 for f in findings if f.verification == "verified")
+    grounding = grounding_report(pkg, len(findings), backed, total_citations, verified)
 
     # Multi-step, grounded analyst trace (tool-driven, package-only facts).
     analyst_trace = run_analyst_trace(pkg)
@@ -132,10 +145,10 @@ def build_reasoning(
     # (buyer/supplier/award/timeline analysis, patterns, contradictions, missing
     # evidence, derived confidence). The LLM narrates these; it never computes them.
     analyst_report = build_analyst_report(pkg, grounding)
-    # Confidence is now derived from measurable investigation quality, not a bare
-    # heuristic — surface the derived score as the headline confidence.
-    if analyst_report.confidence_assessment is not None:
-        confidence = analyst_report.confidence_assessment.score
+    # Headline confidence stays the Risk Engine V2 confidence (single source of
+    # truth). The analyst report's multidimensional confidence assessment remains
+    # available as a detailed breakdown card, but it does NOT override the verdict
+    # confidence — that would reintroduce a second, divergent confidence number.
 
     reasoning = InvestigationReasoning(
         subject=subject,
@@ -161,6 +174,12 @@ def build_reasoning(
     reasoning.provider = provider
     reasoning.model = model
     reasoning.fallback_reason = fallback_reason
+
+    # Consolidated proof bundle — every finding tied to its verification status and
+    # provenanced evidence, assembled once the narrative provenance is known.
+    reasoning.evidence_packet = build_evidence_packet(
+        pkg, findings, subject=subject, risk_level=risk_level, generated_by=generated_by,
+    )
 
     # Remember this investigation for future continuity (best-effort).
     mem.remember(
@@ -195,6 +214,17 @@ def _findings_from_indicators(pkg: InvestigationPackage) -> list[ReasoningFindin
     """
     record_by_ref = {r.tender.reference_number: r for r in pkg.records}
 
+    # Deterministic evidence-verification verdict per indicator type, from the
+    # Risk Engine V2 evidence validator (verified/probable/unknown). This is the
+    # authoritative "is this proven?" signal — surfaced onto each finding below so
+    # a finding is labelled *verified* only when the backend proved its evidence,
+    # not merely because a citation resolved. Best-effort: absent V2 (e.g. a
+    # direct build in a test) leaves findings at their citation-derived status.
+    verification_by_type: dict[str, str] = {}
+    risk_v2 = pkg.risk_assessment_v2
+    if risk_v2 is not None:
+        verification_by_type = {ind.id: ind.evidence_status for ind in risk_v2.indicators}
+
     # Preserve first-seen order of indicator types (indicators arrive sorted by
     # score desc, so the strongest type leads).
     groups: dict[str, list[InvestigationProcurementIndicator]] = {}
@@ -226,6 +256,13 @@ def _findings_from_indicators(pkg: InvestigationPackage) -> list[ReasoningFindin
         else:
             detail = lead.summary
 
+        # A finding with no resolvable citation is unverified regardless of the
+        # engine's status; otherwise it inherits the deterministic V2 verdict.
+        if not citations:
+            verification = "unverified"
+        else:
+            verification = verification_by_type.get(indicator_type, "probable")
+
         findings.append(
             ReasoningFinding(
                 title=title,
@@ -234,6 +271,7 @@ def _findings_from_indicators(pkg: InvestigationPackage) -> list[ReasoningFindin
                 score=lead.score,
                 citations=citations[:12],
                 evidence_backed=bool(citations),
+                verification=verification,  # type: ignore[arg-type]
                 indicator_type=indicator_type,
                 occurrences=occurrences,
                 supporting_records=supporting_records,
@@ -289,11 +327,28 @@ def _citations_for_indicator(
 # --------------------------------------------------------------------------- risk
 
 
-# Overall risk is now produced by the Weighted Procurement Integrity Assessment
-# (``services/investigation_integrity.assess_integrity``): a weighted blend of
-# distinct integrity factors rather than a count of indicators. The former
-# count-based ``_assess_risk`` was removed so there is a single authoritative
-# risk model.
+# Overall risk is produced by the Deterministic Risk Engine V2
+# (``services/risk_engine.assess_risk_v2``): named rule-combination patterns over
+# evidence-validated indicators. It is the single authoritative risk model — the
+# reasoning layer narrates it and never recomputes it. The weighted integrity
+# assessment survives only as an explanatory factor breakdown.
+
+
+def _risk_rationale_v2(risk_v2: RiskAssessmentV2) -> list[str]:
+    """Analyst-reasoning chips derived from the Risk Engine V2 assessment.
+
+    Leads with named patterns (the strongest deterministic signal), then the top
+    contributing indicators — so the frontend "Analyst reasoning" chips and the
+    LLM context both narrate V2 structure rather than legacy integrity factors.
+    """
+    lines: list[str] = []
+    for pattern in risk_v2.patterns[:4]:
+        lines.append(f"{pattern.name} [{pattern.severity}] — {pattern.rule}")
+    for indicator in risk_v2.indicators:
+        if len(lines) >= 6:
+            break
+        lines.append(f"{indicator.name} [{indicator.severity}] — {indicator.reason}")
+    return lines[:6]
 
 
 # --------------------------------------------------------------------------- recommendations
@@ -495,6 +550,25 @@ def _evidence_context(pkg: InvestigationPackage, reasoning: InvestigationReasoni
     lines.append(f"Procurement records: {len(pkg.records)}")
     lines.append(f"Resolved entities: {len(pkg.canonical_companies)}")
     lines.append(f"Deterministic risk level: {reasoning.risk_level}")
+
+    # Risk Engine V2 is the authoritative risk model — hand the LLM its severity,
+    # named patterns, and confidence so the narrative NARRATES V2 rather than
+    # recomputing risk from raw indicators. The model may only phrase this.
+    risk_v2 = pkg.risk_assessment_v2
+    if risk_v2 is not None:
+        lines.append(
+            f"Risk Engine V2 verdict: {risk_v2.overall_severity} "
+            f"(score {risk_v2.overall_score}/100, deterministic — do not recompute)."
+        )
+        if risk_v2.patterns:
+            lines.append("Risk patterns (deterministic rule combinations):")
+            for pattern in risk_v2.patterns[:5]:
+                lines.append(f"- [{pattern.severity}] {pattern.name}: {pattern.rule}")
+        if risk_v2.confidence is not None:
+            lines.append(
+                f"Risk Engine V2 confidence: {int(risk_v2.confidence.score * 100)}% "
+                f"({risk_v2.confidence.level})."
+            )
 
     if reasoning.findings:
         lines.append("Indicators (each explainable, evidence-backed):")

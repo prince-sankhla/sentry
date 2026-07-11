@@ -120,14 +120,19 @@ function CommandCenterView({ data, onLaunch }: { data: Bundle; onLaunch: (q: str
     <div className="mt-2 space-y-5">
       <MorningBrief overview={overview} risk={risk} timeline={timeline} onLaunch={onLaunch} />
 
-      {/* KPI ROW */}
+      {/* KPI ROW — every figure is a live total from the analytics API. We
+          deliberately show NO period-over-period delta pill here: the backend
+          exposes no historical baseline, and this is a grounded-evidence product
+          (see AiInvestigationPanel: "nothing here is fabricated"). Inventing a
+          "+18.6% vs last 30 days" would be the one unsourced number on the board.
+          The sparklines are ambient shape only — they assert no specific claim. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Tenders" value={formatNumber(t.tenders)} tone="accent" icon={<FileText className="h-4 w-4" />} delta={18.6} spark={spark(t.tenders)} />
-        <KpiCard label="Awarded Value" value={formatCompactMoney(t.total_awarded_value)} tone="success" icon={<Award className="h-4 w-4" />} delta={22.4} spark={spark(9)} />
-        <KpiCard label="Buyers" value={formatNumber(t.buyers)} tone="info" icon={<Landmark className="h-4 w-4" />} delta={12.7} spark={spark(6)} />
-        <KpiCard label="Suppliers" value={formatNumber(t.companies)} icon={<Building2 className="h-4 w-4" />} delta={15.3} spark={spark(7)} />
-        <KpiCard label="High-Risk" value={formatNumber(risk.summary.high)} tone="danger" icon={<ShieldAlert className="h-4 w-4" />} delta={8.2} spark={spark(5)} />
-        <KpiCard label="Single-Bidder" value={formatNumber(t.single_bidder_tenders)} tone="danger" icon={<Radar className="h-4 w-4" />} delta={-4.0} spark={spark(4)} />
+        <KpiCard label="Total Tenders" value={formatNumber(t.tenders)} tone="accent" icon={<FileText className="h-4 w-4" />} spark={spark(t.tenders)} />
+        <KpiCard label="Awarded Value" value={formatCompactMoney(t.total_awarded_value)} tone="success" icon={<Award className="h-4 w-4" />} spark={spark(9)} />
+        <KpiCard label="Buyers" value={formatNumber(t.buyers)} tone="info" icon={<Landmark className="h-4 w-4" />} spark={spark(6)} />
+        <KpiCard label="Suppliers" value={formatNumber(t.companies)} icon={<Building2 className="h-4 w-4" />} spark={spark(7)} />
+        <KpiCard label="High-Risk" value={formatNumber(risk.summary.high)} tone="danger" icon={<ShieldAlert className="h-4 w-4" />} spark={spark(5)} />
+        <KpiCard label="Single-Bidder" value={formatNumber(t.single_bidder_tenders)} tone="danger" icon={<Radar className="h-4 w-4" />} spark={spark(4)} />
       </div>
 
       {/* MAP + RISK + INVESTIGATIONS */}

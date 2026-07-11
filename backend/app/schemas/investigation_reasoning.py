@@ -13,8 +13,16 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.investigation_memory import MemoryHit
+from app.schemas.investigation_risk import OVERSIGHT_DISCLAIMER
 
 RiskLevel = Literal["low", "medium", "high", "critical", "insufficient"]
+
+# Deterministic evidence-verification verdict for a finding, surfaced from the
+# Risk Engine V2 evidence validator. ``verified`` = a primary document backs it;
+# ``probable`` = a source record/URL backs it but no document; ``unknown`` = the
+# required evidence could not be resolved in the package; ``unverified`` = the
+# finding resolved to no citation at all.
+FindingVerification = Literal["verified", "probable", "unknown", "unverified"]
 
 
 class ReasoningCitation(BaseModel):
@@ -64,6 +72,10 @@ class ReasoningFinding(BaseModel):
     score: int = Field(default=0, ge=0, le=100)
     citations: list[ReasoningCitation] = Field(default_factory=list)
     evidence_backed: bool = True
+    # Deterministic evidence-verification verdict from the Risk Engine V2 evidence
+    # validator (NOT merely "has a citation"). This is what makes a finding a
+    # *verified* finding: the backend proved its required evidence exists.
+    verification: FindingVerification = "unverified"
     # Grouping: identical finding types are collapsed into one finding. These
     # fields expose the group so the UI can show "Abnormal Contract Values — 12
     # supporting records" and expand to the individual instances. All additive.
@@ -106,6 +118,9 @@ class GroundingReport(BaseModel):
 
     total_findings: int = 0
     evidence_backed_findings: int = 0
+    # Findings the deterministic evidence validator confirmed (status "verified"),
+    # a stricter bar than merely carrying a citation.
+    verified_findings: int = 0
     total_citations: int = 0
     records_reviewed: int = 0
     documents_available: int = 0
@@ -246,6 +261,47 @@ class AnalystReport(BaseModel):
     confidence_assessment: ConfidenceAssessment | None = None
 
 
+class EvidencePacketItem(BaseModel):
+    """One finding as it appears in the consolidated evidence packet.
+
+    Ties a single conclusion to its deterministic verification status and the
+    fully-provenanced citations that prove it — the row an investigator or judge
+    reads to audit the claim end to end.
+    """
+
+    finding_title: str
+    severity: Literal["low", "medium", "high"] = "medium"
+    verification: FindingVerification = "unverified"
+    score: int = Field(default=0, ge=0, le=100)
+    occurrences: int = 1
+    supporting_records: list[str] = Field(default_factory=list)
+    citations: list[ReasoningCitation] = Field(default_factory=list)
+
+
+class EvidencePacket(BaseModel):
+    """Consolidated, judge-facing proof bundle for an investigation.
+
+    A deterministic projection: every finding tied to its verification status
+    and provenanced evidence, plus packet-level integrity totals (verified share,
+    document coverage, distinct sources, primary-source share). Assembled from the
+    package + reasoning — it invents nothing, it consolidates what was proven.
+    """
+
+    subject: str
+    risk_level: RiskLevel
+    generated_by: Literal["llm", "deterministic"] = "deterministic"
+    items: list[EvidencePacketItem] = Field(default_factory=list)
+    total_findings: int = 0
+    verified_findings: int = 0
+    evidence_backed_findings: int = 0
+    total_evidence_items: int = 0
+    documents_available: int = 0
+    distinct_sources: list[str] = Field(default_factory=list)
+    primary_source_share: float = Field(default=0.0, ge=0, le=1)
+    fully_grounded: bool = False
+    disclaimer: str = OVERSIGHT_DISCLAIMER
+
+
 class InvestigationReasoning(BaseModel):
     """The complete AI reasoning output for an investigation.
 
@@ -289,6 +345,10 @@ class InvestigationReasoning(BaseModel):
     # Structured, grounded analyst-report sections (patterns, buyer/supplier/award/
     # timeline analysis, contradictions, missing evidence, derived confidence).
     analyst_report: AnalystReport | None = None
+
+    # Consolidated proof bundle: every finding → its verification status → the
+    # provenanced evidence that backs it, plus packet-level integrity totals.
+    evidence_packet: EvidencePacket | None = None
 
     # True when there was not enough evidence to reach a conclusion.
     insufficient_evidence: bool = False

@@ -24,7 +24,13 @@ from app.schemas.investigation_executor import (
     InvestigationPackage,
     InvestigationProcurementRecord,
 )
-from app.schemas.investigation_reasoning import GroundingReport, ReasoningCitation
+from app.schemas.investigation_reasoning import (
+    EvidencePacket,
+    EvidencePacketItem,
+    GroundingReport,
+    ReasoningCitation,
+    ReasoningFinding,
+)
 
 # Source authority weighting — official Indian procurement portals are primary
 # evidence; international feeds and open-web pages carry less evidential weight.
@@ -192,13 +198,72 @@ def grounding_report(
     total_findings: int,
     evidence_backed_findings: int,
     total_citations: int,
+    verified_findings: int = 0,
 ) -> GroundingReport:
     documents_available = sum(1 for r in pkg.records if _document_for(r) is not None)
     return GroundingReport(
         total_findings=total_findings,
         evidence_backed_findings=evidence_backed_findings,
+        verified_findings=verified_findings,
         total_citations=total_citations,
         records_reviewed=len(pkg.records),
         documents_available=documents_available,
         fully_grounded=(total_findings == 0 or evidence_backed_findings == total_findings),
+    )
+
+
+# Evidence tiers the packet counts as "primary" (official, high-authority source).
+_PRIMARY_TIERS = frozenset({"primary"})
+
+
+def build_evidence_packet(
+    pkg: InvestigationPackage,
+    findings: list[ReasoningFinding],
+    *,
+    subject: str,
+    risk_level: str,
+    generated_by: str = "deterministic",
+) -> EvidencePacket:
+    """Consolidate findings + their provenanced citations into one proof bundle.
+
+    Deterministic and additive: it reuses the citations already resolved on each
+    finding and the package records — it invents nothing. Packet-level totals let
+    an investigator (or judge) see at a glance how much of the case is *verified*
+    versus merely cited, how many primary sources back it, and whether every
+    finding is grounded.
+    """
+    items: list[EvidencePacketItem] = [
+        EvidencePacketItem(
+            finding_title=f.title,
+            severity=f.severity,
+            verification=f.verification,
+            score=f.score,
+            occurrences=f.occurrences,
+            supporting_records=f.supporting_records,
+            citations=f.citations,
+        )
+        for f in findings
+    ]
+
+    verified = sum(1 for f in findings if f.verification == "verified")
+    backed = sum(1 for f in findings if f.evidence_backed)
+    ledger = build_evidence_ledger(pkg)
+    distinct_sources = sorted({c.source_name for c in ledger if c.source_name})
+    primary = sum(1 for c in ledger if c.quality_tier in _PRIMARY_TIERS)
+    primary_share = round(primary / len(ledger), 2) if ledger else 0.0
+    documents_available = sum(1 for r in pkg.records if _document_for(r) is not None)
+
+    return EvidencePacket(
+        subject=subject,
+        risk_level=risk_level,  # type: ignore[arg-type]
+        generated_by=generated_by,  # type: ignore[arg-type]
+        items=items,
+        total_findings=len(findings),
+        verified_findings=verified,
+        evidence_backed_findings=backed,
+        total_evidence_items=len(ledger),
+        documents_available=documents_available,
+        distinct_sources=distinct_sources,
+        primary_source_share=primary_share,
+        fully_grounded=(not findings or backed == len(findings)),
     )
