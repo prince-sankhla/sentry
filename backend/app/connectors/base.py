@@ -16,7 +16,21 @@ logger = logging.getLogger(__name__)
 class SourceConnectorMetadata:
     name: str
     label: str
+    version: str = "1.0"
     raw_directory: str | None = None
+    data_source: str | None = None
+    supported_entities: tuple[str, ...] = (
+        "Tender",
+        "Buyer",
+        "Supplier",
+        "Award",
+        "Document",
+        "Evidence",
+    )
+    last_update_capability: str = "raw-file incremental sync"
+    import_mechanism: str = "file-backed normalized import"
+    normalization_quality: str = "maps source records into SENTRY normalized procurement records"
+    public_access_notes: str = "public-source data only"
 
 
 @dataclass(frozen=True)

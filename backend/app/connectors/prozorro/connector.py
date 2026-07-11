@@ -12,6 +12,8 @@ from app.connectors.base import (
     NormalizedTender,
     SourceConnectorMetadata,
 )
+from app.connectors.common.envelope import content_hash, documents_from_envelope
+from app.connectors.common.parse import optional_string
 from app.connectors.registry import register_connector
 from app.importers.prozorro import ParsedProzorroTender, parse_tender
 
@@ -47,7 +49,7 @@ def _to_normalized_record(parsed: ParsedProzorroTender, raw_record: dict[str, An
         description=parsed.tender.description,
         procuring_entity=parsed.tender.procuring_entity,
         published_date=parsed.tender.published_date,
-        closing_date=None,
+        closing_date=parsed.tender.closing_date,
         estimated_value=parsed.tender.estimated_value,
         currency=parsed.tender.currency,
         metadata=tender_metadata,
@@ -82,14 +84,8 @@ def _to_normalized_record(parsed: ParsedProzorroTender, raw_record: dict[str, An
         )
         for award in parsed.awards
     ]
-    documents = [
-        NormalizedDocument(
-            title="ProZorro tender notice",
-            url=tender_metadata.source_url,
-            document_type="source_notice",
-            metadata=tender_metadata,
-        )
-    ] if tender_metadata.source_url else []
+    documents = documents_from_envelope(raw_record, tender_metadata)
+    documents.extend(_ocds_documents(raw_record, tender_metadata, {doc.url for doc in documents}))
     record = NormalizedProcurementRecord(tender=tender, companies=companies, awards=awards, documents=documents, raw=raw_record)
     return NormalizedProcurementRecord(
         tender=tender,
@@ -99,6 +95,37 @@ def _to_normalized_record(parsed: ParsedProzorroTender, raw_record: dict[str, An
         entities=ProzorroSourceConnector().extractEntities(record),
         raw=raw_record,
     )
+
+
+def _ocds_documents(
+    raw_record: dict[str, Any],
+    tender_metadata: NormalizedSourceMetadata,
+    seen_urls: set[str | None],
+) -> list[NormalizedDocument]:
+    """Preserve OCDS ``documents[]`` attachments carried in the tender payload."""
+    payload = raw_record.get("data") if isinstance(raw_record.get("data"), dict) else raw_record
+    documents: list[NormalizedDocument] = []
+    for entry in payload.get("documents") or []:
+        if not isinstance(entry, dict):
+            continue
+        url = optional_string(entry.get("url"))
+        if not url or url in seen_urls:
+            continue
+        seen_urls.add(url)
+        documents.append(
+            NormalizedDocument(
+                title=optional_string(entry.get("title")) or "Attachment",
+                url=url,
+                document_type=optional_string(entry.get("documentType")) or "attachment",
+                metadata=NormalizedSourceMetadata(
+                    source_name=tender_metadata.source_name,
+                    source_record_id=f"{tender_metadata.source_record_id}:doc:{content_hash(url)[:12]}",
+                    source_url=url,
+                    retrieved_at=tender_metadata.retrieved_at,
+                ),
+            )
+        )
+    return documents
 
 
 def _optional_string(value: Any) -> str | None:

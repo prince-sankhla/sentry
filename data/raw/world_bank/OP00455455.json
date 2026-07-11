@@ -1,0 +1,26 @@
+{
+  "envelope_version": 1,
+  "source_name": "world_bank",
+  "source_record_id": "OP00455455",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455455",
+  "retrieved_at": "2026-07-11T04:57:35.144568+00:00",
+  "content_hash": "a93ed9a02ee5bf40b9603f48e3e319d1fc125c4a6ece7705d890922ec540b47c",
+  "documents": [],
+  "data": {
+    "id": "OP00455455",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Ethiopia",
+    "project_id": "P167794",
+    "project_name": "One WASH—Consolidated Water Supply, Sanitation, and Hygiene Account Project (One WASH—CWA)",
+    "bid_reference_no": "ET-MOH-270478-CW-RFQ",
+    "bid_description": "Procurement of the construction of one incinerator, one placenta pit and one water supply scheme in Dinkara health center by Banija woreda of Amhara region",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P167794-One WASHConsolidated Water Supply, Sanitation, and Hygiene Account Project (One WASHCWA)<br/><b>Loan/Credit/TF Info:</b>IDA-64450<br/><b>Bid/Contract Reference No:</b>ET-MOH-270478-CW-RFQ<br/><b>Procurement Method:</b>RFQ-Request for Quotations<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Procurement of the construction of one water supply scheme in Dinkara health center by Banija woreda of Amhara region</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2024/11/11<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>30 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>KASAHUN SHIFERAW G.C (1104048)</b><br/>AWI<br/>Country: Ethiopia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>ETB 308301.20<br/><br/>Evaluated Bid Price<br/>ETB 308301.20</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>ETB 308301.20</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>MESGANAW YESHIWAS G.C (1104042)</b><br/>AWI<br/>Country: Ethiopia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>ETB 528882.12<br/><br/>Evaluated Bid Price<br/>ETB 528882.12</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>ENGEDA ALEMAYEHU G.C (1104052)</b><br/>AWI<br/>Country: Ethiopia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>ETB 402671.35<br/><br/>Evaluated Bid Price<br/>ETB 402671.35</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>DESALEGH MELES G.C (1104051)</b><br/>AWI<br/>Country: Ethiopia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>ETB 416952.67<br/><br/>Evaluated Bid Price<br/>ETB 416952.67</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>BERHANU TEREFE G.C (1104044)</b><br/>Awi<br/>Country: Ethiopia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>ETB 490136.90<br/><br/>Evaluated Bid Price<br/>ETB 490136.90</div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>MOLALEGH MEHERETE G.C (1104049)</b><br/>AWI<br/>Country: Ethiopia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>ETB 470327.55<br/><br/>Evaluated Bid Price<br/>ETB 470327.55</div></br></div><br/></div></div>"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "envelope_version": 1,
+  "source_name": "world_bank",
+  "source_record_id": "OP00455548",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455548",
+  "retrieved_at": "2026-07-11T04:57:35.098653+00:00",
+  "content_hash": "ebfe99f90ebbf261687d1dc5dae9447adac87c4014dee5cb7b9b7bf3627d157c",
+  "documents": [],
+  "data": {
+    "id": "OP00455548",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Tanzania",
+    "project_id": "P502536",
+    "project_name": "Promoting Community Led Nature-based Solutions to Climate Change Adaptation in the Usangu Catchment",
+    "bid_reference_no": "TZ-RBWB-550706-GO-DIR",
+    "bid_description": "Procurement of one (1) Motor vehicle",
+    "procurement_group": "GO",
+    "procurement_method_code": "DIR",
+    "procurement_method_name": "Direct Selection",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P502536-Promoting Community Led Nature-based Solutions to Climate Change Adaptation in the Usangu Catchment<br/><b>Loan/Credit/TF Info:</b>TF-C7264<br/><b>Bid/Contract Reference No:</b>TZ-RBWB-550706-GO-DIR<br/><b>Procurement Method:</b>DIR-Direct Selection<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>PROCUREMENT OF ONE(1) MOTORVEHICLE UNDER NBS USANGU PROJECT</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/07/03<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>178 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>UNITED NATIONS OFFICE PROJECT SERVICES (UNOPS) (35295)</b><br/><br/>Country: World<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>JPY 5108272<br/><br/>Evaluated Bid Price<br/>JPY 5108272</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>JPY 5108272</div><br/></div></div>"
+  }
+}

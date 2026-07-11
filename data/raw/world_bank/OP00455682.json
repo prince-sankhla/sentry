@@ -1,0 +1,26 @@
+{
+  "envelope_version": 1,
+  "source_name": "world_bank",
+  "source_record_id": "OP00455682",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455682",
+  "retrieved_at": "2026-07-11T04:57:35.140041+00:00",
+  "content_hash": "b10a73fc3b075456becf7f1b0e36010ca34f544060d6e3255085f502ff051229",
+  "documents": [],
+  "data": {
+    "id": "OP00455682",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "El Salvador",
+    "project_id": "P171316",
+    "project_name": "Growing Up and Learning Together: Comprehensive Early Childhood Development in El Salvador",
+    "bid_reference_no": "SDO-59-2024-MINEDUCYT-BIRF",
+    "bid_description": "Suministro y distribución de mobiliario escolar para 51 centros educativos públicos que atienden primera infancia a nivel nacional.",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P171316-Growing Up and Learning Together: Comprehensive Early Childhood Development in El Salvador<br/><b>Loan/Credit/TF Info:</b>IBRD-90670<br/><b>Bid/Contract Reference No:</b>SDO-59-2024-MINEDUCYT-BIRF<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>SUMINISTRO Y DISTRIBUCIN DE MOBILIARIO ESCOLAR PARA 51 CENTROS EDUCATIVOS PBLICOS QUE ATIENDEN PRIMERA INFANCIA A NIVEL NACIONAL</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2025/05/12<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>180 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>PROCESOS METALICOS, S.A. DE C.V. (344183)</b><br/>Alameda Juan Pablo II, No.612, frente al parque Centenario, San Salvador, El Salvador<br/>Country: El Salvador<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>USD<br/><br/>Evaluated Bid Price<br/>USD 173820.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>USD 173820</div><br/></div></div>"
+  }
+}

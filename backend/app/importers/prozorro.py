@@ -25,6 +25,7 @@ class ParsedTender:
     published_date: date | None
     estimated_value: Decimal | None
     currency: str
+    closing_date: date | None = None
     source_name: str | None = None
     source_record_id: str | None = None
     source_url: str | None = None
@@ -289,6 +290,7 @@ def parse_tender(payload: dict[str, Any], source_url: str | None = None, retriev
         description=_optional_string(payload.get("description")),
         procuring_entity=_optional_string(procuring_entity.get("name")),
         published_date=_parse_date(payload.get("date") or payload.get("dateCreated")),
+        closing_date=_parse_date(_object(payload.get("tenderPeriod")).get("endDate")),
         estimated_value=_parse_decimal(value.get("amount")),
         currency=_currency(value.get("currency")),
         source_name="prozorro",

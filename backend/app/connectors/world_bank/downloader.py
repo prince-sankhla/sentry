@@ -17,6 +17,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from app.connectors.common.envelope import build_envelope
 from app.connectors.world_bank.models import SOURCE_NAME
 
 logger = logging.getLogger(__name__)
@@ -144,13 +145,13 @@ class WorldBankProcurementDownloader:
         return sum(1 for _ in self.output_dir.glob("*.json")) if self.output_dir.exists() else 0
 
     def _save_notice(self, output_path: Path, notice_id: str, notice: dict[str, Any]) -> None:
-        envelope = {
-            "source_name": SOURCE_NAME,
-            "source_record_id": notice_id,
-            "source_url": self.detail_url_template.format(notice_id=notice_id),
-            "retrieved_at": datetime.now(UTC).isoformat(),
-            "data": notice,
-        }
+        envelope = build_envelope(
+            source_name=SOURCE_NAME,
+            source_record_id=notice_id,
+            source_url=self.detail_url_template.format(notice_id=notice_id),
+            retrieved_at=datetime.now(UTC),
+            data=notice,
+        )
         with output_path.open("w", encoding="utf-8") as file:
             json.dump(envelope, file, ensure_ascii=False, indent=2)
             file.write("\n")

@@ -34,6 +34,9 @@ class Tender(Base):
     source_record_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Soft-delete marker (Phase 6): a tender absent from the source's latest sync
+    # is flagged here, never physically removed, so history is preserved.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -96,7 +96,12 @@ def map_notice(
         raise CPPPMappingError("CPPP notice is missing Tender ID and Tender Reference Number.")
 
     record_id = tender_id or tender_reference
-    reference_number = f"{reference_prefix}:{tender_reference or tender_id}"
+    # Identity MUST key on the NIC "Tender ID" — the portal's globally-unique
+    # record key. The human "Tender Reference Number" is reused bureaucratically
+    # across many distinct tenders (e.g. "E-TCN No2 of 2026-27"), so keying the
+    # unique reference_number on it silently collapses dozens of real tenders
+    # into a single row. Prefer the unique Tender ID, fall back to the reference.
+    reference_number = f"{reference_prefix}:{tender_id or tender_reference}"
     work_description = _first_field(fields, "Work Description")
     title = _first_field(fields, "Tender Title") or work_description or f"CPPP tender {record_id}"
     organisation_chain = _first_field(fields, "Organisation Chain")

@@ -13,6 +13,7 @@ from app.connectors.base import (
     SourceConnectorMetadata,
     normalize_metadata,
 )
+from app.connectors.common.envelope import documents_from_envelope
 from app.connectors.registry import register_connector
 from app.connectors.world_bank.mapper import map_notice
 from app.connectors.world_bank.models import SOURCE_LABEL, SOURCE_NAME, MappedNotice
@@ -71,14 +72,7 @@ def _to_normalized_record(mapped: MappedNotice, raw_record: dict[str, Any]) -> N
         )
         for award in mapped.awards
     ]
-    documents = [
-        NormalizedDocument(
-            title="World Bank procurement notice",
-            url=tender_metadata.source_url,
-            document_type="source_notice",
-            metadata=tender_metadata,
-        )
-    ] if tender_metadata.source_url else []
+    documents = documents_from_envelope(raw_record, tender_metadata)
     record = NormalizedProcurementRecord(tender=tender, companies=companies, awards=awards, documents=documents, raw=raw_record)
     return NormalizedProcurementRecord(
         tender=tender,

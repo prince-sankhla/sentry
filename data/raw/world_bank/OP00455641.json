@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00455641",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455641",
+  "retrieved_at": "2026-07-10T18:58:39.842222+00:00",
+  "data": {
+    "id": "OP00455641",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "French",
+    "notice_status": "Published",
+    "project_ctry_name": "Cote d'Ivoire",
+    "project_id": "P179550",
+    "project_name": "Côte d'Ivoire Health, Nutrition, and Early Childhood Development Program",
+    "bid_reference_no": "CI-CEP-PSNDPE-489246-CS-CDS",
+    "bid_description": "Sélection Directe avec GCC pour le coaching et le transfert de compétences des fonctions du PBF aux structures étatiques",
+    "procurement_group": "CS",
+    "procurement_method_code": "CDS",
+    "procurement_method_name": "Direct Selection",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P179550-Cte d'Ivoire Health, Nutrition, and Early Childhood Development Program<br/><b>Loan/Credit/TF Info:</b>IDA-73830<br/><b>Bid/Contract Reference No:</b>CI-CEP-PSNDPE-489246-CS-CDS<br/><b>Procurement Method:</b>CDS-Slection de consultants par entente directe<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>SLECTION DIRECTE AVEC GCC POUR LE COACHING ET LE TRANSFERT DE COMPTENCESDES FONCTIONS DU PBF AUX STRUCTURES TATIQUES</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/16<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>6 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Firm(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='row col-sm-12'><div class='col-sm-6'><b>GROUPEMENT GCC/ACCIA (392395)</b><br/>Country: Cte d'Ivoire<br/></div></div><br/><div class='col-sm-6'><table width='100%'><tbody></tbody></table></div><div class='col-sm-6'><p></p><b>Final Evaluation Price</b><br/>XOF 1457413528<br/><p></p><b>Signed Contract Price</b><br/>XOF 1457413528</div><div class='row col-sm-12'><div class='col-xs-12'><b>Price:</b><br/></div></div><div class='row col-sm-12'><div class='col-xs-4'>Currency:</div><div class='col-xs-4'>Amount:</div></div><div class='row col-sm-12'><div class='col-xs-4'>C.F.A. Franc CFA de la BCEAO (C.F.A. Franc CFA de la BCEAO)</div><div class='col-xs-4'>1457413528</div></div></div><div class='spacing'></div><div class='spacing'></div></div>"
+  }
+}

@@ -16,6 +16,8 @@ from urllib.parse import urlencode, urljoin
 import httpx
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from app.connectors.common.envelope import build_envelope
+
 SOURCE_NAME = "cppp"
 
 logger = logging.getLogger(__name__)
@@ -130,16 +132,14 @@ class CPPPDownloader:
         return record_ids
 
     def _save_record(self, output_path: Path, record_id: str, source_url: str, detail_html: str) -> None:
-        envelope = {
-            "source_name": SOURCE_NAME,
-            "source_record_id": record_id,
-            "source_url": source_url,
-            "retrieved_at": datetime.now(UTC).isoformat(),
-            "content_type": "text/html",
-            "data": {
-                "detail_html": detail_html,
-            },
-        }
+        envelope = build_envelope(
+            source_name=SOURCE_NAME,
+            source_record_id=record_id,
+            source_url=source_url,
+            retrieved_at=datetime.now(UTC),
+            content_type="text/html",
+            data={"detail_html": detail_html},
+        )
         with output_path.open("w", encoding="utf-8") as file:
             json.dump(envelope, file, ensure_ascii=False, indent=2)
             file.write("\n")

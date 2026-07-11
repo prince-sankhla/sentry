@@ -59,6 +59,17 @@ def map_notice(payload: dict[str, Any], source_url: str, retrieved_at: datetime)
 
     reference_number = f"WB:{bid_reference or notice_id}"
     title = _truncate(description or project_name or f"World Bank procurement notice {notice_id}", 500)
+    # NOTE (data semantics): for World Bank *contract-award* notices, `noticedate`
+    # is the date the award notice was published — which is AFTER the tender
+    # closed and was awarded. Mapping it to `published_date` therefore yields the
+    # expected (non-anomalous) `award_date < published_date` and
+    # `closing_date < published_date` orderings. This is inherent to award-notice
+    # data, not a parse error.
+    # TODO(risk-engine owner): the risk engine's "award before publication" /
+    # broken-date signals should special-case World Bank award notices (via
+    # payload["notice_type"]) so this notice-date semantics is not scored as an
+    # anomaly. Data platform intentionally does not fabricate a synthetic
+    # publication date here.
     published_date = _parse_date(payload.get("noticedate") or payload.get("submission_date"))
     closing_date = _parse_date(payload.get("submission_deadline_date"))
     award_rows = _parse_awarded_bidders(payload.get("notice_text"))

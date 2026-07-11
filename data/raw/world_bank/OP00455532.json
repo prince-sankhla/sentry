@@ -1,0 +1,26 @@
+{
+  "envelope_version": 1,
+  "source_name": "world_bank",
+  "source_record_id": "OP00455532",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455532",
+  "retrieved_at": "2026-07-11T04:57:35.162880+00:00",
+  "content_hash": "fdf3ef774539e868b2ec9d6889510195120fe577859d48a9e223ddfcdfd5c9a5",
+  "documents": [],
+  "data": {
+    "id": "OP00455532",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "India",
+    "project_id": "P179749",
+    "project_name": "Uttarakhand Disaster Preparedness and Resilience Project",
+    "bid_reference_no": "04A/FIRE/RFB/UPREPARE/2025",
+    "bid_description": "Rebid-Procurement of 9 Nos. Thermal Imaging Camera for UkFES",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P179749-Uttarakhand Disaster Preparedness and Resilience Project<br/><b>Loan/Credit/TF Info:</b>IBRD-96540<br/><b>Bid/Contract Reference No:</b>04A/FIRE/RFB/UPREPARE/2025<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Supply of Thermal Imaging Cameras For UFES under the package No 04A/FIRE/RFB/UPREPARE/2025</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2025/09/25<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>90 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>DEFENCE EQUIPPERS (425627)</b><br/>Dehradun<br/>Country: India<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Evaluation Scores<br/><br/><br/>Bid Price at Opening<br/>INR<br/><br/>Evaluated Bid Price<br/>INR 1092798.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>INR 1092798.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>BRIJBASI FIRE SAFETY SYSTEMS PRIVATE LIMITED (1103991)</b><br/>A-28, Hauz Has, New Delhi - 110016 India.<br/>Country: India<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Evaluation Scores<br/><br/><br/>Bid Price at Opening<br/>INR<br/><br/>Evaluated Bid Price<br/>INR 15133500.00</div></br></div><br/></div></div>"
+  }
+}

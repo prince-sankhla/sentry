@@ -1,0 +1,26 @@
+{
+  "envelope_version": 1,
+  "source_name": "world_bank",
+  "source_record_id": "OP00455556",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455556",
+  "retrieved_at": "2026-07-11T04:57:35.101404+00:00",
+  "content_hash": "56a028bd73a164cdf0ea53cebe25d962f0f922518835744d696dea4840dc44e9",
+  "documents": [],
+  "data": {
+    "id": "OP00455556",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "Portuguese",
+    "notice_status": "Published",
+    "project_ctry_name": "Brazil",
+    "project_id": "P178663",
+    "project_name": "Progestão Piauí: Public Sector Management Efficiency",
+    "bid_reference_no": "BR-SEPLAN-PI-552019-GO-RFB",
+    "bid_description": "Aquisição de Infraestrutura de TI- incluindo equipamentos de processamento, armazenamento, conectividade, solução de backup, software de virtualização, serviço de instalação, configuração e garantia, destinados a fortalecer a infraestrutura da SEPLAN.",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P178663-Progesto Piau: Public Sector Management Efficiency<br/><b>Loan/Credit/TF Info:</b>IBRD-95930<br/><b>Bid/Contract Reference No:</b>BR-SEPLAN-PI-552019-GO-RFB<br/><b>Procurement Method:</b>RFB-Solicitao de Ofertas<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Aquisio de Infraestrutura de TI.Lote 2 - Servidor</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/07/07<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>6 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>CONNECT COMPUTADORES E SISTEMAS LTDA (998551)</b><br/>Rua Anglica, n 1467 Bairro: Jockey Club Cep: 64048-160 Teresina -PI<br/>Country: Brasil<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>BRL<br/><br/>Evaluated Bid Price<br/>BRL 196000.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>BRL 393831.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>C J FREITAS DE SAMPAIO (1054958)</b><br/>Rua So Joo, 967, 1 Andar, Centro, Teresina - PI, CEP 64001-360<br/>Country: Brasil<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>BRL<br/><br/>Evaluated Bid Price<br/>BRL 295478.16</div></br></div><br/></div></div>"
+  }
+}

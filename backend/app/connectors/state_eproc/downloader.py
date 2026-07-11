@@ -20,14 +20,16 @@ class StateEProcDownloader(CPPPDownloader):
         import json
         from datetime import UTC, datetime
 
-        envelope = {
-            "source_name": self.portal.name,
-            "source_record_id": record_id,
-            "source_url": source_url,
-            "retrieved_at": datetime.now(UTC).isoformat(),
-            "content_type": "text/html",
-            "data": {"detail_html": detail_html},
-        }
+        from app.connectors.common.envelope import build_envelope
+
+        envelope = build_envelope(
+            source_name=self.portal.name,
+            source_record_id=record_id,
+            source_url=source_url,
+            retrieved_at=datetime.now(UTC),
+            content_type="text/html",
+            data={"detail_html": detail_html},
+        )
         with output_path.open("w", encoding="utf-8") as file:
             json.dump(envelope, file, ensure_ascii=False, indent=2)
             file.write("\n")

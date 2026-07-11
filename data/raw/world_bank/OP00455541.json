@@ -1,0 +1,26 @@
+{
+  "envelope_version": 1,
+  "source_name": "world_bank",
+  "source_record_id": "OP00455541",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455541",
+  "retrieved_at": "2026-07-11T04:57:35.165613+00:00",
+  "content_hash": "f258f1fb5813c282a3bf988959a460afdf3b7faf74460e0fc1e5790d5d577994",
+  "documents": [],
+  "data": {
+    "id": "OP00455541",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "English",
+    "notice_status": "Published",
+    "project_ctry_name": "Eastern and Southern Africa",
+    "project_id": "P163399",
+    "project_name": "East Africa Skills for Transformation and Regional Integration Project (EASTRIP)",
+    "bid_reference_no": "KE-KISUMUPOLY-530852-CW-RFB",
+    "bid_description": "CONSTRUCTION OF A GINNERY SHADE",
+    "procurement_group": "CW",
+    "procurement_method_code": "RFB",
+    "procurement_method_name": "Request for Bids",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P163399-East Africa Skills for Transformation and Regional Integration Project (EASTRIP)<br/><b>Loan/Credit/TF Info:</b>IDA-63340<br/><b>Bid/Contract Reference No:</b>KE-KISUMUPOLY-530852-CW-RFB<br/><b>Procurement Method:</b>RFB-Request for Bids<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>CONSTRUCTION GINNERY SHED AT THE REGIONAL FLAGSHIP TVET INSTITUTE OF TEXTILE TECHNOLOGY</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/03/30<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>6 Month(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>SHAMMY HOMES (1072416)</b><br/>P.O.BOX 3272- 40100KISUMU<br/>Country: Kenya<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>KES<br/><br/>Evaluated Bid Price<br/>KES 10318904.74</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>KES 10318904.74</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>WOODS DORM ENTREPRISES (1072410)</b><br/>P.O.BOX 5004-40100KISUMU<br/>Country: Kenya<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>KES<br/><br/>Evaluated Bid Price<br/>KES<br/><br/>Reason for Rejection<br/>Non Responsive<br/></div></br></div><br/></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>ROSADA GENERAL MERCHANT (1072409)</b><br/>P.O.BOX 799-40100KISUMU<br/>Country: Kenya<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>KES<br/><br/>Evaluated Bid Price<br/>KES<br/><br/>Reason for Rejection<br/>Non Responsive<br/></div></br></div><br/></div></div>"
+  }
+}

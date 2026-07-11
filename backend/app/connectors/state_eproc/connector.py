@@ -21,8 +21,25 @@ from app.connectors.base import (
 )
 from app.connectors.cppp.mapper import MappedNotice, map_notice
 from app.connectors.common.envelope import documents_from_envelope
+from app.connectors.common.generic_mapper import FieldHints, map_flat_record
 from app.connectors.registry import register_connector
 from app.connectors.state_eproc.portals import STATE_PORTALS, StatePortal
+
+
+_STATE_HINTS = FieldHints(
+    title=("tender_title", "title", "work_description", "description", "item", "subject"),
+    buyer=("department", "organisation", "organization", "ministry", "buyer", "agency", "office"),
+    reference=("tender_id", "tender_reference", "reference_no", "nit_no", "bid_no", "id"),
+    value=("tender_value", "estimated_value", "emd_amount", "amount", "value"),
+    published=("published_date", "publish_date", "notice_date", "start_date", "created_date"),
+    closing=("closing_date", "bid_submission_end", "due_date", "end_date"),
+    supplier=("awarded_to", "supplier", "vendor", "contractor", "bidder"),
+    supplier_reg=("gstin", "pan", "vendor_id", "registration"),
+    award_value=("award_value", "contract_value", "awarded_amount"),
+    award_date=("award_date", "contract_date"),
+    category=("category", "sector", "classification", "tender_category"),
+    location=("state", "district", "city", "location"),
+)
 
 
 class _StateEProcConnector(FileBackedSourceConnector):
@@ -32,7 +49,14 @@ class _StateEProcConnector(FileBackedSourceConnector):
         data = raw_record.get("data") if isinstance(raw_record.get("data"), dict) else {}
         detail_html = data.get("detail_html")
         if not isinstance(detail_html, str) or not detail_html.strip():
-            raise ValueError(f"{self.portal.name} record is missing detail_html.")
+            return map_flat_record(
+                raw_record,
+                source_name=self.portal.name,
+                reference_prefix=self.portal.name.upper(),
+                entity_extractor=self.extractEntities,
+                hints=_STATE_HINTS,
+                currency_default="INR",
+            )
         mapped = map_notice(
             detail_html,
             source_url=str(raw_record.get("source_url") or ""),
@@ -108,7 +132,17 @@ def _build_connectors() -> list[type[_StateEProcConnector]]:
             {
                 "portal": portal,
                 "metadata": SourceConnectorMetadata(
-                    name=portal.name, label=portal.label, raw_directory=portal.name
+                    name=portal.name,
+                    label=portal.label,
+                    raw_directory=portal.name,
+                    data_source=portal.base_url,
+                    last_update_capability="resumable raw-file incremental sync",
+                    import_mechanism=f"{portal.parser} state eProcurement downloader + generic importer",
+                    normalization_quality=(
+                        "NIC HTML parser with JSON/tabular fallback"
+                        if portal.parser == "nic"
+                        else "generic public-record mapper for non-NIC state portal exports"
+                    ),
                 ),
             },
         )

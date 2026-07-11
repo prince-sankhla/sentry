@@ -16,6 +16,7 @@ from typing import Any, Callable, Sequence
 from app.connectors.base import (
     NormalizedAward,
     NormalizedCompany,
+    NormalizedDocument,
     NormalizedEntity,
     NormalizedProcurementRecord,
     NormalizedSourceMetadata,
@@ -161,6 +162,24 @@ def map_flat_record(
         )
 
     documents = documents_from_envelope(raw_record, metadata)
+    seen_urls = {document.url for document in documents}
+    for entry in _document_urls(data, hints.document):
+        if entry["url"] in seen_urls:
+            continue
+        seen_urls.add(entry["url"])
+        documents.append(
+            NormalizedDocument(
+                title=entry["title"],
+                url=entry["url"],
+                document_type=entry["document_type"],
+                metadata=NormalizedSourceMetadata(
+                    source_name=source_name,
+                    source_record_id=f"{source_record_id}:doc:{len(documents)}",
+                    source_url=entry["url"],
+                    retrieved_at=retrieved_at,
+                ),
+            )
+        )
     return build_record(
         tender=tender,
         companies=companies,

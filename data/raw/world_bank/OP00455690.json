@@ -1,0 +1,23 @@
+{
+  "source_name": "world_bank",
+  "source_record_id": "OP00455690",
+  "source_url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00455690",
+  "retrieved_at": "2026-07-10T18:58:39.851669+00:00",
+  "data": {
+    "id": "OP00455690",
+    "notice_type": "Contract Award",
+    "noticedate": "08-Jul-2026",
+    "notice_lang_name": "Spanish; Castilian",
+    "notice_status": "Published",
+    "project_ctry_name": "Colombia",
+    "project_id": "P144271",
+    "project_name": "Forest Conservation and Sustainability in the Heart of the Colombian Amazon",
+    "bid_reference_no": "CO-PNF-546356-GO-RFQ",
+    "bid_description": "Adquisición de material vegetal, insumos agrícolas, herramientas y elementos de ferretería para el establecimiento de 100 hectáreas en restauración ecológica en la zona de colindancia del Santuario de Flora Plantas Medicinales Orito Ingi Ande.",
+    "procurement_group": "GO",
+    "procurement_method_code": "RFQ",
+    "procurement_method_name": "Request for Quotations",
+    "submission_date": "2026-07-08T00:00:00Z",
+    "notice_text": "<div class='row col-sm-12'><h4>Contract Award</h4><p><b>Project:</b>P144271-Forest Conservation and Sustainability in the Heart of the Colombian Amazon<br/><b>Loan/Credit/TF Info:</b>TF-B5182<br/><b>Bid/Contract Reference No:</b>CO-PNF-546356-GO-RFQ<br/><b>Procurement Method:</b>RFQ-Solicitud de cotizaciones<br/><b>Scope of Contract:</b><span class='desc-word-wrap'>Adquisicin de material vegetal, insumos agrcolas, herramientas y elementos de ferretera para el establecimiento de 100 hectreas en restauracin ecolgica en la zona de colindancia LOTE 1</span><br/><b>Notice Version No:</b>0</p><br/></div><div class='row'><div class='col-sm-4'><b>Date Notification of Award Issued</b><br/>(YYYY/MM/DD)<br/>2026/06/16<br/></div><div class='col-sm-4'><b>Duration of Contract</b><br/><br/>60 Day(s)<br/></div></div><div class='spacing'></div><div class='spacing'></div><div class='row'><div class='col-sm-12'><u><b>Awarded Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>VIVERO AGROFORESTAL AMAZONICO E.U. (1088190)</b><br/>KM 1 VIA KANACAS 1 Puerto Ass<br/>Country: Colombia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>COP 49958918.00<br/><br/>Evaluated Bid Price<br/>COP 49988139.00</div></br></div><div class='col-sm-5'></div><div class='col-sm-7'>Signed Contract price<br/>COP 49988139.00</div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Evaluated Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>MOLA INGENIERIA SAS (1052956)</b><br/>24-61 BRR BELLO HORIZONTE San Jos del Guaviare 0 0<br/>Country: Colombia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>COP 59584000.00<br/><br/>Evaluated Bid Price<br/>COP 59584000.00</div></br></div><br/></div></div><div class='row'><div class='col-sm-12'><u><b>Rejected Bidder(s):</b></u></div><div class='spacing'></div><div class='spacing'></div><div class='row col-sm-12'><div class='col-sm-5'><div class='row col-sm-12'><b>GRUPO INVERSIONES Y SOLUCIONES SAS (1044233)</b><br/>Carrera 44 No. 24  57 BOGOT D.C.<br/>Country: Colombia<br/></br></div></div><div class='col-sm-7'><div class='row col-sm-12'>Bid Price at Opening<br/>COP 73543870.00<br/><br/>Evaluated Bid Price<br/>COP 0.00<br/><br/>Reason for Rejection<br/>Does not meet Eligibility Requirements<br/></div></br></div><br/></div></div>"
+  }
+}
