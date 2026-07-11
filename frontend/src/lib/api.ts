@@ -665,7 +665,9 @@ export type InvestigationStreamHandlers = {
   onError?: (message: string) => void;
 };
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+const backendUrl =
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  (typeof window === "undefined" ? "http://127.0.0.1:8000" : "");
 
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${backendUrl}${path}`, {
