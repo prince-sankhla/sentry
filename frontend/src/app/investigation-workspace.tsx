@@ -2,23 +2,28 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowRight,
   Award,
   Building2,
   Check,
   ChevronRight,
+  Download,
   ExternalLink,
   FileText,
   Gauge,
   Globe2,
   Lightbulb,
+  ListChecks,
   Loader2,
   Maximize2,
   Network,
+  ScrollText,
   Search,
+  ShieldAlert,
   X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { RelationshipGraphExplorer } from "@/app/graph/relationship-graph";
 import { CommandCenter } from "@/app/command-center";
@@ -36,6 +41,7 @@ import { PageShell, SeverityBadge } from "@/components/ui/page";
 import { EmptyState, ErrorState, SkeletonBlock } from "@/components/ui/states";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import {
+  evidencePacketUrl,
   getLLMProviders,
   getProcurementEvidence,
   searchWebEvidence,
@@ -208,7 +214,18 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
         onInvestigate={investigateEntity}
         onReset={reset}
         providerBadge={
-          providerStatus ? (
+          // Single source of truth for provenance: once a report exists, the
+          // badge reflects who ACTUALLY authored THIS run (reasoning.generated_by)
+          // — never the /providers capability probe. This prevents the header
+          // showing "ONLINE" while the report itself fell back to deterministic.
+          // Before any run, fall back to the configured-provider readiness probe.
+          reasoning ? (
+            <ProviderBadge
+              generatedBy={reasoning.generated_by}
+              provider={reasoning.provider}
+              model={reasoning.model}
+            />
+          ) : providerStatus ? (
             <ProviderBadge
               generatedBy={providerStatus.mode === "llm" ? "llm" : "deterministic"}
               provider={providerStatus.providers[0]}
@@ -225,6 +242,10 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
         <div className="mt-6">
           <ErrorState message={error} title="Investigation could not complete" />
         </div>
+      )}
+
+      {!activeQuery && !running && (
+        <CaseLauncherBanner onOpen={() => launchFollowUp("Dharmagarh NAC")} />
       )}
 
       {!activeQuery && !running && <CommandCenter />}
@@ -442,7 +463,29 @@ function InvestigationResults({
         />
       ) : (
         <>
-          {/* graph first: the relationship network is the primary investigation surface */}
+          {/* ── CASE HEADER: the finding is the hero, deterministic + AI-free ── */}
+          <CaseVerdictHeader
+            query={query}
+            reasoning={reasoning}
+            recordCount={pkg!.records.length}
+            entityCount={pkg!.canonical_companies.length}
+            awardCount={awards.length}
+            awardedValue={awardedValue}
+            indicatorCount={pkg!.indicators.length}
+            onExport={() => openEvidencePacket(query)}
+          />
+
+          {/* 1 — chronology: what happened, in order */}
+          <Section eyebrow="Chronology" title="Procurement timeline">
+            {timelineItems.length === 0 ? <EmptyState message="No dated events." /> : <Timeline items={timelineItems} />}
+          </Section>
+
+          {/* 2 — THE FINDING: deterministic risk indicators, evidence-first (no AI) */}
+          <div id="ev-risk" className="scroll-mt-24">
+            <RiskIndicatorsSection pkg={pkg!} reasoning={reasoning} />
+          </div>
+
+          {/* 3 — the relationship network */}
           <Section
             eyebrow="Network"
             title="Investigation graph"
@@ -510,49 +553,7 @@ function InvestigationResults({
             ) : null}
           </AnimatePresence>
 
-          <AiInvestigationPanel reasoning={reasoning} processingMs={processingMs} />
-
-          {/* Structured analyst report — every grounded section rendered professionally */}
-          {reasoning.analyst_report && <AnalystReportSections report={reasoning.analyst_report} />}
-
-          {/* KPI row */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <StatCard label="Records" value={String(pkg!.records.length)} tone="accent" icon={<FileText className="h-4 w-4" />} />
-            <StatCard label="Entities" value={String(pkg!.canonical_companies.length)} icon={<Building2 className="h-4 w-4" />} />
-            <StatCard label="Awards" value={String(awards.length)} tone="success" icon={<Award className="h-4 w-4" />} />
-            <StatCard label="Awarded value" value={formatCompactMoney(String(awardedValue))} />
-            <StatCard
-              label="Indicators"
-              value={String(pkg!.indicators.length)}
-              tone={pkg!.indicators.some((i) => i.severity === "high") ? "danger" : "warning"}
-              icon={<Gauge className="h-4 w-4" />}
-            />
-          </div>
-
-          {/* Analyst trace + grounding/memory rail */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <Section eyebrow="Reasoning path" title="Analyst trace">
-                {reasoning.analyst_trace.length === 0 ? (
-                  <EmptyState message="No analyst steps recorded." />
-                ) : (
-                  <AnalystTrace steps={reasoning.analyst_trace} />
-                )}
-              </Section>
-            </div>
-            <div className="space-y-5">
-              <Section eyebrow="Verification" title="Grounding">
-                <GroundingCard grounding={reasoning.grounding} confidence={reasoning.confidence} />
-              </Section>
-              {reasoning.prior_investigations.length > 0 && (
-                <Section eyebrow="AI memory" title="Previous investigations">
-                  <AiMemory hits={reasoning.prior_investigations} onReuse={onFollowUp} />
-                </Section>
-              )}
-            </div>
-          </div>
-
-          {/* Flagship evidence ledger */}
+          {/* 4 — EVIDENCE VIEWER: the proof. Every claim links to its source. */}
           <Section
             eyebrow="Provenance"
             title="Evidence ledger"
@@ -570,93 +571,16 @@ function InvestigationResults({
             )}
           </Section>
 
-          {/* AI findings (cited) */}
-          {reasoning.findings.length > 0 && (
-            <Section eyebrow="AI reasoning" title="Findings & evidence">
-              <div className="space-y-3">
-                {reasoning.findings.map((f, i) => (
-                  <FindingCard key={i} finding={f} />
-                ))}
-              </div>
-            </Section>
-          )}
+          {/* 5 — EVIDENCE PACKET EXPORT: one-click, client-side, works offline */}
+          <EvidencePacketCTA
+            evidenceCount={reasoning.evidence_ledger.length}
+            sourceCount={new Set(reasoning.evidence_ledger.map((c) => c.source_name)).size}
+            onExport={() => openEvidencePacket(query)}
+          />
 
-          {/* Recommendations + follow-ups */}
+          {/* supporting evidence — raw records + awards */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <Section eyebrow="Guidance" title="Recommendations">
-              {reasoning.recommendations.length === 0 ? (
-                <EmptyState message="No recommendations." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {reasoning.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-muted">
-                      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Section>
-
-            <Section eyebrow="Next steps" title="Suggested investigations">
-              {reasoning.follow_ups.length === 0 ? (
-                <EmptyState message="No follow-ups." />
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {reasoning.follow_ups.map((f, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => onFollowUp(f.query)}
-                      className="group flex items-center justify-between gap-3 rounded-[12px] border border-border bg-bg-2/40 p-3 text-left transition hover:border-accent/40"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-text group-hover:text-accent">{f.label}</span>
-                        <span className="block truncate text-xs text-faint">{f.rationale}</span>
-                      </span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-accent" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Section>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            {/* timeline */}
-            <Section eyebrow="Chronology" title="Procurement timeline">
-              {timelineItems.length === 0 ? <EmptyState message="No dated events." /> : <Timeline items={timelineItems} />}
-            </Section>
-
-            {/* canonical companies */}
-            <div className="lg:col-span-2">
-              <Section eyebrow="Entities" title="Resolved companies">
-                {pkg!.canonical_companies.length === 0 ? (
-                  <EmptyState message="No entities resolved." />
-                ) : (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {pkg!.canonical_companies.map((c) => (
-                      <div key={c.id} className="rounded-[12px] border border-border bg-bg-2/40 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-medium text-text">{c.canonical_name}</span>
-                          <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                            {Math.round((c.confidence ?? 0) * 100)}%
-                          </span>
-                        </div>
-                        {c.aliases.length > 0 && (
-                          <div className="mt-1 truncate text-xs text-faint">aka {c.aliases.slice(0, 3).join(", ")}</div>
-                        )}
-                        <div className="mt-1.5 text-[11px] text-muted">{c.matched_sources.length} matched sources</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Section>
-            </div>
-          </div>
-
-          {/* records / awards — Indian sources first */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div id="ev-records" className="scroll-mt-24">
             <Section eyebrow="Procurement" title={`Tender records (${pkg!.records.length})`}>
               <ul className="divide-y divide-border">
                 {orderedRecords.slice(0, 12).map((r, i) => (
@@ -674,7 +598,9 @@ function InvestigationResults({
                 ))}
               </ul>
             </Section>
+            </div>
 
+            <div id="ev-awards" className="scroll-mt-24">
             <Section eyebrow="Contracts" title={`Awards (${awards.length})`}>
               {awards.length === 0 ? (
                 <EmptyState message="No awards in this investigation." />
@@ -696,7 +622,32 @@ function InvestigationResults({
                 </ul>
               )}
             </Section>
+            </div>
           </div>
+
+          {/* resolved entities */}
+          <Section eyebrow="Entities" title="Resolved companies">
+            {pkg!.canonical_companies.length === 0 ? (
+              <EmptyState message="No entities resolved." />
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {pkg!.canonical_companies.map((c) => (
+                  <div key={c.id} className="rounded-[12px] border border-border bg-bg-2/40 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium text-text">{c.canonical_name}</span>
+                      <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                        {Math.round((c.confidence ?? 0) * 100)}%
+                      </span>
+                    </div>
+                    {c.aliases.length > 0 && (
+                      <div className="mt-1 truncate text-xs text-faint">aka {c.aliases.slice(0, 3).join(", ")}</div>
+                    )}
+                    <div className="mt-1.5 text-[11px] text-muted">{c.matched_sources.length} matched sources</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
 
           {/* web evidence */}
           <Section
@@ -774,6 +725,83 @@ function InvestigationResults({
               </div>
             )}
           </Section>
+
+          {/* Recommendations + follow-ups */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <Section eyebrow="Guidance" title="Recommendations">
+              {reasoning.recommendations.length === 0 ? (
+                <EmptyState message="No recommendations." />
+              ) : (
+                <ul className="space-y-2.5">
+                  {reasoning.recommendations.map((rec, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-muted">
+                      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            <Section eyebrow="Next steps" title="Suggested investigations">
+              {reasoning.follow_ups.length === 0 ? (
+                <EmptyState message="No follow-ups." />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {reasoning.follow_ups.map((f, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onFollowUp(f.query)}
+                      className="group flex items-center justify-between gap-3 rounded-[12px] border border-border bg-bg-2/40 p-3 text-left transition hover:border-accent/40"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-text group-hover:text-accent">{f.label}</span>
+                        <span className="block truncate text-xs text-faint">{f.rationale}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-accent" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Section>
+          </div>
+
+          {/* ── AI SUMMARY (optional) — narrative generated FROM the evidence above.
+               The finding stands without it. Shown last, by design. ── */}
+          <AiSummaryDivider />
+          <AiInvestigationPanel reasoning={reasoning} processingMs={processingMs} />
+          {reasoning.analyst_report && <AnalystReportSections report={reasoning.analyst_report} />}
+          {reasoning.findings.length > 0 && (
+            <Section eyebrow="AI reasoning" title="Findings & evidence">
+              <div className="space-y-3">
+                {reasoning.findings.map((f, i) => (
+                  <FindingCard key={i} finding={f} />
+                ))}
+              </div>
+            </Section>
+          )}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Section eyebrow="Reasoning path" title="Analyst trace">
+                {reasoning.analyst_trace.length === 0 ? (
+                  <EmptyState message="No analyst steps recorded." />
+                ) : (
+                  <AnalystTrace steps={reasoning.analyst_trace} />
+                )}
+              </Section>
+            </div>
+            <div className="space-y-5">
+              <Section eyebrow="Verification" title="Grounding">
+                <GroundingCard grounding={reasoning.grounding} confidence={reasoning.confidence} />
+              </Section>
+              {reasoning.prior_investigations.length > 0 && (
+                <Section eyebrow="AI memory" title="Previous investigations">
+                  <AiMemory hits={reasoning.prior_investigations} onReuse={onFollowUp} />
+                </Section>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>
@@ -845,7 +873,9 @@ function EntityCandidatesPanel({
 /* ============================================================ finding card */
 
 function FindingCard({ finding }: { finding: ReasoningFinding }) {
-  const [open, setOpen] = useState(false);
+  // Evidence is exposed by default (req 13): a finding a judge sees should already
+  // show the sources that back it, not hide them behind an extra click.
+  const [open, setOpen] = useState(true);
   const citations = finding.citations;
   return (
     <div className="rounded-[14px] border border-border bg-bg-2/40 p-4">
@@ -906,5 +936,443 @@ function FindingCard({ finding }: { finding: ReasoningFinding }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ============================================================ case #001 launcher */
+
+/** Dashboard → one-click "Open Case #001". Curated, friction-free demo entry. */
+function CaseLauncherBanner({ onOpen }: { onOpen: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onOpen}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="group mt-4 flex w-full items-center gap-4 overflow-hidden rounded-[18px] border border-accent/30 bg-surface/80 p-4 text-left elevate transition hover:border-accent/60 md:p-5"
+    >
+      <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent/30 bg-accent/[0.08] text-accent">
+        <ShieldAlert className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+          Case #001 · Live investigation
+        </span>
+        <span className="mt-1 block text-[15px] font-semibold text-text">Dharmagarh NAC — Odisha ward-works procurement</span>
+        <span className="mt-0.5 block truncate text-xs text-muted">
+          16 same-day tenders · ₹1.32 crore · contract-fragmentation pattern — traced to the official Odisha e-procurement portal.
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition group-hover:bg-accent-hi">
+        Open case
+        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </motion.button>
+  );
+}
+
+/* ============================================================ case verdict header */
+
+type RiskLevelKey = "critical" | "high" | "medium" | "low" | "insufficient";
+
+const RISK_LEVEL_STYLE: Record<RiskLevelKey, { label: string; cls: string; bar: string }> = {
+  critical: { label: "Critical risk", cls: "border-danger/50 bg-danger/10 text-danger", bar: "bg-danger" },
+  high: { label: "High risk", cls: "border-danger/40 bg-danger/10 text-danger", bar: "bg-danger" },
+  medium: { label: "Medium risk", cls: "border-warning/40 bg-warning/10 text-warning", bar: "bg-warning" },
+  low: { label: "Low risk", cls: "border-success/40 bg-success/10 text-success", bar: "bg-success" },
+  insufficient: { label: "Insufficient evidence", cls: "border-border bg-surface text-muted", bar: "bg-border-strong" }
+};
+
+function riskKey(level: string): RiskLevelKey {
+  return (["critical", "high", "medium", "low", "insufficient"] as RiskLevelKey[]).includes(level as RiskLevelKey)
+    ? (level as RiskLevelKey)
+    : "medium";
+}
+
+/** Makes a headline stat a one-click jump to the records behind it (req 12). */
+function StatJump({ target, hint, children }: { target: string; hint: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={() => scrollToEvidence(target)}
+      title={hint}
+      className="group/jump relative block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-[16px]"
+    >
+      {children}
+      <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-medium text-faint opacity-0 transition group-hover/jump:opacity-100">
+        {hint} ↓
+      </span>
+    </button>
+  );
+}
+
+/** The hero: a deterministic, AI-free verdict of the case + the export action. */
+function CaseVerdictHeader({
+  query,
+  reasoning,
+  recordCount,
+  entityCount,
+  awardCount,
+  awardedValue,
+  indicatorCount,
+  onExport
+}: {
+  query: string;
+  reasoning: InvestigationReasoning;
+  recordCount: number;
+  entityCount: number;
+  awardCount: number;
+  awardedValue: number;
+  indicatorCount: number;
+  onExport: () => void;
+}) {
+  const style = RISK_LEVEL_STYLE[riskKey(reasoning.risk_level)];
+  const confidencePct = Math.round((reasoning.confidence ?? 0) * 100);
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className="relative overflow-hidden rounded-[20px] border border-border bg-surface/80 p-5 elevate md:p-6"
+    >
+      <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent/[0.06] blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
+
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+            Case #001 · Evidence-backed finding
+          </div>
+          <h2 className="mt-1.5 truncate text-[22px] font-semibold tracking-tight text-text md:text-[26px]">{query}</h2>
+          <p className="mt-1 text-sm text-muted">
+            <span className="font-semibold text-text">{indicatorCount}</span> risk indicator{indicatorCount === 1 ? "" : "s"} across{" "}
+            <span className="font-semibold text-text">{recordCount}</span> procurement records ·{" "}
+            <span className="font-semibold text-text">{awardCount}</span> award{awardCount === 1 ? "" : "s"}. Deterministic risk
+            engine — flagged for review, not a determination of wrongdoing.
+          </p>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${style.cls}`}>
+            <ShieldAlert className="h-3.5 w-3.5" />
+            {style.label}
+            <span className="tabular opacity-80">· {confidencePct}% confidence</span>
+          </span>
+          <button
+            type="button"
+            onClick={onExport}
+            className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-hi"
+          >
+            <Download className="h-4 w-4" />
+            Export evidence packet
+          </button>
+        </div>
+      </div>
+
+      <div className="relative mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatJump target="ev-records" hint="View records">
+          <StatCard label="Records" value={String(recordCount)} tone="accent" icon={<FileText className="h-4 w-4" />} />
+        </StatJump>
+        <StatJump target="ev-awards" hint="View awards">
+          <StatCard label="Awards" value={String(awardCount)} tone="success" icon={<Award className="h-4 w-4" />} />
+        </StatJump>
+        <StatJump target="ev-awards" hint="View awards">
+          <StatCard label="Awarded value" value={formatCompactMoney(String(awardedValue))} icon={<Building2 className="h-4 w-4" />} />
+        </StatJump>
+        <StatJump target="ev-risk" hint="View indicators">
+          <StatCard
+            label="Risk indicators"
+            value={String(indicatorCount)}
+            tone={indicatorCount > 0 ? "danger" : "accent"}
+            icon={<Gauge className="h-4 w-4" />}
+          />
+        </StatJump>
+      </div>
+    </motion.section>
+  );
+}
+
+/* ============================================================ risk indicators (the finding) */
+
+type NormalizedIndicator = {
+  name: string;
+  severity: "low" | "medium" | "high" | "critical";
+  score: number;
+  reason: string;
+  review: boolean;
+  reviewNote: string;
+  records: number;
+  status: string;
+  category: string;
+  // Tender reference numbers this indicator fired on — used to resolve the
+  // official government source URL and put it right on the red-flag card.
+  recordRefs: string[];
+};
+
+function normalizeIndicators(pkg: InvestigationPackage, reasoning: InvestigationReasoning): NormalizedIndicator[] {
+  const v2 = pkg.risk_assessment_v2?.indicators ?? [];
+  if (v2.length > 0) {
+    return v2.map((i) => ({
+      name: i.name,
+      severity: i.severity,
+      score: i.score,
+      reason: i.reason,
+      review: i.review_required,
+      reviewNote: i.review_note,
+      records: i.supporting_records.length,
+      status: i.evidence_status,
+      category: i.category,
+      recordRefs: i.supporting_records
+    }));
+  }
+  if (reasoning.findings.length > 0) {
+    return reasoning.findings.map((f) => ({
+      name: f.title,
+      severity: f.severity,
+      score: f.score,
+      reason: f.detail,
+      review: !f.evidence_backed,
+      reviewNote: "",
+      records: f.citations.length,
+      status: f.evidence_backed ? "verified" : "unknown",
+      category: "finding",
+      recordRefs: f.citations.map((c) => c.related_tender).filter((r): r is string => Boolean(r))
+    }));
+  }
+  return pkg.indicators.map((i) => ({
+    name: i.title,
+    severity: i.severity,
+    score: i.score,
+    reason: i.summary,
+    review: false,
+    reviewNote: "",
+    records: i.related_tenders.length,
+    status: "probable",
+    category: i.type,
+    recordRefs: i.related_tenders
+  }));
+}
+
+/** Official government source (URL + portal) for a tender reference number. */
+type OfficialSource = { ref: string; url: string; source: string };
+
+/** Build reference_number → official source URL from the package's own records. */
+function buildSourceIndex(pkg: InvestigationPackage): Map<string, OfficialSource> {
+  const index = new Map<string, OfficialSource>();
+  for (const r of pkg.records) {
+    const url = r.tender.metadata?.source_url;
+    if (url && !index.has(r.tender.reference_number)) {
+      index.set(r.tender.reference_number, {
+        ref: r.tender.reference_number,
+        url,
+        source: r.tender.metadata?.source_name ?? "official source"
+      });
+    }
+  }
+  return index;
+}
+
+const SEV_PILL: Record<NormalizedIndicator["severity"], string> = {
+  critical: "border-danger/60 bg-danger/15 text-danger",
+  high: "border-danger/40 bg-danger/10 text-danger",
+  medium: "border-warning/40 bg-warning/10 text-warning",
+  low: "border-success/40 bg-success/10 text-success"
+};
+
+function RiskSeverityPill({ severity, score }: { severity: NormalizedIndicator["severity"]; score?: number }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${SEV_PILL[severity]}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {severity}
+      {typeof score === "number" && score > 0 && <span className="tabular opacity-80">· {score}</span>}
+    </span>
+  );
+}
+
+/**
+ * The demo's whole point: from a red flag straight to the official government
+ * record. Resolves the indicator's supporting tenders to their source URLs and
+ * renders a prominent link on the flag itself — one click from finding to proof.
+ */
+function IndicatorSourceLink({ refs, index }: { refs: string[]; index: Map<string, OfficialSource> }) {
+  const sources = useMemo(() => {
+    const seen = new Set<string>();
+    const out: OfficialSource[] = [];
+    for (const ref of refs) {
+      const src = index.get(ref);
+      if (src && !seen.has(src.url)) {
+        seen.add(src.url);
+        out.push(src);
+      }
+    }
+    return out;
+  }, [refs, index]);
+
+  if (sources.length === 0) return null;
+  const primary = sources[0];
+
+  return (
+    <div className="mt-3 border-t border-border/60 pt-3">
+      <a
+        href={primary.url}
+        target="_blank"
+        rel="noreferrer"
+        className="group/src inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/[0.08] px-2.5 py-1.5 text-[12px] font-semibold text-accent transition hover:bg-accent/15"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        View official record
+        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/src:translate-x-0.5" />
+      </a>
+      <span className="ml-2 text-[11px] text-faint">
+        {sources.length === 1
+          ? `on ${primary.source}`
+          : `${sources.length} records on ${primary.source}`}
+      </span>
+    </div>
+  );
+}
+
+function RiskIndicatorsSection({ pkg, reasoning }: { pkg: InvestigationPackage; reasoning: InvestigationReasoning }) {
+  const items = normalizeIndicators(pkg, reasoning);
+  const deterministic = (pkg.risk_assessment_v2?.indicators?.length ?? 0) > 0;
+  const sourceIndex = useMemo(() => buildSourceIndex(pkg), [pkg]);
+
+  return (
+    <Section
+      eyebrow="The finding"
+      title="Risk indicators"
+      action={
+        <span className="inline-flex items-center gap-1.5 text-xs text-faint">
+          <ListChecks className="h-3.5 w-3.5" />
+          {items.length} indicator{items.length === 1 ? "" : "s"}
+          {deterministic ? " · deterministic engine" : ""}
+        </span>
+      }
+    >
+      {items.length === 0 ? (
+        <EmptyState message="No risk indicators were triggered for this investigation." />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {items.map((it, i) => (
+              <motion.div
+                key={`${it.name}-${i}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i, 8) * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="rounded-[14px] border border-border bg-bg-2/40 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h4 className="min-w-0 text-sm font-semibold text-text">{it.name}</h4>
+                  <RiskSeverityPill severity={it.severity} score={it.score} />
+                </div>
+                {it.reason && <p className="mt-1.5 text-sm text-muted">{it.reason}</p>}
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {it.records > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-0.5 text-muted">
+                      <FileText className="h-3 w-3" /> {it.records} record{it.records === 1 ? "" : "s"}
+                    </span>
+                  )}
+                  <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 uppercase tracking-wide text-faint">
+                    {it.status}
+                  </span>
+                  {it.review && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 font-semibold text-accent">
+                      Requires review
+                    </span>
+                  )}
+                </div>
+                <IndicatorSourceLink refs={it.recordRefs} index={sourceIndex} />
+              </motion.div>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] leading-snug text-faint">
+            Indicators are produced by a deterministic risk engine from the procurement records above. They flag patterns for a
+            human investigator to review — they are not, by themselves, a finding of wrongdoing.
+          </p>
+        </>
+      )}
+    </Section>
+  );
+}
+
+/* ============================================================ evidence packet export */
+
+/**
+ * Open the authoritative, server-rendered Evidence Packet in a new tab.
+ *
+ * Single source of truth: the backend re-runs the deterministic pipeline and
+ * returns a self-contained, print-ready HTML document (every figure traceable to
+ * an official source URL, with a "Print / Save as PDF" control). Opening in a new
+ * tab keeps the live investigation on screen behind it — one click, full packet.
+ */
+function openEvidencePacket(query: string): void {
+  if (typeof window === "undefined" || !query) return;
+  window.open(evidencePacketUrl(query), "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Smooth-scroll to an evidence section by id. Every headline number is a jump to
+ * the records behind it — one click from a figure to its proof (req 12), so an
+ * analyst never has to hunt for the evidence a claim rests on.
+ */
+function scrollToEvidence(id: string): void {
+  if (typeof document === "undefined") return;
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function AiSummaryDivider() {
+  return (
+    <div className="relative flex items-center gap-3 pt-2">
+      <span className="h-px flex-1 bg-border" />
+      <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-faint">
+        AI summary · optional
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+function EvidencePacketCTA({
+  evidenceCount,
+  sourceCount,
+  onExport
+}: {
+  evidenceCount: number;
+  sourceCount: number;
+  onExport: () => void;
+}) {
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="relative flex flex-col items-start gap-4 overflow-hidden rounded-[18px] border border-accent/30 bg-surface/80 p-5 elevate sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent/30 bg-accent/[0.08] text-accent">
+          <ScrollText className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-text">Evidence packet</div>
+          <p className="mt-0.5 text-xs text-muted">
+            Export the full court-ready packet — {evidenceCount} cited item{evidenceCount === 1 ? "" : "s"} across{" "}
+            {sourceCount} source{sourceCount === 1 ? "" : "s"}, every claim linked to its official source.
+            <span className="ml-1 text-faint">15 sections incl. missing evidence, benign explanations &amp; a verification checklist · Print → PDF.</span>
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onExport}
+        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-hi"
+      >
+        <Download className="h-4 w-4" />
+        Export evidence packet
+      </button>
+    </motion.section>
   );
 }

@@ -530,7 +530,83 @@ export type InvestigationPackage = {
   // structurally identical to RelationshipGraph, so it renders directly.
   graph: RelationshipGraph;
   indicators: InvestigationProcurementIndicator[];
+  // Deterministic Risk Engine V2 assessment — the single source of truth for
+  // risk. The reasoning layer projects this into `reasoning.risk_level`,
+  // `reasoning.confidence`, and `reasoning.risk_rationale`, which the UI renders;
+  // the raw structure is exposed here for pattern/explainability drill-down.
+  risk_assessment_v2: RiskAssessmentV2 | null;
   step_results: InvestigationStepResult[];
+};
+
+/* -------------------------------------------------- Risk Engine V2 */
+
+export type RiskEvidenceStatus = "verified" | "probable" | "unknown";
+
+export type RiskIndicatorV2 = {
+  id: string;
+  name: string;
+  category: string;
+  severity: "low" | "medium" | "high" | "critical";
+  base_severity: "low" | "medium" | "high" | "critical";
+  score: number;
+  status: string;
+  evidence_status: RiskEvidenceStatus;
+  confidence: number;
+  reason: string;
+  required_evidence: string[];
+  supporting_records: string[];
+  context_notes: string[];
+  review_required: boolean;
+  review_note: string;
+};
+
+export type RiskPattern = {
+  id: string;
+  name: string;
+  severity: "low" | "medium" | "high" | "critical";
+  rule: string;
+  indicators: string[];
+  reason: string;
+  review_note: string;
+};
+
+export type RiskEvidenceRef = {
+  kind: string;
+  reference: string;
+  source: string;
+  detail: string;
+};
+
+export type RiskExplainabilityNode = {
+  indicator_id: string;
+  name: string;
+  base_severity: "low" | "medium" | "high" | "critical";
+  base_score: number;
+  rule_triggered: string;
+  evidence: RiskEvidenceRef[];
+  evidence_status: RiskEvidenceStatus;
+  context_applied: string[];
+  score_contribution: number;
+  final_severity: "low" | "medium" | "high" | "critical";
+  reason: string;
+};
+
+export type RiskConfidenceV2 = {
+  score: number;
+  level: "high" | "moderate" | "low" | "very_low";
+  explanation: string;
+};
+
+export type RiskAssessmentV2 = {
+  overall_severity: "low" | "medium" | "high" | "critical" | "insufficient";
+  overall_score: number;
+  method: string;
+  indicators: RiskIndicatorV2[];
+  patterns: RiskPattern[];
+  explainability: RiskExplainabilityNode[];
+  confidence: RiskConfidenceV2 | null;
+  summary: string;
+  disclaimer: string;
 };
 
 /* -------------------------------------------------- canonical entity resolution */
@@ -943,6 +1019,22 @@ export function executeInvestigation(plan: InvestigationPlan, limitPerConnector 
  * Server-Sent Event frames from /api/investigations/stream. Returns an abort
  * function so callers can cancel an in-flight investigation.
  */
+/**
+ * URL of the authoritative, print-ready Evidence Packet for a subject.
+ *
+ * Server-rendered (single source of truth): the backend re-runs the deterministic
+ * pipeline and returns a self-contained HTML document with all 15 packet sections,
+ * every figure traceable to an official source URL. Open it in a new tab; the
+ * document has a "Print / Save as PDF" control (HTML · PDF · Print in one export).
+ */
+export function evidencePacketUrl(query: string, limitPerConnector = 25): string {
+  const params = new URLSearchParams({
+    query,
+    limit_per_connector: String(limitPerConnector)
+  });
+  return `${backendUrl}/api/investigations/evidence-packet.html?${params.toString()}`;
+}
+
 export function streamInvestigation(
   query: string,
   handlers: InvestigationStreamHandlers,
