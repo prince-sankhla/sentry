@@ -43,6 +43,64 @@ _CLUSTER_WINDOW_DAYS = 30
 _SUSPICIOUS_AWARD_DAYS = 3
 _MIN_ABNORMAL_SAMPLE = 5
 
+# Missing-award as-of-time gate (auditor C3). Awards are published after a tender
+# closes, following evaluation/approval; an *absence* of an award is only an
+# anomaly once the expected award-publication window has elapsed. This grace
+# period is a conservative default heuristic for Indian public procurement and is
+# configurable. Below it, "no award" means "award pending", not "award withheld".
+_AWARD_GRACE_DAYS = 45
+
+
+def _as_of_date(pkg: InvestigationPackage) -> date | None:
+    """Reproducible investigation as-of date = the latest data-retrieval timestamp.
+
+    Uses the immutable ``retrieved_at`` stored on each record (raw-data field), NOT
+    wall-clock ``today`` — so the time gate is deterministic and the Evidence Packet
+    reproduces exactly. Returns ``None`` when no record carries a retrieval time.
+    """
+    stamps: list[date] = []
+    for record in pkg.records:
+        ts = record.tender.metadata.retrieved_at
+        if ts is not None:
+            stamps.append(ts.date() if hasattr(ts, "date") else ts)
+    return max(stamps) if stamps else None
+
+
+def award_timing_status(pkg: InvestigationPackage, grace_days: int = _AWARD_GRACE_DAYS) -> dict:
+    """Deterministic as-of assessment of award-lifecycle timing (auditor C3).
+
+    Partitions closed, award-less tenders into ``overdue`` (past the grace window —
+    a genuine gap), ``pending`` (closed recently — award not yet due), and
+    ``indeterminate`` (elapsed time cannot be established). "Missing Award" is only
+    ``active`` when at least three tenders are overdue. Shared by the detector and
+    the Evidence Packet so the packet can explain WHY the typology is or isn't active.
+    """
+    as_of = _as_of_date(pkg)
+    closed_no_award = [
+        r for r in pkg.records if r.tender.closing_date is not None and not r.awards
+    ]
+    overdue: list[InvestigationProcurementRecord] = []
+    pending: list[InvestigationProcurementRecord] = []
+    indeterminate: list[InvestigationProcurementRecord] = []
+    elapsed: list[int] = []
+    for record in closed_no_award:
+        if as_of is None:
+            indeterminate.append(record)
+            continue
+        days = (as_of - record.tender.closing_date).days
+        elapsed.append(days)
+        (overdue if days >= grace_days else pending).append(record)
+    return {
+        "as_of": as_of,
+        "grace_days": grace_days,
+        "closed_no_award": closed_no_award,
+        "overdue": overdue,
+        "pending": pending,
+        "indeterminate": indeterminate,
+        "median_elapsed": (sorted(elapsed)[len(elapsed) // 2] if elapsed else None),
+        "active": len(overdue) >= 3,
+    }
+
 
 def build_indicators(pkg: InvestigationPackage) -> list[InvestigationProcurementIndicator]:
     indicators: list[InvestigationProcurementIndicator] = []
@@ -537,31 +595,36 @@ def _duplicate_descriptions(pkg: InvestigationPackage) -> list[InvestigationProc
 
 
 def _missing_award(pkg: InvestigationPackage) -> list[InvestigationProcurementIndicator]:
-    closed = [
-        record
-        for record in pkg.records
-        if record.tender.closing_date is not None and not record.awards
-    ]
-    if len(closed) < 3:
+    # As-of-time gate (auditor C3): only tenders that closed BEYOND the expected
+    # award-publication window count as a genuine missing-award gap. Tenders that
+    # closed recently are "award pending", not "award withheld", and must not fire.
+    status = award_timing_status(pkg)
+    overdue = status["overdue"]
+    if len(overdue) < 3:
         return []
-    buyers = sorted({r.tender.procuring_entity for r in closed if r.tender.procuring_entity})
+    grace, as_of = status["grace_days"], status["as_of"]
+    buyers = sorted({r.tender.procuring_entity for r in overdue if r.tender.procuring_entity})
     return [
         InvestigationProcurementIndicator(
             type="missing_award_data",
             severity="low",
             title="Award Data Gap",
-            summary=f"{len(closed)} closed tenders have no recorded award — award transparency gap.",
+            summary=f"{len(overdue)} tenders closed over {grace} days ago with no recorded award — transparency gap.",
             score=30,
             confidence=0.5,
             reason=(
-                f"{len(closed)} tenders have passed their closing date with no recorded award, "
-                "reflecting a competition/transparency gap in the available records."
+                f"{len(overdue)} tenders closed more than {grace} days before the data snapshot "
+                f"({as_of}) with no recorded award — an award-transparency gap beyond the expected "
+                "award-publication window (competition/transparency gap in the available records)."
             ),
-            evidence=[f"Closed tenders without awards: {len(closed)}"],
-            related_tenders=[record.tender.reference_number for record in closed][:25],
+            evidence=[
+                f"Tenders overdue for an award (> {grace} days since close): {len(overdue)}",
+                f"As-of date (data snapshot): {as_of}",
+            ],
+            related_tenders=[record.tender.reference_number for record in overdue][:25],
             supporting_buyers=buyers,
-            supporting_documents=_document_titles(closed),
-            timeline=_sorted_timeline([e for r in closed for e in _tender_timeline(r)]),
+            supporting_documents=_document_titles(overdue),
+            timeline=_sorted_timeline([e for r in overdue for e in _tender_timeline(r)]),
         )
     ]
 

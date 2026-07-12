@@ -134,6 +134,75 @@ def _is_primary_document(doc_type: str | None) -> bool:
     return (doc_type or "").strip().casefold() not in _NON_PRIMARY_DOC_TYPES
 
 
+# --------------------------------------------------------------------------- award-timing note (C3)
+
+def _award_timing_note(pkg) -> str:
+    """Explain, deterministically, why 'Missing Award' is or is not an active typology."""
+    from app.services.investigation_indicators import award_timing_status
+
+    status = award_timing_status(pkg)
+    closed = status["closed_no_award"]
+    if not closed:
+        return ""
+    grace, as_of = status["grace_days"], status["as_of"]
+    n = len(closed)
+    if status["active"]:
+        return (
+            f"Missing Award is ACTIVE: {len(status['overdue'])} tender(s) closed more than {grace} days "
+            f"before the data snapshot ({as_of}) with no award on record — beyond the expected "
+            f"award-publication window, so the absence is treated as a genuine transparency gap."
+        )
+    if as_of is None:
+        return (
+            f"Missing Award is NOT flagged: {n} tender(s) have no award on record, but the data-retrieval "
+            "date is unavailable, so time elapsed since close cannot be established — a missing-award "
+            "anomaly is not asserted without that timing."
+        )
+    med = status["median_elapsed"]
+    return (
+        f"Missing Award is NOT flagged: {n} tender(s) have no award on record, but they closed a median of "
+        f"{med} day(s) before the data snapshot ({as_of}) — within the expected ~{grace}-day "
+        "award-publication lifecycle. Awards are pending, not withheld; the absence of an award is not yet "
+        "an anomaly."
+    )
+
+
+# --------------------------------------------------------------------------- base-rate context (C5)
+
+_MIN_ABNORMAL_SAMPLE = 5  # mirror the abnormal-value detector's minimum-sample requirement
+
+
+def _baseline_note(pkg) -> str:
+    """State the comparative/statistical context available — or its absence — never invented."""
+    records = pkg.records
+    n = len(records)
+    if n == 0:
+        return ""
+    buyers = {(r.tender.procuring_entity or "").split("||")[0].strip() for r in records if r.tender.procuring_entity}
+    award_values = [a.award_value for r in records for a in r.awards if a.award_value is not None]
+    years = {r.tender.published_date.year for r in records if r.tender.published_date}
+    # Insufficient comparative history: a single buyer/category and too few awarded
+    # values to compute a price baseline → say so explicitly; invent no base rate.
+    if len(buyers) <= 1 and len(award_values) < _MIN_ABNORMAL_SAMPLE:
+        return (
+            f"Statistical context — category/peer baseline unavailable: this assessment draws on {n} "
+            "record(s) from a single procuring entity, with no prior-period or peer-buyer comparators in "
+            "scope and too few awarded values to compute a category price baseline. Findings rest on "
+            "internal structure alone; no statistical base rate was computed and none was invented — "
+            "interpret any anomaly signal cautiously as a lead, not a measured deviation."
+        )
+    parts = [f"{n} records across {len(buyers)} procuring entit{'y' if len(buyers) == 1 else 'ies'}"]
+    if years:
+        parts.append(f"publication years {min(years)}–{max(years)}" if len(years) > 1 else f"publication year {next(iter(years))}")
+    if len(award_values) >= _MIN_ABNORMAL_SAMPLE:
+        med = sorted(award_values)[len(award_values) // 2]
+        parts.append(f"award-value baseline: median {med:,.0f} over {len(award_values)} awards")
+    else:
+        parts.append("no category price baseline (fewer than "
+                     f"{_MIN_ABNORMAL_SAMPLE} awarded values) — value anomalies not computed")
+    return "Statistical context — " + "; ".join(parts) + "."
+
+
 # --------------------------------------------------------------------------- structured document
 
 @dataclass
@@ -217,6 +286,12 @@ class EvidencePacketDocument:
     # retrievable (no NIT/BoQ/corrigendum/award letter); the note states this plainly.
     has_primary_documents: bool = True
     primary_documents_note: str = ""
+    # C3 — award as-of-time gate. Explains WHY "Missing Award" is / is not an active
+    # typology (award pending within the expected lifecycle vs. genuinely overdue).
+    award_timing_note: str = ""
+    # C5 — statistical/base-rate context. States the comparative history available
+    # (or its absence), so a finding never reads as stronger than the evidence.
+    baseline_note: str = ""
     disclaimer: str = OVERSIGHT_DISCLAIMER
 
 
@@ -440,6 +515,8 @@ def build_packet_document(
         evidence_url_caveat=evidence_url_caveat,
         has_primary_documents=has_primary_documents,
         primary_documents_note=primary_documents_note,
+        award_timing_note=_award_timing_note(pkg),
+        baseline_note=_baseline_note(pkg),
     )
 
 
@@ -523,6 +600,8 @@ def render_packet_html(doc: EvidencePacketDocument) -> str:
         body = f"<table><thead><tr><th>Severity</th><th>Typology</th><th>Basis</th><th>Evidence</th><th>Supporting tenders</th></tr></thead><tbody>{rows}</tbody></table>"
     else:
         body = "<p class='muted'>No procurement-integrity typologies triggered.</p>"
+    if doc.award_timing_note:
+        body += f"<p class='muted small'><strong>Award-timing gate:</strong> {_e(doc.award_timing_note)}</p>"
     section(6, "Triggered typologies", body)
 
     # 7 — supporting tenders. The Reference cell links to the captured source URL,
@@ -601,6 +680,8 @@ def render_packet_html(doc: EvidencePacketDocument) -> str:
                   f"evidence is — URLs and documents present, awards and dates complete, entities "
                   f"resolved. It is a data-completeness metric, <strong>not</strong> a probability that "
                   f"any finding is true, and is <strong>independent of the risk score</strong>.</p>")
+    if doc.baseline_note:
+        conf_body += f"<p class='muted small'><strong>Base rate:</strong> {_e(doc.baseline_note)}</p>"
     section(10, "Evidence completeness", conf_body)
 
     # 11 — missing evidence
