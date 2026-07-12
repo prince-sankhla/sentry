@@ -100,8 +100,11 @@ INDICATOR_REGISTRY: dict[str, IndicatorDef] = {
         ("tender_reference", "published_date", "award_date"), "Award landed implausibly close to publication/close."),
     "duplicate_description": IndicatorDef("duplicate_description", "Tender Copy Pattern", "process", "medium",
         ("tender_reference", "tender_text"), "Near-identical tender text across tenders."),
-    "missing_award_data": IndicatorDef("missing_award_data", "Missing Award", "process", "medium",
-        ("tender_reference", "closing_date"), "Closed tender with no award notice on record."),
+    "missing_award_data": IndicatorDef("missing_award_data", "Missing Award", "process", "low",
+        ("tender_reference", "closing_date"),
+        "Closed tender with no award notice on record — a transparency/coverage gap "
+        "(often the connector not ingesting award-results pages), not a peer-severity "
+        "integrity red flag. Rated LOW to match the legacy builder and stay defensible."),
     # --- new deterministic detectors (this engine) ---
     "award_value_exceeds_tender": IndicatorDef("award_value_exceeds_tender", "Award Value Exceeds Tender Value", "value", "high",
         ("tender_reference", "estimated_value", "award_value"), "Awarded value materially exceeds the tender estimate."),
@@ -109,9 +112,9 @@ INDICATOR_REGISTRY: dict[str, IndicatorDef] = {
         ("buyer", "awarded_supplier"), "The awarded supplier is the procuring entity itself."),
     "missing_documents": IndicatorDef("missing_documents", "Missing Documents", "process", "low",
         ("tender_reference", "documents"), "Tender has no attached procurement documents."),
-    "contract_fragmentation": IndicatorDef("contract_fragmentation", "Contract Fragmentation", "process", "medium",
+    "contract_fragmentation": IndicatorDef("contract_fragmentation", "Potential Contract Fragmentation", "process", "medium",
         ("buyer", "tender_reference", "estimated_value"),
-        "One buyer issues many tenders as a single same-day batch — a possible "
+        "One buyer issues many tenders as a single same-day batch — a potential "
         "requirement-splitting / threshold-avoidance pattern (tender-stage; requires review)."),
     # --- related-party overlaps (declared; trigger only with entity data) ---
     "gst_overlap": IndicatorDef("gst_overlap", "GST Overlap", "relationship", "critical",
@@ -211,16 +214,26 @@ def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
                 continue
             values = [r.tender.estimated_value for r in batch if r.tender.estimated_value is not None]
             total = sum(values) if values else None
-            duplicate_values = len(values) - len(set(values))
+            # Value collisions: tenders whose estimate exactly matches another in the
+            # batch. Report the number of colliding TENDERS and the number of distinct
+            # colliding values (e.g. Dharmagarh: 4 tenders across 2 identical-value
+            # pairs), not `len - set` which understates paired collisions.
+            value_counts = Counter(values)
+            collision_values = [v for v, c in value_counts.items() if c > 1]
+            collision_tenders = sum(c for c in value_counts.values() if c > 1)
             reason = (
                 f"{len(batch)} tenders from '{buyer}' share a single publication date "
                 f"({published}) and closing date ({closing})"
             )
             if total is not None:
                 reason += f", together totalling {total:,.0f}"
-            if duplicate_values > 0:
-                reason += f"; {duplicate_values} share an identical estimated value"
-            reason += " — a possible requirement-splitting pattern. Requires Investigator Review."
+            if collision_values:
+                grp = "group" if len(collision_values) == 1 else "groups"
+                reason += (
+                    f"; {collision_tenders} tenders fall into {len(collision_values)} "
+                    f"identical-value {grp}"
+                )
+            reason += " — a potential requirement-splitting pattern. Requires Investigator Review."
             hits.append({
                 "type": "contract_fragmentation",
                 "reason": reason,
@@ -400,8 +413,10 @@ def _confidence(pkg: InvestigationPackage) -> RiskConfidence:
             (len(resolved_ok) / len(pkg.canonical_companies)) if pkg.canonical_companies else 0.0]
     score = round(sum(dims) / len(dims), 2)
     level = "high" if score >= 0.7 else "moderate" if score >= 0.45 else "low" if score >= 0.25 else "very_low"
+    # This metric measures how *checkable* the evidence is (data completeness), not
+    # the probability that a finding is true — so it is named "Evidence completeness".
     expl = (
-        f"Confidence {int(score * 100)}% ({level}) from evidence coverage "
+        f"Evidence completeness {int(score * 100)}% ({level}) from evidence coverage "
         f"(URLs {with_url}/{n}, documents {with_docs}/{n}), award completeness ({with_awards}/{n}), "
         f"timeline completeness ({dated}/{n}), and entity-resolution quality — independent of the risk score."
     )

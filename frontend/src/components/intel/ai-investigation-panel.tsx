@@ -155,7 +155,7 @@ export function AiInvestigationPanel({
           <div className="rounded-[14px] border border-border bg-surface/60 p-3.5">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
-                <Gauge className="h-3 w-3" /> Investigation confidence
+                <Gauge className="h-3 w-3" /> Evidence completeness
               </span>
               <span className={`tabular text-sm font-semibold ${style.text}`}>{confidencePct}%</span>
             </div>

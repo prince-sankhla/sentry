@@ -50,7 +50,7 @@ export function GroundingCard({
         <div className="grid grid-cols-3 gap-2">
           <Stat label="Documents" value={String(g.documents_available)} icon={<FileCheck className="h-3.5 w-3.5" />} />
           <Stat label="Records" value={String(g.records_reviewed)} icon={<FileCheck className="h-3.5 w-3.5" />} />
-          <Stat label="Confidence" value={`${Math.round(confidence * 100)}%`} icon={<ShieldCheck className="h-3.5 w-3.5" />} />
+          <Stat label="Evidence completeness" value={`${Math.round(confidence * 100)}%`} icon={<ShieldCheck className="h-3.5 w-3.5" />} />
         </div>
       </div>
 

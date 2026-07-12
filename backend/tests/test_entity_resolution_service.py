@@ -181,5 +181,49 @@ class PrecisionPredicateSmokeTest(unittest.TestCase):
             self.assertIsNotNone(c, q)
 
 
+class EntityAliasPrecisionGuardTest(unittest.TestCase):
+    """The retrieval alias set must never widen a specific-unit query to a generic
+    first-segment *bucket* (CASE #001 regression: "Dharmagarh NAC" resolving to the
+    shared "Municipal Bodies" prefix dragged sibling buyers — Chatrapur NAC — into
+    the package via ``ilike '%Municipal Bodies%'``)."""
+
+    def _aliases_for(self, query: str, canonical: str, match_type: str = "exact") -> list[str]:
+        from app.schemas.entity_resolution import EntityCandidate, EntityResolutionResult
+        from app.schemas.investigation_planner import InvestigationPlan
+        from app.services.investigation_executor import InvestigationExecutor
+
+        ex = object.__new__(InvestigationExecutor)  # bypass __init__ (needs no session here)
+        ex._resolution = EntityResolutionResult(
+            query=query, resolved=True, requires_disambiguation=False,
+            candidates=[EntityCandidate(
+                entity_id=f"buyer:{canonical}", canonical_name=canonical,
+                entity_type="government_buyer", match_type=match_type,
+                match_reason="", score=100, confidence=1.0,
+            )],
+        )
+        ex._active_plan = InvestigationPlan(
+            query=query, investigation_type="buyer", confidence=0.8,
+            connectors=[], modules=[], steps=[],
+        )
+        return ex._entity_aliases()
+
+    def test_generic_bucket_canonical_is_not_folded(self) -> None:
+        # "Municipal Bodies" shares no identifying token with "Dharmagarh NAC" and
+        # is neither a phrase of it — it must be rejected as a retrieval alias.
+        self.assertEqual(self._aliases_for("Dharmagarh NAC", "Municipal Bodies"), [])
+
+    def test_genuine_variant_canonical_is_folded(self) -> None:
+        # A canonical sharing an identifying token (or a phrase relationship) is a
+        # legitimate identity-variant and IS folded, preserving recall.
+        self.assertEqual(
+            self._aliases_for("Dharmagarh", "Dharmagarh Notified Area Council"),
+            ["Dharmagarh Notified Area Council"],
+        )
+        self.assertEqual(
+            self._aliases_for("Tata Projects", "Tata Projects Limited"),
+            ["Tata Projects Limited"],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

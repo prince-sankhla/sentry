@@ -30,11 +30,11 @@ def _meta(rid: str, source: str = "cppp") -> InvestigationSourceMetadata:
     return InvestigationSourceMetadata(source_name=source, source_record_id=rid, source_url="https://x/" + rid, retrieved_at=None)
 
 
-def _record(ref, buyer, suppliers, *, value=None, published=None, award_date=None, docs=False, source="cppp"):
+def _record(ref, buyer, suppliers, *, value=None, published=None, closing=None, award_date=None, docs=False, source="cppp"):
     return InvestigationProcurementRecord(
         tender=InvestigationTenderResult(
             reference_number=ref, title=f"Tender {ref}", description=None, procuring_entity=buyer,
-            published_date=published, closing_date=None,
+            published_date=published, closing_date=closing,
             estimated_value=Decimal(value) if value is not None else None,
             currency="INR", metadata=_meta(ref, source),
         ),
@@ -120,6 +120,30 @@ class GroupedFindingsTest(unittest.TestCase):
         sb = next(f for f in findings if f.indicator_type == "single_bidder")
         self.assertTrue(sb.evidence_backed)
         self.assertTrue(sb.citations)
+
+    def test_v2_only_indicator_becomes_leading_finding(self) -> None:
+        # CASE #001 regression: contract_fragmentation is detected ONLY by Risk
+        # Engine V2 (not the legacy indicator builder). It must still surface as a
+        # first-class, evidence-backed finding — and, at medium severity, lead the
+        # low-severity Award Data Gap — rather than living only in the typology table.
+        from app.services.risk_engine import assess_risk_v2
+
+        pub, close = date(2026, 6, 22), date(2026, 7, 8)
+        records = [
+            _record(f"LOT-{i}", "Municipal Bodies||Test NAC", [],
+                    value=str(800000 + i), published=pub, closing=close, docs=True)
+            for i in range(6)
+        ]
+        pkg = _package(records, itype="buyer")
+        pkg.risk_assessment_v2 = assess_risk_v2(pkg)
+        findings = _findings_from_indicators(pkg)
+        types = [f.indicator_type for f in findings]
+        self.assertIn("contract_fragmentation", types)
+        self.assertEqual(findings[0].indicator_type, "contract_fragmentation")
+        frag = next(f for f in findings if f.indicator_type == "contract_fragmentation")
+        self.assertTrue(frag.evidence_backed)
+        self.assertTrue(frag.citations)
+        self.assertEqual(frag.severity, "medium")
 
 
 class CompleteGraphTest(unittest.TestCase):

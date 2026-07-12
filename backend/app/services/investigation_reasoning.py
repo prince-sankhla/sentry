@@ -279,6 +279,45 @@ def _findings_from_indicators(pkg: InvestigationPackage) -> list[ReasoningFindin
             )
         )
 
+    # Surface Risk Engine V2 indicators that have NO legacy-detector counterpart
+    # (e.g. contract_fragmentation, buyer_equals_supplier, award_value_exceeds_tender,
+    # missing_documents) as first-class findings. These detectors live only in the V2
+    # engine (services/risk_engine), so without this they appear in the typology table
+    # but never as a finding — burying the flagship deterministic signal of a case
+    # like CASE #001 (contract fragmentation) behind a weaker legacy finding. Reuses
+    # V2's detection AND its evidence-verification verdict; no detection logic is
+    # duplicated here.
+    if risk_v2 is not None:
+        present_types = {f.indicator_type for f in findings}
+        for ind in risk_v2.indicators:
+            if ind.id in present_types:
+                continue
+            refs = sorted(set(ind.supporting_records))
+            base_conf = max(0.4, min(0.95, ind.score / 100))
+            v2_citations: list[ReasoningCitation] = []
+            for ref in refs[:5]:
+                record = record_by_ref.get(ref)
+                if record is None:
+                    continue
+                v2_citations.append(citation_from_record(
+                    record, confidence=base_conf, related_entity=None, evidence_type=ind.id,
+                ))
+            findings.append(
+                ReasoningFinding(
+                    title=ind.name,
+                    detail=ind.reason,
+                    severity=ind.severity,  # type: ignore[arg-type]
+                    score=ind.score,
+                    citations=v2_citations[:12],
+                    evidence_backed=bool(v2_citations),
+                    verification=(ind.evidence_status if v2_citations else "unverified"),  # type: ignore[arg-type]
+                    indicator_type=ind.id,
+                    occurrences=len(refs) or 1,
+                    supporting_records=refs,
+                    instances=[ind.reason],
+                )
+            )
+
     # Strongest findings first (grouped, so each type appears exactly once).
     findings.sort(key=lambda f: (_SEVERITY_RANK.get(f.severity, 0), f.score), reverse=True)
     return findings
