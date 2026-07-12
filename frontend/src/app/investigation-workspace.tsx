@@ -1059,7 +1059,7 @@ function CaseVerdictHeader({
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${style.cls}`}>
             <ShieldAlert className="h-3.5 w-3.5" />
             {style.label}
-            <span className="tabular opacity-80">· {confidencePct}% confidence</span>
+            <span className="tabular opacity-80">· {confidencePct}% evidence completeness</span>
           </span>
           <button
             type="button"
@@ -1110,6 +1110,11 @@ type NormalizedIndicator = {
   // Tender reference numbers this indicator fired on — used to resolve the
   // official government source URL and put it right on the red-flag card.
   recordRefs: string[];
+  // Deterministic context the engine applied (e.g. why a severity was
+  // down/upgraded) and the evidence that would confirm this indicator — both
+  // surfaced so the investigator sees the engine's full reasoning, not just its verdict.
+  contextNotes: string[];
+  requiredEvidence: string[];
 };
 
 function normalizeIndicators(pkg: InvestigationPackage, reasoning: InvestigationReasoning): NormalizedIndicator[] {
@@ -1125,7 +1130,9 @@ function normalizeIndicators(pkg: InvestigationPackage, reasoning: Investigation
       records: i.supporting_records.length,
       status: i.evidence_status,
       category: i.category,
-      recordRefs: i.supporting_records
+      recordRefs: i.supporting_records,
+      contextNotes: i.context_notes,
+      requiredEvidence: i.required_evidence
     }));
   }
   if (reasoning.findings.length > 0) {
@@ -1139,7 +1146,9 @@ function normalizeIndicators(pkg: InvestigationPackage, reasoning: Investigation
       records: f.citations.length,
       status: f.evidence_backed ? "verified" : "unknown",
       category: "finding",
-      recordRefs: f.citations.map((c) => c.related_tender).filter((r): r is string => Boolean(r))
+      recordRefs: f.citations.map((c) => c.related_tender).filter((r): r is string => Boolean(r)),
+      contextNotes: [],
+      requiredEvidence: []
     }));
   }
   return pkg.indicators.map((i) => ({
@@ -1152,7 +1161,9 @@ function normalizeIndicators(pkg: InvestigationPackage, reasoning: Investigation
     records: i.related_tenders.length,
     status: "probable",
     category: i.type,
-    recordRefs: i.related_tenders
+    recordRefs: i.related_tenders,
+    contextNotes: [],
+    requiredEvidence: []
   }));
 }
 
@@ -1239,6 +1250,8 @@ function RiskIndicatorsSection({ pkg, reasoning }: { pkg: InvestigationPackage; 
   const items = normalizeIndicators(pkg, reasoning);
   const deterministic = (pkg.risk_assessment_v2?.indicators?.length ?? 0) > 0;
   const sourceIndex = useMemo(() => buildSourceIndex(pkg), [pkg]);
+  // The engine's own one-line justification for the overall assessment.
+  const assessmentSummary = pkg.risk_assessment_v2?.summary?.trim();
 
   return (
     <Section
@@ -1256,6 +1269,11 @@ function RiskIndicatorsSection({ pkg, reasoning }: { pkg: InvestigationPackage; 
         <EmptyState message="No risk indicators were triggered for this investigation." />
       ) : (
         <>
+          {assessmentSummary && (
+            <p className="mb-3 rounded-[12px] border border-border bg-bg-2/40 px-3.5 py-2.5 text-sm leading-relaxed text-muted">
+              {assessmentSummary}
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {items.map((it, i) => (
               <motion.div
@@ -1280,11 +1298,41 @@ function RiskIndicatorsSection({ pkg, reasoning }: { pkg: InvestigationPackage; 
                     {it.status}
                   </span>
                   {it.review && (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 font-semibold text-accent">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 font-semibold text-accent"
+                      title={it.reviewNote || undefined}
+                    >
                       Requires review
                     </span>
                   )}
                 </div>
+
+                {/* Context the engine applied — why the severity is what it is (item: risk justification). */}
+                {it.contextNotes.length > 0 && (
+                  <ul className="mt-2.5 space-y-1">
+                    {it.contextNotes.map((note, n) => (
+                      <li key={n} className="flex items-start gap-1.5 text-[11px] leading-snug text-faint">
+                        <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-muted" />
+                        <span>{note}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Evidence that would confirm this indicator — honest, per-flag missing evidence. */}
+                {it.requiredEvidence.length > 0 && (
+                  <div className="mt-2.5 rounded-lg border border-border bg-surface/50 px-2.5 py-2">
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-faint">To confirm, obtain</div>
+                    <ul className="mt-1 flex flex-wrap gap-1.5">
+                      {it.requiredEvidence.map((ev, n) => (
+                        <li key={n} className="rounded-md border border-border bg-bg-2/50 px-1.5 py-0.5 text-[11px] text-muted">
+                          {ev}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <IndicatorSourceLink refs={it.recordRefs} index={sourceIndex} />
               </motion.div>
             ))}
