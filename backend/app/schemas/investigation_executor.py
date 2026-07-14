@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.entity_resolution import EntityResolutionResult
 from app.schemas.investigation_planner import InvestigationPlan
+from app.schemas.investigation_risk import RiskAssessmentV2
 
 
 class InvestigationExecutionRequest(BaseModel):
@@ -229,6 +230,11 @@ class InvestigationPackage(BaseModel):
     # companies, awards, evidence, documents, indicators, organizations).
     graph: InvestigationGraph = Field(default_factory=InvestigationGraph)
     indicators: list[InvestigationProcurementIndicator] = Field(default_factory=list)
+    # Deterministic Procurement Risk Engine V2 assessment (L1–L6): named patterns,
+    # per-indicator explainability, evidence validation, and confidence — computed
+    # from this package's records. Optional/additive so existing consumers that
+    # only read ``indicators`` keep working unchanged.
+    risk_assessment_v2: RiskAssessmentV2 | None = None
     step_results: list[InvestigationStepResult] = Field(default_factory=list)
 
     class Config:

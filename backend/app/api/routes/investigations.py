@@ -1,8 +1,9 @@
 import json
 from collections.abc import AsyncIterator
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.services.entity_resolution_service import resolve_entities
 from app.services.investigation_planner import InvestigationPlanner
 from app.services.investigation_executor import InvestigationExecutor
 from app.services.investigation_reasoning import build_reasoning
+from app.services.investigation_packet import build_packet_document, render_packet_html
 from app.clients.llm import available_providers, get_llm_client
 
 router = APIRouter(prefix="/api/investigations", tags=["investigations"])
@@ -198,13 +200,20 @@ async def stream_investigation(
                     "detail": f"{len(package.canonical_companies)} canonical entities",
                 },
             )
+            risk_v2 = package.risk_assessment_v2
+            indicators_detail = f"{len(package.indicators)} indicators"
+            if risk_v2 is not None:
+                indicators_detail += (
+                    f" · {len(risk_v2.patterns)} pattern(s) · "
+                    f"{risk_v2.overall_severity} (deterministic V2)"
+                )
             yield _sse(
                 "step",
                 {
                     "key": "indicators",
                     "status": "complete",
                     "label": "Risk engine complete",
-                    "detail": f"{len(package.indicators)} indicators",
+                    "detail": indicators_detail,
                 },
             )
             # Evidence + grounding are already computed inside the executor's
@@ -268,3 +277,49 @@ async def stream_investigation(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
+
+
+async def _run_and_build_packet(db: Session, query: str, limit: int):
+    """Reuse the full pipeline (plan → execute → reason) and assemble the packet.
+
+    Deterministic: the risk model and every packet number reproduce across runs
+    for the same data; only the optional AI phrasing (grounding-guarded) varies.
+    """
+    plan = InvestigationPlanner().build_plan(query=query)
+    executor = InvestigationExecutor(session=db)
+    package = await executor.execute(
+        InvestigationExecutionRequest(plan=plan, limit_per_connector=limit)
+    )
+    reasoning = build_reasoning(package, query)
+    doc = build_packet_document(
+        package, reasoning, subject=query, generated_at=datetime.now(timezone.utc)
+    )
+    return doc
+
+
+@router.get("/evidence-packet.html", response_class=HTMLResponse)
+async def evidence_packet_html(
+    query: str = Query(..., min_length=1),
+    limit_per_connector: int = Query(25, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """One-click Evidence Packet export: a self-contained, print-ready HTML document.
+
+    GET so it can be opened directly in a new tab and Printed → PDF. Every figure
+    traces to an official source URL inside the packet; nothing is invented.
+    """
+    doc = await _run_and_build_packet(db, query, limit_per_connector)
+    return HTMLResponse(content=render_packet_html(doc))
+
+
+@router.get("/evidence-packet")
+async def evidence_packet_json(
+    query: str = Query(..., min_length=1),
+    limit_per_connector: int = Query(25, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Structured Evidence Packet (the same 15 grounded sections) for API consumers."""
+    from dataclasses import asdict
+
+    doc = await _run_and_build_packet(db, query, limit_per_connector)
+    return asdict(doc)

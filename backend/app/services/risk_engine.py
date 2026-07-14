@@ -404,8 +404,12 @@ def _confidence(pkg: InvestigationPackage) -> RiskConfidence:
     n = len(pkg.records)
     if n == 0:
         return RiskConfidence(score=0.0, level="very_low", explanation="No records retrieved.")
+    from app.services.investigation_indicators import record_has_primary_document
+
     with_url = sum(1 for r in pkg.records if r.tender.metadata.source_url)
-    with_docs = sum(1 for r in pkg.records if r.documents)
+    # Only PRIMARY procurement documents count toward document availability — portal
+    # source notices (the listing entry) are not documents and must not inflate this.
+    with_docs = sum(1 for r in pkg.records if record_has_primary_document(r))
     with_awards = sum(1 for r in pkg.records if r.awards)
     dated = sum(1 for r in pkg.records if r.tender.published_date or r.tender.closing_date)
     resolved_ok = [c for c in pkg.canonical_companies if c.confidence >= 0.6]
@@ -417,7 +421,7 @@ def _confidence(pkg: InvestigationPackage) -> RiskConfidence:
     # the probability that a finding is true — so it is named "Evidence completeness".
     expl = (
         f"Evidence completeness {int(score * 100)}% ({level}) from evidence coverage "
-        f"(URLs {with_url}/{n}, documents {with_docs}/{n}), award completeness ({with_awards}/{n}), "
+        f"(URLs {with_url}/{n}, primary documents {with_docs}/{n}), award completeness ({with_awards}/{n}), "
         f"timeline completeness ({dated}/{n}), and entity-resolution quality — independent of the risk score."
     )
     return RiskConfidence(score=score, level=level, explanation=expl)

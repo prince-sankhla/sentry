@@ -157,6 +157,29 @@ def _sorted_timeline(events: list[RiskTimelineEvent]) -> list[RiskTimelineEvent]
     return sorted(events, key=lambda event: event.event_date)
 
 
+# --------------------------------------------------------------------------- document taxonomy
+
+# Strict evidence taxonomy shared by the packet, analyst report, evidence engine,
+# and risk engine so all four classify documents identically. A portal "source
+# notice" is the tender listing entry itself — NOT a primary procurement document
+# (NIT, BoQ, corrigendum, tender PDF, award letter). Only primary documents count
+# toward "document availability"; source notices are counted, and reported, separately.
+_SOURCE_NOTICE_DOC_TYPES = {"source_notice", "source notice", ""}
+
+
+def is_source_notice(doc_type: str | None) -> bool:
+    return (doc_type or "").strip().casefold() in _SOURCE_NOTICE_DOC_TYPES
+
+
+def is_primary_document(doc_type: str | None) -> bool:
+    """True for a primary procurement document; False for a portal source notice."""
+    return not is_source_notice(doc_type)
+
+
+def record_has_primary_document(record: InvestigationProcurementRecord) -> bool:
+    return any(is_primary_document(d.document_type) for d in record.documents)
+
+
 def _document_titles(records: list[InvestigationProcurementRecord]) -> list[str]:
     titles: list[str] = []
     for record in records:

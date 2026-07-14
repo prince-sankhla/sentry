@@ -108,17 +108,38 @@ class InvestigationExecutor:
         government buyers) and returns strong-match canonical names as aliases so
         precision retrieval matches every genuine phrasing of the entity without
         drifting to loosely related ones. Best-effort: no resolution → raw query.
+
+        Precision guard (generic-bucket rejection): a canonical is folded ONLY when
+        it is a genuine identity-variant of the query — it shares an identifying
+        token, or one is a phrase of the other. This blocks a specific-unit query
+        (e.g. "Dharmagarh NAC") from widening to the shared first-segment *bucket*
+        its buyer string carries (e.g. "Municipal Bodies"), which would otherwise
+        drag every sibling buyer under that bucket (Chatrapur NAC, …) into the
+        package via ``ilike '%Municipal Bodies%'``. Precision over recall.
         """
+        from app.services.search_query import _entity_terms
+
         resolution = getattr(self, "_resolution", None)
         if resolution is None:
             return []
+        query = getattr(getattr(self, "_active_plan", None), "query", "") or ""
+        q_fold = query.casefold().strip()
+        q_tokens = set(_entity_terms(query))
         names: list[str] = []
         for candidate in resolution.candidates:
             # Only fold in strong matches so retrieval does not drift to loosely
             # related entities; exact/registration/alias/official_name qualify.
-            if candidate.match_type in {"exact", "registration", "alias", "official_name"}:
-                if candidate.canonical_name and candidate.canonical_name not in names:
-                    names.append(candidate.canonical_name)
+            if candidate.match_type not in {"exact", "registration", "alias", "official_name"}:
+                continue
+            name = (candidate.canonical_name or "").strip()
+            if not name or name in names:
+                continue
+            n_fold = name.casefold()
+            compatible = (
+                n_fold in q_fold or q_fold in n_fold or bool(q_tokens & set(_entity_terms(name)))
+            )
+            if compatible:
+                names.append(name)
         return names
 
     def _search(self, query: str, connectors: list[str], limit_per_connector: int):
@@ -168,12 +189,21 @@ class InvestigationExecutor:
         """
         from app.services.investigation_graph import build_investigation_graph
         from app.services.investigation_indicators import build_indicators
+        from app.services.risk_engine import assess_risk_v2
 
         pkg.entities = _build_entities(pkg)
         pkg.evidence = _build_evidence(pkg)
         pkg.timeline = _build_timeline(pkg)
         pkg.graph_seeds = _build_graph_seeds(pkg)
         pkg.indicators = build_indicators(pkg)
+        # Deterministic Risk Engine V2 — named patterns + explainability computed
+        # from the finalized records. Runs after indicators (it reuses them) and
+        # before the graph so the assessment travels with the package. Best-effort:
+        # a failure here never breaks package finalisation.
+        try:
+            pkg.risk_assessment_v2 = assess_risk_v2(pkg)
+        except Exception:
+            pkg.risk_assessment_v2 = None
         # Complete graph LAST so it includes indicator + evidence nodes — the
         # package graph must faithfully represent everything the report contains.
         pkg.graph = build_investigation_graph(pkg)

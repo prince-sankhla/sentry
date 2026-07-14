@@ -359,7 +359,9 @@ def _missing_evidence(pkg: InvestigationPackage) -> list[str]:
     if n == 0:
         return ["Insufficient evidence is currently available to support this conclusion."]
 
-    no_docs = sum(1 for r in pkg.records if not r.documents)
+    from app.services.investigation_indicators import record_has_primary_document
+
+    no_docs = sum(1 for r in pkg.records if not record_has_primary_document(r))
     no_awards = sum(1 for r in pkg.records if not r.awards)
     awards = [a for r in pkg.records for a in r.awards]
     unvalued_awards = sum(1 for a in awards if a.award_value is None)
@@ -369,7 +371,8 @@ def _missing_evidence(pkg: InvestigationPackage) -> list[str]:
     unresolved = [c for c in pkg.canonical_companies if c.confidence < 0.6]
 
     if no_docs:
-        gaps.append(f"{no_docs} of {n} tenders have no attached procurement documents — request the tender/contract PDFs.")
+        gaps.append(f"{no_docs} of {n} tenders have no primary procurement document (only a portal source notice) "
+                    "— request the NIT, BoQ, corrigendum, tender PDF or award letter.")
     if no_awards:
         gaps.append(f"{no_awards} of {n} tenders have no award notice on record — request the missing award notices.")
     if awards and unvalued_awards:
@@ -409,9 +412,12 @@ def _confidence_assessment(
             explanation="No procurement records were retrieved, so confidence is not assessable.",
         )
 
+    from app.services.investigation_indicators import record_has_primary_document
+
     awards = [a for r in pkg.records for a in r.awards]
     with_url = sum(1 for r in pkg.records if r.tender.metadata.source_url)
-    with_docs = sum(1 for r in pkg.records if r.documents)
+    # Primary procurement documents only — portal source notices are not counted.
+    with_docs = sum(1 for r in pkg.records if record_has_primary_document(r))
     reliable = sum(1 for r in pkg.records if _reliable(r))
     distinct_sources = len({r.tender.metadata.source_name for r in pkg.records})
     with_awards = sum(1 for r in pkg.records if r.awards)
@@ -434,8 +440,9 @@ def _confidence_assessment(
             detail=f"{distinct_sources} distinct source(s) contribute to the record set.",
         ),
         ConfidenceDimension(
-            key="document_availability", label="Document availability", score=with_docs / n,
-            detail=f"{with_docs}/{n} records carry at least one primary document.",
+            key="document_availability", label="Primary-document availability", score=with_docs / n,
+            detail=(f"{with_docs}/{n} records carry a primary procurement document "
+                    "(NIT/BoQ/corrigendum/tender PDF/award letter); portal source notices are not counted."),
         ),
         ConfidenceDimension(
             key="entity_resolution_quality", label="Entity-resolution quality",

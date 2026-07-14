@@ -134,6 +134,36 @@ def _is_primary_document(doc_type: str | None) -> bool:
     return (doc_type or "").strip().casefold() not in _NON_PRIMARY_DOC_TYPES
 
 
+# OCDS documentType mapping (Phase 1). Each recovered NIC/GePNIC document type is
+# mapped to the closest valid value in the Open Contracting Data Standard
+# ``documentType`` codelist, plus a human-readable label for the packet. Standards
+# alignment only — no bytes are fetched or stored.
+_OCDS_DOC_TYPES: dict[str, tuple[str, str]] = {
+    "nit": ("Tender Notice", "tenderNotice"),
+    "tender_notice": ("Tender Notice", "tenderNotice"),
+    "boq": ("BoQ (Bill of Quantities)", "biddingDocuments"),
+    "tender_document": ("Tender Documents", "biddingDocuments"),
+    "work_item": ("Work Item Document", "biddingDocuments"),
+    "corrigendum": ("Corrigendum", "tenderAmendment"),
+    "award": ("Award Notice", "awardNotice"),
+    "award_notice": ("Award Notice", "awardNotice"),
+    "attachment": ("Attachment", "biddingDocuments"),
+}
+
+
+def _ocds_document_type(doc_type: str | None) -> tuple[str, str]:
+    """(human label, OCDS documentType) for a recovered document type.
+
+    Falls back to the closest valid OCDS value (``biddingDocuments``) for an
+    unrecognised primary document rather than inventing a code.
+    """
+    key = (doc_type or "").strip().casefold()
+    if key in _OCDS_DOC_TYPES:
+        return _OCDS_DOC_TYPES[key]
+    label = (doc_type or "Document").replace("_", " ").title()
+    return (label, "biddingDocuments")
+
+
 # --------------------------------------------------------------------------- award-timing note (C3)
 
 def _award_timing_note(pkg) -> str:
@@ -241,6 +271,10 @@ class PacketDocument:
     tender_reference: str
     source_name: str
     is_primary: bool = True               # False for portal "source notices" (P2)
+    type_label: str = ""                  # human-readable document type (P1)
+    ocds_type: str = ""                   # OCDS documentType codelist value (P1)
+    official_record_url: str = ""         # stable "Verify on Official Portal" entry (P1)
+    archived: bool = False                # SENTRY-hosted copy exists — always False in Phase 1
 
 
 @dataclass
@@ -393,15 +427,27 @@ def build_packet_document(
             stable_portal=_portal_base(t.metadata.source_name),
         ))
 
-    # 8 — every supporting document.
+    # 8 — every supporting document. Phase 1: we surface each document's identity,
+    # OCDS-mapped type, and a link to the OFFICIAL tender record. The portal's
+    # session-scoped download URL is retained internally for provenance but is
+    # never presented as a permanent/clickable download (it would expire).
     documents: list[PacketDocument] = []
     for r in pkg.records:
+        record_portal = _portal_base(r.tender.metadata.source_name)
         for d in r.documents:
+            is_primary = _is_primary_document(d.document_type)
+            type_label, ocds_type = (
+                _ocds_document_type(d.document_type) if is_primary else ("Portal source notice", "")
+            )
             documents.append(PacketDocument(
                 title=d.title or "—", doc_type=d.document_type or "document",
                 url=d.url or d.metadata.source_url or "", tender_reference=r.tender.reference_number,
                 source_name=d.metadata.source_name,
-                is_primary=_is_primary_document(d.document_type),
+                is_primary=is_primary,
+                type_label=type_label,
+                ocds_type=ocds_type,
+                official_record_url=record_portal,
+                archived=False,  # Phase 2 (SENTRY document archival) not implemented.
             ))
 
     # P1 — flag session-scoped source links so they are never presented as permanent.
@@ -429,18 +475,21 @@ def build_packet_document(
             "tenders exist, insufficient to examine their specifications, bidders, or award."
         )
 
-    # 9 — every official source URL (tender pages + document URLs), de-duplicated.
-    seen_urls: set[str] = set()
+    # 9 — official government entry points, de-duplicated. We cite a STABLE portal
+    # entry (or a genuine permalink when the captured URL is not session-scoped)
+    # plus the durable Tender Reference. Session-scoped deep links and the portal's
+    # ephemeral document-download URLs are intentionally NOT reproduced as evidence.
+    seen_urls: set[tuple[str, str]] = set()
     source_urls: list[tuple[str, str]] = []
     for r in pkg.records:
-        u = r.tender.metadata.source_url
-        if u and u not in seen_urls:
-            seen_urls.add(u)
-            source_urls.append((f"Tender {r.tender.reference_number} ({r.tender.metadata.source_name})", u))
-    for d in documents:
-        if d.url and d.url not in seen_urls:
-            seen_urls.add(d.url)
-            source_urls.append((f"{d.title} ({d.source_name})", d.url))
+        name = r.tender.metadata.source_name
+        raw = r.tender.metadata.source_url or ""
+        cite = raw if (raw and not _is_ephemeral_url(raw)) else _portal_base(name)
+        key = (r.tender.reference_number, cite)
+        if key in seen_urls:
+            continue
+        seen_urls.add(key)
+        source_urls.append((f"Tender {r.tender.reference_number} ({name})", cite))
 
     # 10 — evidence confidence (Risk Engine V2 headline + multidimensional breakdown).
     conf_pct = int(round((risk_v2.confidence.score if risk_v2 and risk_v2.confidence else reasoning.confidence) * 100))
@@ -604,14 +653,15 @@ def render_packet_html(doc: EvidencePacketDocument) -> str:
         body += f"<p class='muted small'><strong>Award-timing gate:</strong> {_e(doc.award_timing_note)}</p>"
     section(6, "Triggered typologies", body)
 
-    # 7 — supporting tenders. The Reference cell links to the captured source URL,
-    # but when that link is session-scoped it is flagged (P1) and the durable
-    # identifier (the reference number itself) is what an auditor should cite.
+    # 7 — supporting tenders. When the captured source URL is session-scoped it is
+    # NEVER hyperlinked (it would expire); the durable Tender Reference is cited as
+    # plain text alongside a stable "Verify on Official Portal" link (P1). A genuine
+    # permalink is linked directly.
     if doc.tenders:
         def _tender_ref_cell(t: PacketTender) -> str:
             if t.source_url and not t.source_is_permalink:
-                link = _link(t.source_url, t.reference)
-                return f"{link} <span class='warn small'>session link</span>"
+                portal = f" · {_link(t.stable_portal, 'Verify on Official Portal')}" if t.stable_portal else ""
+                return f"<span class='mono'>{_e(t.reference)}</span>{portal}"
             return _link(t.source_url, t.reference)
         rows = "".join(
             f"<tr><td class='mono'>{_tender_ref_cell(t)}</td><td>{_e(t.title)}</td>"
@@ -630,25 +680,64 @@ def render_packet_html(doc: EvidencePacketDocument) -> str:
         body = "<p class='muted'>No supporting tenders.</p>"
     section(7, "Every supporting tender", body)
 
-    # 8 — supporting documents. Primary procurement documents (NIT/BoQ/award/etc.)
-    # are distinguished from the portal "source notice" (the tender listing entry),
-    # and when no primary document exists that is stated plainly (P2).
+    # 8 — primary documents identified on the official portal. Phase 1: SENTRY
+    # surfaces each document's identity, OCDS-mapped type, a link to the OFFICIAL
+    # tender record ("Verify on Official Portal"), and an explicit evidence-status
+    # ledger. It never exposes the portal's session-scoped download URL and never
+    # implies the document file itself is stored (Phase 2 archival is not done).
     if doc.documents:
-        def _doc_type_cell(d: PacketDocument) -> str:
+        def _type_cell(d: PacketDocument) -> str:
             if not d.is_primary:
-                return "<span class='muted'>portal source notice</span> <span class='warn small'>not a primary document</span>"
-            return f"<span class='ok small'>primary</span> {_e(d.doc_type)}"
+                return "<span class='muted'>Portal source notice</span> <span class='warn small'>not a primary document</span>"
+            ocds = f" <span class='mono small muted'>OCDS: {_e(d.ocds_type)}</span>" if d.ocds_type else ""
+            return f"<span class='ok small'>primary</span> {_e(d.type_label or d.doc_type)}{ocds}"
+
+        def _record_cell(d: PacketDocument) -> str:
+            ref = f"<div class='mono small muted'>{_e(d.tender_reference)}</div>"
+            if d.official_record_url:
+                return _link(d.official_record_url, "Verify on Official Portal") + ref
+            return f"<span class='mono small'>{_e(d.tender_reference)}</span>"
+
+        def _status_cell(d: PacketDocument) -> str:
+            steps = [
+                ("Identified on Official Portal", True),
+                ("Metadata Retrieved", True),
+                ("Referenced by Tender Record", True),
+                ("Archived by SENTRY", d.archived),
+            ]
+            return "".join(
+                f"<div class='estep small'>{'&#9745;' if ok else '&#9744;'} "
+                f"<span class='{'ok' if ok else 'muted'}'>{_e(label)}</span></div>"
+                for label, ok in steps
+            )
+
         rows = "".join(
-            f"<tr><td>{_link(d.url, d.title)}</td><td>{_doc_type_cell(d)}</td>"
-            f"<td class='mono'>{_e(d.tender_reference)}</td><td>{_e(d.source_name)}</td></tr>"
+            f"<tr><td>{_e(d.title)}</td><td>{_type_cell(d)}</td>"
+            f"<td>{_record_cell(d)}</td><td>{_status_cell(d)}</td></tr>"
             for d in doc.documents
         )
-        body = f"<table><thead><tr><th>Document</th><th>Type</th><th>Tender</th><th>Source</th></tr></thead><tbody>{rows}</tbody></table>"
+        table = (f"<table><thead><tr><th>Document</th><th>Type</th>"
+                 f"<th>Official record</th><th>Evidence status</th></tr></thead><tbody>{rows}</tbody></table>")
+        primary_n = sum(1 for d in doc.documents if d.is_primary)
+        archived_n = sum(1 for d in doc.documents if d.is_primary and d.archived)
+        summary = (
+            "<p class='muted small'>"
+            "<strong>Official procurement record:</strong> the authoritative source is the "
+            "government tender record on the issuing portal, reachable via “Verify on Official "
+            "Portal”. "
+            f"<strong>Primary documents identified:</strong> {primary_n}. "
+            f"<strong>Primary documents archived by SENTRY:</strong> {archived_n}. "
+            "SENTRY has identified these primary procurement documents on the official portal and "
+            "retrieved their metadata (title, type). The document files themselves are "
+            "<strong>not</strong> stored by SENTRY, and the portal's download links are "
+            "session-scoped, so they are deliberately not reproduced as evidence here.</p>"
+        )
+        body = summary + table
         if not doc.has_primary_documents and doc.primary_documents_note:
             body = f"<p class='warn small'>{_e(doc.primary_documents_note)}</p>" + body
     else:
         body = "<p class='muted'>No attached documents.</p>"
-    section(8, "Every supporting document", body)
+    section(8, "Primary documents identified", body)
 
     # 9 — official source URLs. Session-scoped links are marked so none is read as
     # a permanent URL; the caveat names the durable identifier to cite instead (P1).
@@ -788,6 +877,7 @@ th{text-align:left;background:#f4f6f8;border-bottom:2px solid var(--line);paddin
 td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
 .small{font-size:11px}.num{white-space:nowrap}
+.estep{line-height:1.5;white-space:nowrap}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 a{color:var(--accent);text-decoration:none;border-bottom:1px solid #d8c3ad}
 .muted{color:var(--muted)}.big{font-size:24px;font-weight:700;margin:2px 0}
