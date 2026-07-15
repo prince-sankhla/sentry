@@ -29,6 +29,7 @@ engine's control flow.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -152,6 +153,24 @@ def _text_blob(pkg: InvestigationPackage) -> str:
 
 # --------------------------------------------------------------------------- L1: new detectors
 
+def _master_tender_id(reference_number: str) -> str:
+    """Parent tender ID for a NIC lot reference (``…_<n>`` → ``…``).
+
+    NIC issues a split procurement as one master tender with numbered lots keyed
+    ``<master>_<lot>``. Returns the master stem (stripping any ``PREFIX:`` and the
+    trailing ``_<n>``); empty string if the reference does not look like a lot.
+    """
+    core = (reference_number or "").split(":")[-1].strip()
+    match = re.match(r"^(.*?)_(\d+)$", core)
+    return match.group(1) if match else ""
+
+
+def _lot_number(reference_number: str) -> int | None:
+    core = (reference_number or "").split(":")[-1].strip()
+    match = re.match(r"^.*?_(\d+)$", core)
+    return int(match.group(1)) if match else None
+
+
 def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
     """Deterministic detectors added by V2, package-supported. Returns raw hits."""
     hits: list[dict] = []
@@ -225,6 +244,21 @@ def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
                 f"{len(batch)} tenders from '{buyer}' share a single publication date "
                 f"({published}) and closing date ({closing})"
             )
+            # Strongest in-record corroboration: when every tender in the batch is a
+            # numbered lot of ONE parent master tender (NIC keys lots as
+            # ``<master>_<n>``), the batch is a single split procurement, not merely
+            # a same-day coincidence. Cite the shared master ID and lot span verbatim
+            # so an auditor can confirm it directly from the Tender IDs — no inference.
+            stems = {_master_tender_id(r.tender.reference_number) for r in batch}
+            shared_master = next(iter(stems)) if len(stems) == 1 and next(iter(stems)) else None
+            if shared_master:
+                lots = sorted(
+                    (n for r in batch if (n := _lot_number(r.tender.reference_number)) is not None)
+                )
+                span = f" (lots {lots[0]}–{lots[-1]})" if len(lots) == len(batch) and lots else ""
+                reason += (
+                    f"; all {len(batch)} are lots of one master tender {shared_master}{span}"
+                )
             if total is not None:
                 reason += f", together totalling {total:,.0f}"
             if collision_values:

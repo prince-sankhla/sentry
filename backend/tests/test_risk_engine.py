@@ -153,6 +153,36 @@ class RiskEngineTest(unittest.TestCase):
         self.assertEqual(len(frag.supporting_records), 6)
         self.assertIn("4 tenders fall into 2 identical-value groups", frag.reason)
 
+    def test_contract_fragmentation_cites_shared_master_tender(self) -> None:
+        # CASE #001 strongest in-record fact: every lot is a numbered child of ONE
+        # master tender (NIC keys lots as ``<master>_<n>``). The reason must name the
+        # shared master ID and the lot span so an auditor can confirm it from the IDs
+        # alone — this is provable structuring, not a same-day coincidence.
+        pub, close = date(2026, 6, 22), date(2026, 7, 8)
+        refs = ["2026_ORULB_132524_2", "2026_ORULB_132524_5", "2026_ORULB_132524_9",
+                "2026_ORULB_132524_16", "2026_ORULB_132524_27"]
+        records = [
+            _record(ref, "Dharmagarh NAC", [], value=Decimal("800000"), published=pub, closing=close)
+            for ref in refs
+        ]
+        frag = next(i for i in assess_risk_v2(_package(records)).indicators
+                    if i.id == "contract_fragmentation")
+        self.assertIn("master tender 2026_ORULB_132524", frag.reason)
+        self.assertIn("lots 2–27", frag.reason)
+        self.assertEqual(frag.severity, "medium")  # stronger wording, same proportional severity
+
+    def test_contract_fragmentation_no_master_claim_without_shared_stem(self) -> None:
+        # When references are NOT numbered lots of one parent, the master-tender
+        # clause must be absent — no overstatement on unrelated same-day tenders.
+        pub, close = date(2026, 6, 22), date(2026, 7, 8)
+        records = [
+            _record(f"NIT-A{i}-2026", "Mixed NAC", [], value=Decimal("800000"), published=pub, closing=close)
+            for i in range(6)
+        ]
+        frag = next(i for i in assess_risk_v2(_package(records)).indicators
+                    if i.id == "contract_fragmentation")
+        self.assertNotIn("master tender", frag.reason)
+
     def test_contract_fragmentation_not_triggered_below_threshold(self) -> None:
         pub, close = date(2026, 6, 22), date(2026, 7, 8)
         records = [

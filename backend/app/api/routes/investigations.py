@@ -15,6 +15,8 @@ from app.schemas.investigation_executor import (
     InvestigationPackage,
 )
 from app.schemas.investigation_reasoning import InvestigationReasoning
+from app.schemas.priority_queue import PriorityQueueResponse
+from app.services.priority_queue import build_priority_queue
 from app.services.entity_resolution_service import resolve_entities
 from app.services.investigation_planner import InvestigationPlanner
 from app.services.investigation_executor import InvestigationExecutor
@@ -68,6 +70,76 @@ def _reasoning_detail(reasoning: InvestigationReasoning) -> str:
 @router.get("/providers", response_model=LLMProviderStatus)
 def llm_providers() -> LLMProviderStatus:
     return _provider_status()
+
+
+@router.get("/context-analysis")
+def context_analysis(
+    finding_id: str = Query(..., min_length=1, max_length=80),
+    finding_name: str = Query("", max_length=200),
+    jurisdiction: str = Query("", max_length=20),
+):
+    """Procurement Context Analyzer — trusted procurement context for one finding.
+
+    Read-only runtime layer of the Verified Context Engine: resolves guidance
+    for the given deterministic finding (local Verified Context Library first,
+    then trusted retrieval) and organizes it into fixed presentation sections.
+    Nothing is cached or persisted; findings, severities, and scores are never
+    touched; when no relevant guidance exists the fixed no-guidance message is
+    returned instead of fabricated context.
+    """
+    from types import SimpleNamespace
+
+    from app.verified_context import ProcurementContextAnalyzer
+
+    finding = SimpleNamespace(id=finding_id, name=finding_name or finding_id)
+    return ProcurementContextAnalyzer().analyze(finding, jurisdiction=jurisdiction)
+
+
+class ContextAnalysisRequest(BaseModel):
+    """Evidence-driven context analysis: the finding plus the retrieved facts."""
+
+    finding_id: str
+    finding_name: str = ""
+    jurisdiction: str = ""
+    facts: dict | None = None      # ContextFacts payload (records + as_of)
+
+
+@router.post("/context-analysis")
+def context_analysis_with_facts(request: ContextAnalysisRequest):
+    """Procurement Context Analyzer with applicability evaluation.
+
+    Same read-only analyzer as the GET route, but the caller supplies the
+    investigation's retrieved facts so every guidance card is first evaluated
+    for applicability: guidance the facts support is labeled as such; guidance
+    the facts cannot establish (or contradict) is withheld with a neutral note.
+    Deterministic; nothing cached or persisted; findings never modified.
+    """
+    from types import SimpleNamespace
+
+    from app.verified_context import ContextFacts, ProcurementContextAnalyzer
+
+    finding = SimpleNamespace(id=request.finding_id, name=request.finding_name or request.finding_id)
+    facts = ContextFacts.model_validate(request.facts) if request.facts is not None else None
+    return ProcurementContextAnalyzer().analyze(
+        finding, facts=facts, jurisdiction=request.jurisdiction
+    )
+
+
+@router.get("/priority-queue", response_model=PriorityQueueResponse)
+def priority_queue(
+    limit: int = Query(8, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> PriorityQueueResponse:
+    """Priority Investigation Queue — built from the CURRENT procurement database.
+
+    For each real procuring entity in the live data, this runs the existing
+    deterministic investigation engine (indicators + Risk Engine V2) over that
+    entity's tenders and ranks the results by attention needed. It answers "where
+    should an investigator start today?" from current evidence — not from past
+    investigations. Deterministic and explainable: no AI, no historical memory,
+    no new scoring, no claim of wrongdoing.
+    """
+    return build_priority_queue(db, limit=limit)
 
 
 class EntityResolutionRequest(BaseModel):

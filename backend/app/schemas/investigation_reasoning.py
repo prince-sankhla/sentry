@@ -12,8 +12,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.evidence_challenge import EvidenceChallenge
 from app.schemas.investigation_memory import MemoryHit
 from app.schemas.investigation_risk import OVERSIGHT_DISCLAIMER
+from app.schemas.investigator_review import InvestigatorReview
 
 RiskLevel = Literal["low", "medium", "high", "critical", "insufficient"]
 
@@ -349,6 +351,16 @@ class InvestigationReasoning(BaseModel):
     # Consolidated proof bundle: every finding → its verification status → the
     # provenanced evidence that backs it, plus packet-level integrity totals.
     evidence_packet: EvidencePacket | None = None
+
+    # Investigator Review — the three questions a senior investigator asks:
+    # evidence supporting the finding, evidence supporting routine procurement,
+    # and evidence still required. Organizational, deterministic, verdict-free.
+    investigator_review: InvestigatorReview | None = None
+
+    # Evidence Challenge — per-finding falsification: evidence-backed legitimate
+    # explanations + the verification questions that would eliminate each one,
+    # closing at a fixed decision boundary. Read-only over the findings.
+    evidence_challenge: EvidenceChallenge | None = None
 
     # True when there was not enough evidence to reach a conclusion.
     insufficient_evidence: bool = False

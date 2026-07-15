@@ -754,7 +754,60 @@ export type InvestigationReasoning = {
   analyst_trace: AnalystStep[];
   prior_investigations: MemoryHit[];
   analyst_report: AnalystReport | null;
+  investigator_review: InvestigatorReview | null;
+  evidence_challenge: EvidenceChallenge | null;
   insufficient_evidence: boolean;
+};
+
+/* --------------------------------------------------------- evidence challenge */
+
+/** A benign reading of a finding, listed ONLY when backed by in-package evidence. */
+export type LegitimateExplanation = {
+  explanation: string;
+  evidence: string;
+  records: string[];
+};
+
+/** A question that eliminates (or confirms) exactly one legitimate explanation. */
+export type VerificationQuestion = {
+  question: string;
+  eliminates: string;
+};
+
+export type FindingChallenge = {
+  finding_id: string;
+  finding_name: string;
+  severity: string;
+  explanations: LegitimateExplanation[];
+  questions: VerificationQuestion[];
+  position: string;
+};
+
+/** Per-finding falsification: "what evidence would prove this finding wrong?" */
+export type EvidenceChallenge = {
+  challenges: FindingChallenge[];
+  principle: string;
+};
+
+/* ------------------------------------------------------- investigator review */
+
+/** One evidence-driven statement, with the deterministic source it came from. */
+export type InvestigatorReviewItem = {
+  statement: string;
+  basis: string;
+  records: string[];
+};
+
+/**
+ * The three questions a senior investigator asks — evidence supporting the
+ * finding, evidence supporting routine procurement, evidence still required.
+ * Organizational and deterministic; no probabilities, no verdicts.
+ */
+export type InvestigatorReview = {
+  supporting: InvestigatorReviewItem[];
+  routine: InvestigatorReviewItem[];
+  required: InvestigatorReviewItem[];
+  principle: string;
 };
 
 /* -------------------------------------------------- structured analyst report */
@@ -954,6 +1007,97 @@ export function getDashboardSummary(): Promise<DashboardSummary> {
 export function getDashboardRecent(limit = 5): Promise<DashboardRecent> {
   const params = new URLSearchParams({ limit: String(limit) });
   return apiGet<DashboardRecent>(`/api/dashboard/recent?${params.toString()}`);
+}
+
+/* ---------------------------------------------- priority investigation queue */
+
+export type PriorityQueueItem = {
+  subject: string;
+  investigation_type: string;
+  priority: "critical" | "high" | "medium" | "review";
+  risk_level: string;
+  typology_count: number;
+  linked_records: number;
+  evidence_strength: "high" | "moderate" | "limited";
+  evidence_completeness: number;
+  primary_pattern: string;
+  // Plain-language, deterministic reasons this entity is recommended today.
+  reasons: string[];
+};
+
+export type PriorityQueueResponse = {
+  items: PriorityQueueItem[];
+  total: number;
+};
+
+export function getPriorityQueue(limit = 8): Promise<PriorityQueueResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return apiGet<PriorityQueueResponse>(`/api/investigations/priority-queue?${params.toString()}`);
+}
+
+/* ------------------------------------------------ procurement context analyzer */
+
+/** One piece of trusted procurement guidance, organized for presentation.
+ * All authority/reference/citation fields pass through verbatim from source. */
+export type ContextGuidanceItem = {
+  supporting_guidance: string;
+  supporting_sources: string[];
+  source_type: string;
+  authority: string;
+  reference: string;
+  source_urls: string[];
+  applicability: string;
+  card_status: "draft" | "verified" | "retired";
+  /** Deterministic applicability classification against the retrieved facts. */
+  applicability_status: string;
+  applicability_evidence: string;
+};
+
+/** Read-only analysis: trusted procurement context relevant to one finding. */
+export type ProcurementContextAnalysis = {
+  finding_id: string;
+  finding_name: string;
+  guidance_available: boolean;
+  potential_context: string;
+  guidance: ContextGuidanceItem[];
+  current_assessment: string;
+  additional_evidence_required: string[];
+  resolved_by: string;
+  /** Neutral notes for guidance retrieved but withheld (applicability not established). */
+  applicability_notes: string[];
+};
+
+/** Minimal read-only facts of one record, for applicability evaluation. */
+export type ContextFactRecord = {
+  reference_number: string;
+  title: string;
+  description?: string;
+  procuring_entity?: string;
+  suppliers?: string[];
+  published_date?: string | null;
+  closing_date?: string | null;
+  award_dates?: string[];
+};
+
+export type ContextFactsPayload = {
+  records: ContextFactRecord[];
+  as_of?: string | null;
+};
+
+export function getContextAnalysis(
+  findingId: string,
+  findingName: string,
+  facts?: ContextFactsPayload
+): Promise<ProcurementContextAnalysis> {
+  if (facts) {
+    return apiPost<ProcurementContextAnalysis>("/api/investigations/context-analysis", {
+      finding_id: findingId,
+      finding_name: findingName,
+      facts
+    });
+  }
+  const params = new URLSearchParams({ finding_id: findingId, finding_name: findingName });
+  return apiGet<ProcurementContextAnalysis>(`/api/investigations/context-analysis?${params.toString()}`);
 }
 
 export function getCompanyOverview(companyId: string): Promise<CompanyOverview> {

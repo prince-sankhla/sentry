@@ -42,16 +42,13 @@ const CONF_TONE: Record<ConfidenceAssessment["level"], string> = {
 };
 
 function ConfidenceCard({ confidence }: { confidence: ConfidenceAssessment }) {
-  const pct = Math.round(confidence.score * 100);
   return (
-    <Section eyebrow="Confidence" title="Confidence assessment">
-      <div className="flex flex-wrap items-baseline gap-3">
-        <span className={`text-3xl font-semibold tabular-nums ${CONF_TONE[confidence.level]}`}>{pct}%</span>
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-          {confidence.level.replace("_", " ")}
-        </span>
-      </div>
-      <p className="mt-2 text-sm text-muted">{confidence.explanation}</p>
+    <Section eyebrow="Evidence completeness" title="How checkable is the evidence?">
+      <p className="text-sm text-muted">{confidence.explanation}</p>
+      <p className="mt-1 text-[11px] leading-snug text-faint">
+        A data-completeness read-out — how much of the evidence carries source URLs, documents, dates, and
+        resolved entities. It is not a probability that any finding is true.
+      </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {confidence.dimensions.map((d) => (
           <div key={d.key} className="rounded-[12px] border border-border bg-bg-2/40 p-3">

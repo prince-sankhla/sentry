@@ -2,7 +2,30 @@ from __future__ import annotations
 
 import unittest
 
-from app.services.search_query import expand_terms
+from app.services.search_query import _entity_terms, expand_terms
+
+
+class EntityPrecisionTokenTest(unittest.TestCase):
+    """P0 precision regression — "Tata Projects" must not collapse to "tata".
+
+    "projects"/"project" are identifying parts of a company name, not stopwords.
+    If they are stripped, a supplier query degenerates to the bare group token
+    ("tata") and matches any tender whose BUYER or TITLE merely mentions the
+    group (e.g. "Tata Memorial Centre" buyer, or a "Tata Tiago" car in a title).
+    """
+
+    def test_tata_projects_keeps_projects_token(self) -> None:
+        tokens = _entity_terms("Tata Projects Limited")
+        self.assertIn("tata", tokens)
+        self.assertIn("projects", tokens)  # must NOT be stopworded away
+        self.assertNotIn("limited", tokens)  # legal designator still dropped
+
+    def test_multiword_entity_not_reduced_to_single_group_token(self) -> None:
+        # The failure mode was a 3-word company reducing to ONE identifying token.
+        self.assertGreaterEqual(len(_entity_terms("Tata Projects Limited")), 2)
+
+    def test_legal_designators_still_dropped(self) -> None:
+        self.assertEqual(_entity_terms("Acme Ltd Pvt"), ["acme"])
 
 
 class SearchSynonymTest(unittest.TestCase):

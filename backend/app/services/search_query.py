@@ -127,9 +127,17 @@ def matches(query: str, *, min_similarity: float = 0.15) -> ColumnElement:
 
 # Words too generic to identify an entity — a query reduced to only these would
 # match half the table, so entity precision retrieval ignores them.
+#
+# NOTE: legal designators (ltd/pvt/…) and pure connectives (the/and/of) only.
+# "projects"/"project" are NOT stopwords: they are identifying parts of company
+# names (e.g. "Tata Projects Limited"). Stopwording them collapsed that entity to
+# the bare group token "tata", which then matched any tender whose buyer/title
+# merely mentioned Tata (e.g. "Tata Memorial Centre" buyer, or a "Tata Tiago" car
+# in a title) — a precision failure. Keeping them distinct forces the conjunction
+# of both identifying tokens, so only genuine "Tata Projects" records survive.
 _ENTITY_STOPWORDS: frozenset[str] = frozenset({
     "ltd", "limited", "pvt", "private", "company", "co", "corporation", "corp",
-    "inc", "llp", "plc", "india", "the", "and", "of", "for", "projects", "project",
+    "inc", "llp", "plc", "india", "the", "and", "of", "for",
 })
 
 

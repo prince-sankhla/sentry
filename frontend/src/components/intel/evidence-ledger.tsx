@@ -86,7 +86,7 @@ function buildCitationText(c: ReasoningCitation): string {
   if (c.published_date) parts.push(fmtDate(c.published_date));
   const url = c.source_url ?? c.document_url;
   if (url) parts.push(url);
-  return `${parts.join(". ")}. (confidence ${Math.round(c.confidence * 100)}%) — Retrieved via SENTRY.`;
+  return `${parts.join(". ")}. (evidence support ${Math.round(c.confidence * 100)}%) — Retrieved via SENTRY.`;
 }
 
 /* ---------------------------------------------------------------- container */
@@ -151,7 +151,7 @@ export function EvidenceLedger({ items }: { items: ReasoningCitation[] }) {
                 sort === k ? "bg-accent/15 text-accent" : "text-muted hover:text-text"
               }`}
             >
-              {k}
+              {k === "confidence" ? "support" : k}
             </button>
           ))}
         </div>
@@ -255,9 +255,9 @@ function LedgerCard({ citation: c, index }: { citation: ReasoningCitation; index
             ))}
             <span className="ml-1 tabular text-[10px] text-faint">{c.quality}</span>
           </span>
-          <span className="inline-flex items-center gap-1 text-[11px] text-muted">
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted" title="Evidence support — how directly this citation backs its finding (data metric, not a probability)">
             <span className={`h-1.5 w-1.5 rounded-full ${c.confidence >= 0.8 ? "bg-success" : c.confidence >= 0.5 ? "bg-warning" : "bg-faint"}`} />
-            {Math.round(c.confidence * 100)}%
+            {Math.round(c.confidence * 100)}% support
           </span>
         </div>
 

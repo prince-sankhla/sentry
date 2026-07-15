@@ -61,10 +61,7 @@ export function AiMemory({ hits, onReuse }: { hits: MemoryHit[]; onReuse: (query
 
           <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted">
             <span className="inline-flex items-center gap-1">
-              Confidence <span className="tabular font-semibold text-text">{Math.round(hit.confidence * 100)}%</span>
-            </span>
-            <span className="inline-flex items-center gap-1">
-              Records <span className="tabular font-semibold text-text">{hit.records_reviewed}</span>
+              Records reviewed <span className="tabular font-semibold text-text">{hit.records_reviewed}</span>
             </span>
             <span className="truncate text-faint">{hit.match_reason}</span>
           </div>

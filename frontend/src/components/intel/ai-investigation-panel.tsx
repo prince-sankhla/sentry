@@ -3,7 +3,7 @@
 /**
  * AiInvestigationPanel — the command surface for an AI investigation.
  *
- * Replaces the old static "AI section". Surfaces, in one Gotham-grade panel,
+ * The narrative-summary panel. Surfaces, in one panel,
  * every top-level reasoning signal the backend already produces: the executive
  * summary, the analyst's risk reasoning, overall confidence, grounding status,
  * evidence coverage, the provider that answered, processing time and evidence
@@ -16,7 +16,7 @@ import {
   Activity,
   Clock,
   Database,
-  Gauge,
+
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -26,10 +26,10 @@ import type { InvestigationReasoning, InvestigationRiskLevel } from "@/lib/api";
 import { ProviderBadge, providerDisplayName } from "@/components/intel/provider-badge";
 
 const RISK: Record<InvestigationRiskLevel, { label: string; text: string; ring: string; bar: string }> = {
-  critical: { label: "Critical Risk", text: "text-danger", ring: "border-danger/50 bg-danger/[0.07]", bar: "bg-danger" },
-  high: { label: "High Risk", text: "text-danger", ring: "border-danger/40 bg-danger/[0.05]", bar: "bg-danger" },
-  medium: { label: "Medium Risk", text: "text-warning", ring: "border-warning/40 bg-warning/[0.05]", bar: "bg-warning" },
-  low: { label: "Low Risk", text: "text-success", ring: "border-success/40 bg-success/[0.05]", bar: "bg-success" },
+  critical: { label: "Critical Priority", text: "text-danger", ring: "border-danger/50 bg-danger/[0.07]", bar: "bg-danger" },
+  high: { label: "High Priority", text: "text-danger", ring: "border-danger/40 bg-danger/[0.05]", bar: "bg-danger" },
+  medium: { label: "Medium Priority", text: "text-warning", ring: "border-warning/40 bg-warning/[0.05]", bar: "bg-warning" },
+  low: { label: "Low Priority", text: "text-success", ring: "border-success/40 bg-success/[0.05]", bar: "bg-success" },
   insufficient: { label: "Insufficient Evidence", text: "text-muted", ring: "border-border bg-surface", bar: "bg-border-strong" }
 };
 
@@ -50,7 +50,6 @@ export function AiInvestigationPanel({
   const insufficient = reasoning.insufficient_evidence || reasoning.risk_level === "insufficient";
   const g = reasoning.grounding;
   const coverage = g.total_findings > 0 ? g.evidence_backed_findings / g.total_findings : 1;
-  const confidencePct = Math.round(reasoning.confidence * 100);
   const grounded = g.fully_grounded && g.total_findings > 0;
 
   return (
@@ -69,7 +68,7 @@ export function AiInvestigationPanel({
       {/* header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-2/40 px-5 py-3.5">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-          <Sparkles className="h-3.5 w-3.5" /> AI Investigation
+          <Sparkles className="h-3.5 w-3.5" /> Narrative Summary
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -149,26 +148,10 @@ export function AiInvestigationPanel({
           </div>
         </div>
 
-        {/* right — metrics rail */}
+        {/* right — metrics rail. No confidence meter, by design: SENTRY presents
+            evidence and grounding facts, never a probability that a finding is
+            true. The Investigator Review carries the evidence-driven reasoning. */}
         <div className="flex flex-col gap-3">
-          {/* confidence meter */}
-          <div className="rounded-[14px] border border-border bg-surface/60 p-3.5">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
-                <Gauge className="h-3 w-3" /> Evidence completeness
-              </span>
-              <span className={`tabular text-sm font-semibold ${style.text}`}>{confidencePct}%</span>
-            </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-bg-2">
-              <motion.div
-                className={`h-full rounded-full ${style.bar}`}
-                initial={{ width: 0 }}
-                animate={{ width: `${confidencePct}%` }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-              />
-            </div>
-          </div>
-
           {/* grounding + coverage */}
           <div className="grid grid-cols-2 gap-3">
             <MetricTile

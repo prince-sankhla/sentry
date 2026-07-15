@@ -28,7 +28,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { RelationshipGraphExplorer } from "@/app/graph/relationship-graph";
 import { CommandCenter } from "@/app/command-center";
 import { EntitySearch, type PinnedEntity } from "@/components/search/entity-search";
+import { PriorityInvestigationQueue } from "@/components/dashboard/priority-queue";
 import { EvidenceCard, type EvidenceItem } from "@/components/intel/evidence-card";
+import { InvestigatorReview } from "@/components/intel/investigator-review";
+import {
+  FindingCaseFile,
+  type CaseFileFinding,
+  type NextStep,
+  type OfficialSource
+} from "@/components/intel/finding-case-file";
 import { AiInvestigationPanel } from "@/components/intel/ai-investigation-panel";
 import { AnalystReportSections } from "@/components/intel/analyst-report";
 import { AnalystTrace } from "@/components/intel/analyst-trace";
@@ -37,7 +45,7 @@ import { GroundingCard } from "@/components/intel/grounding-card";
 import { AiMemory } from "@/components/intel/ai-memory";
 import { ProviderBadge } from "@/components/intel/provider-badge";
 import { Section, StatCard } from "@/components/ui/card";
-import { PageShell, SeverityBadge } from "@/components/ui/page";
+import { PageShell } from "@/components/ui/page";
 import { EmptyState, ErrorState, SkeletonBlock } from "@/components/ui/states";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import {
@@ -49,9 +57,9 @@ import {
   type EntityResolutionResult,
   type InvestigationPackage,
   type InvestigationReasoning,
+  type ContextFactsPayload,
   type InvestigationStreamStep,
   type LLMProviderStatus,
-  type ReasoningFinding,
   type RelationshipGraph,
   type StoredWebPage
 } from "@/lib/api";
@@ -68,7 +76,7 @@ const STEP_TEMPLATE: Step[] = [
   { key: "plan", name: "Understand request & select sources", status: "pending" },
   { key: "retrieve", name: "Retrieve procurement records", status: "pending" },
   { key: "resolve", name: "Resolve entities", status: "pending" },
-  { key: "indicators", name: "Run risk engine", status: "pending" },
+  { key: "indicators", name: "Screen integrity indicators", status: "pending" },
   { key: "reasoning", name: "Reason & generate findings", status: "pending" }
 ];
 
@@ -246,6 +254,13 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
 
       {!activeQuery && !running && (
         <CaseLauncherBanner onOpen={() => launchFollowUp("Dharmagarh NAC")} />
+      )}
+
+      {/* Investigator landing: where to start, before the analytics dashboard. */}
+      {!activeQuery && !running && (
+        <div className="mt-5">
+          <PriorityInvestigationQueue onOpen={launchFollowUp} />
+        </div>
       )}
 
       {!activeQuery && !running && <CommandCenter />}
@@ -448,9 +463,9 @@ function InvestigationResults({
         <EntityCandidatesPanel resolution={resolution} onSelect={onFollowUp} />
       )}
 
-      {/* Prior related investigations (AI memory) surface even without records */}
+      {/* Prior related investigations surface even without records */}
       {reasoning.prior_investigations.length > 0 && !hasRecords && (
-        <Section eyebrow="AI memory" title="Previous related investigations">
+        <Section eyebrow="Related investigations" title="Previous related investigations">
           <AiMemory hits={reasoning.prior_investigations} onReuse={onFollowUp} />
         </Section>
       )}
@@ -471,8 +486,10 @@ function InvestigationResults({
             entityCount={pkg!.canonical_companies.length}
             awardCount={awards.length}
             awardedValue={awardedValue}
-            indicatorCount={pkg!.indicators.length}
+            indicatorCount={pkg!.risk_assessment_v2?.indicators.length ?? pkg!.indicators.length}
+            topFindings={(pkg!.risk_assessment_v2?.indicators ?? []).map((i) => i.name)}
             onExport={() => openEvidencePacket(query)}
+            onInvestigate={onFollowUp}
           />
 
           {/* 1 — chronology: what happened, in order */}
@@ -480,10 +497,27 @@ function InvestigationResults({
             {timelineItems.length === 0 ? <EmptyState message="No dated events." /> : <Timeline items={timelineItems} />}
           </Section>
 
-          {/* 2 — THE FINDING: deterministic risk indicators, evidence-first (no AI) */}
+          {/* 2 — FINDINGS AS CASE FILES: each finding appears exactly ONCE and
+               answers the five investigator questions in order — detection,
+               supporting evidence, legitimate explanations, evidence still
+               required, recommended next investigation — closed by the fixed
+               Current Position. Consolidates what previously spanned three
+               sections (indicators, investigator review, evidence challenge). */}
           <div id="ev-risk" className="scroll-mt-24">
-            <RiskIndicatorsSection pkg={pkg!} reasoning={reasoning} />
+            <FindingCaseFilesSection
+              pkg={pkg!}
+              reasoning={reasoning}
+              activeQuery={query}
+              onInvestigate={onFollowUp}
+            />
           </div>
+
+          {/* 2b — EVIDENCE REVIEW: case-level facts only (cluster structure,
+               shared identifiers, portal documentation). Finding-level items
+               live in their case files above — never duplicated here. */}
+          {reasoning.investigator_review && (
+            <InvestigatorReview review={caseLevelReview(reasoning.investigator_review)} caseFacts />
+          )}
 
           {/* 3 — the relationship network */}
           <Section
@@ -636,7 +670,7 @@ function InvestigationResults({
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium text-text">{c.canonical_name}</span>
                       <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                        {Math.round((c.confidence ?? 0) * 100)}%
+                        match {Math.round((c.confidence ?? 0) * 100)}%
                       </span>
                     </div>
                     {c.aliases.length > 0 && (
@@ -726,64 +760,34 @@ function InvestigationResults({
             )}
           </Section>
 
-          {/* Recommendations + follow-ups */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <Section eyebrow="Guidance" title="Recommendations">
-              {reasoning.recommendations.length === 0 ? (
-                <EmptyState message="No recommendations." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {reasoning.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-muted">
-                      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Section>
+          {/* Manual verification guidance — secondary, collapsed by default.
+               Per-finding next investigations live in the case files; this holds
+               only the generic verification steps (no duplication). */}
+          {reasoning.recommendations.length > 0 && (
+            <details className="group rounded-[18px] border border-border bg-surface/60 px-5 py-4">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-text">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">Manual verification</span>
+                <span className="ml-3 text-muted group-open:hidden">Show the verification steps an investigator should perform ({reasoning.recommendations.length})</span>
+              </summary>
+              <ul className="mt-3 space-y-2.5">
+                {reasoning.recommendations.map((rec, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-muted">
+                    <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
 
-            <Section eyebrow="Next steps" title="Suggested investigations">
-              {reasoning.follow_ups.length === 0 ? (
-                <EmptyState message="No follow-ups." />
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {reasoning.follow_ups.map((f, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => onFollowUp(f.query)}
-                      className="group flex items-center justify-between gap-3 rounded-[12px] border border-border bg-bg-2/40 p-3 text-left transition hover:border-accent/40"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-text group-hover:text-accent">{f.label}</span>
-                        <span className="block truncate text-xs text-faint">{f.rationale}</span>
-                      </span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-accent" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Section>
-          </div>
-
-          {/* ── AI SUMMARY (optional) — narrative generated FROM the evidence above.
-               The finding stands without it. Shown last, by design. ── */}
+          {/* ── NARRATIVE SUMMARY (secondary) — phrasing generated FROM the
+               evidence above; the findings stand without it. Shown last. ── */}
           <AiSummaryDivider />
           <AiInvestigationPanel reasoning={reasoning} processingMs={processingMs} />
           {reasoning.analyst_report && <AnalystReportSections report={reasoning.analyst_report} />}
-          {reasoning.findings.length > 0 && (
-            <Section eyebrow="AI reasoning" title="Findings & evidence">
-              <div className="space-y-3">
-                {reasoning.findings.map((f, i) => (
-                  <FindingCard key={i} finding={f} />
-                ))}
-              </div>
-            </Section>
-          )}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <Section eyebrow="Reasoning path" title="Analyst trace">
+              <Section eyebrow="Methodology" title="Analyst trace">
                 {reasoning.analyst_trace.length === 0 ? (
                   <EmptyState message="No analyst steps recorded." />
                 ) : (
@@ -793,10 +797,10 @@ function InvestigationResults({
             </div>
             <div className="space-y-5">
               <Section eyebrow="Verification" title="Grounding">
-                <GroundingCard grounding={reasoning.grounding} confidence={reasoning.confidence} />
+                <GroundingCard grounding={reasoning.grounding} />
               </Section>
               {reasoning.prior_investigations.length > 0 && (
-                <Section eyebrow="AI memory" title="Previous investigations">
+                <Section eyebrow="Related investigations" title="Previous investigations">
                   <AiMemory hits={reasoning.prior_investigations} onReuse={onFollowUp} />
                 </Section>
               )}
@@ -870,75 +874,6 @@ function EntityCandidatesPanel({
   );
 }
 
-/* ============================================================ finding card */
-
-function FindingCard({ finding }: { finding: ReasoningFinding }) {
-  // Evidence is exposed by default (req 13): a finding a judge sees should already
-  // show the sources that back it, not hide them behind an extra click.
-  const [open, setOpen] = useState(true);
-  const citations = finding.citations;
-  return (
-    <div className="rounded-[14px] border border-border bg-bg-2/40 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h4 className="text-sm font-semibold text-text">{finding.title}</h4>
-          <p className="mt-1 text-sm text-muted">{finding.detail}</p>
-        </div>
-        <SeverityBadge severity={finding.severity} score={finding.score} />
-      </div>
-
-      {citations.length > 0 && (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-accent transition hover:text-accent-hi"
-          >
-            <ChevronRight className={`h-3.5 w-3.5 transition ${open ? "rotate-90" : ""}`} />
-            {citations.length} source citation{citations.length > 1 ? "s" : ""}
-          </button>
-          <AnimatePresence initial={false}>
-            {open && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <ul className="mt-2 space-y-1.5">
-                  {citations.map((c, i) => (
-                    <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface/60 px-3 py-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-xs text-text">{c.label}</span>
-                        <span className="block truncate text-[11px] text-faint">
-                          {c.source_name}
-                          {c.related_tender ? ` · ${c.related_tender}` : ""}
-                        </span>
-                      </span>
-                      {c.source_url ? (
-                        <a
-                          href={c.source_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex shrink-0 items-center gap-1 text-[11px] text-accent hover:underline"
-                        >
-                          Verify <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span className="shrink-0 text-[11px] text-faint">{c.source_record_id ?? "—"}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ============================================================ case #001 launcher */
 
 /** Dashboard → one-click "Open Case #001". Curated, friction-free demo entry. */
@@ -978,12 +913,16 @@ function CaseLauncherBanner({ onOpen }: { onOpen: () => void }) {
 type RiskLevelKey = "critical" | "high" | "medium" | "low" | "insufficient";
 
 const RISK_LEVEL_STYLE: Record<RiskLevelKey, { label: string; cls: string; bar: string }> = {
-  critical: { label: "Critical risk", cls: "border-danger/50 bg-danger/10 text-danger", bar: "bg-danger" },
-  high: { label: "High risk", cls: "border-danger/40 bg-danger/10 text-danger", bar: "bg-danger" },
-  medium: { label: "Medium risk", cls: "border-warning/40 bg-warning/10 text-warning", bar: "bg-warning" },
-  low: { label: "Low risk", cls: "border-success/40 bg-success/10 text-success", bar: "bg-success" },
+  critical: { label: "Critical priority", cls: "border-danger/50 bg-danger/10 text-danger", bar: "bg-danger" },
+  high: { label: "High priority", cls: "border-danger/40 bg-danger/10 text-danger", bar: "bg-danger" },
+  medium: { label: "Medium priority", cls: "border-warning/40 bg-warning/10 text-warning", bar: "bg-warning" },
+  low: { label: "Low priority", cls: "border-success/40 bg-success/10 text-success", bar: "bg-success" },
   insufficient: { label: "Insufficient evidence", cls: "border-border bg-surface text-muted", bar: "bg-border-strong" }
 };
+
+const CURRENT_POSITION_SUMMARY =
+  "The available evidence does not yet distinguish between routine procurement activity " +
+  "and procurement requiring escalation. Additional evidence is required.";
 
 function riskKey(level: string): RiskLevelKey {
   return (["critical", "high", "medium", "low", "insufficient"] as RiskLevelKey[]).includes(level as RiskLevelKey)
@@ -1008,7 +947,10 @@ function StatJump({ target, hint, children }: { target: string; hint: string; ch
   );
 }
 
-/** The hero: a deterministic, AI-free verdict of the case + the export action. */
+/**
+ * The 30-second summary: what was found, where the case stands, and what to
+ * investigate next — before any detail. Deterministic screening output only.
+ */
 function CaseVerdictHeader({
   query,
   reasoning,
@@ -1017,7 +959,9 @@ function CaseVerdictHeader({
   awardCount,
   awardedValue,
   indicatorCount,
-  onExport
+  topFindings,
+  onExport,
+  onInvestigate
 }: {
   query: string;
   reasoning: InvestigationReasoning;
@@ -1026,10 +970,12 @@ function CaseVerdictHeader({
   awardCount: number;
   awardedValue: number;
   indicatorCount: number;
+  topFindings: string[];
   onExport: () => void;
+  onInvestigate: (query: string) => void;
 }) {
   const style = RISK_LEVEL_STYLE[riskKey(reasoning.risk_level)];
-  const confidencePct = Math.round((reasoning.confidence ?? 0) * 100);
+  const nextInvestigations = reasoning.follow_ups.slice(0, 3);
 
   return (
     <motion.section
@@ -1044,22 +990,38 @@ function CaseVerdictHeader({
       <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-            Case #001 · Evidence-backed finding
+            Investigation summary
           </div>
           <h2 className="mt-1.5 truncate text-[22px] font-semibold tracking-tight text-text md:text-[26px]">{query}</h2>
           <p className="mt-1 text-sm text-muted">
-            <span className="font-semibold text-text">{indicatorCount}</span> risk indicator{indicatorCount === 1 ? "" : "s"} across{" "}
-            <span className="font-semibold text-text">{recordCount}</span> procurement records ·{" "}
-            <span className="font-semibold text-text">{awardCount}</span> award{awardCount === 1 ? "" : "s"}. Deterministic risk
-            engine — flagged for review, not a determination of wrongdoing.
+            <span className="font-semibold text-text">{indicatorCount}</span> finding{indicatorCount === 1 ? "" : "s"} across{" "}
+            <span className="font-semibold text-text">{recordCount}</span> official procurement records ·{" "}
+            <span className="font-semibold text-text">{awardCount}</span> award{awardCount === 1 ? "" : "s"}. Deterministic
+            screening — leads for investigator review, not a determination of wrongdoing.
           </p>
+          {/* top findings — one line, jump to the case files */}
+          {topFindings.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Top findings</span>
+              {topFindings.slice(0, 4).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => scrollToEvidence("ev-risk")}
+                  className="rounded-md border border-border bg-bg-2/50 px-2 py-0.5 text-[11px] font-medium text-text transition hover:border-accent/40 hover:text-accent"
+                >
+                  {name}
+                </button>
+              ))}
+              {topFindings.length > 4 && <span className="text-[11px] text-faint">+{topFindings.length - 4} more</span>}
+            </div>
+          )}
         </div>
 
         <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${style.cls}`}>
             <ShieldAlert className="h-3.5 w-3.5" />
             {style.label}
-            <span className="tabular opacity-80">· {confidencePct}% evidence completeness</span>
           </span>
           <button
             type="button"
@@ -1082,95 +1044,57 @@ function CaseVerdictHeader({
         <StatJump target="ev-awards" hint="View awards">
           <StatCard label="Awarded value" value={formatCompactMoney(String(awardedValue))} icon={<Building2 className="h-4 w-4" />} />
         </StatJump>
-        <StatJump target="ev-risk" hint="View indicators">
+        <StatJump target="ev-risk" hint="View case files">
           <StatCard
-            label="Risk indicators"
+            label="Findings"
             value={String(indicatorCount)}
             tone={indicatorCount > 0 ? "danger" : "accent"}
             icon={<Gauge className="h-4 w-4" />}
           />
         </StatJump>
       </div>
+
+      {/* current position + recommended next investigation — the 30-second close */}
+      <div className="relative mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="rounded-[14px] border border-border bg-bg-2/40 px-3.5 py-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Current position</div>
+          <p className="mt-1 text-[13px] leading-snug text-muted">
+            {indicatorCount > 0
+              ? CURRENT_POSITION_SUMMARY
+              : "No findings were raised by deterministic screening of the retrieved records."}
+          </p>
+        </div>
+        <div className="rounded-[14px] border border-border bg-bg-2/40 px-3.5 py-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Recommended next investigation</div>
+          {nextInvestigations.length === 0 ? (
+            <p className="mt-1 text-[13px] leading-snug text-muted">No further investigations recommended from this evidence.</p>
+          ) : (
+            <div className="mt-1 space-y-1">
+              {nextInvestigations.map((f, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => onInvestigate(f.query)}
+                  className="group flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left transition hover:bg-surface/60"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-medium text-text group-hover:text-accent">{f.label}</span>
+                    <span className="block truncate text-[11px] text-faint">{f.rationale}</span>
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-accent" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </motion.section>
   );
 }
 
-/* ============================================================ risk indicators (the finding) */
-
-type NormalizedIndicator = {
-  name: string;
-  severity: "low" | "medium" | "high" | "critical";
-  score: number;
-  reason: string;
-  review: boolean;
-  reviewNote: string;
-  records: number;
-  status: string;
-  category: string;
-  // Tender reference numbers this indicator fired on — used to resolve the
-  // official government source URL and put it right on the red-flag card.
-  recordRefs: string[];
-  // Deterministic context the engine applied (e.g. why a severity was
-  // down/upgraded) and the evidence that would confirm this indicator — both
-  // surfaced so the investigator sees the engine's full reasoning, not just its verdict.
-  contextNotes: string[];
-  requiredEvidence: string[];
-};
-
-function normalizeIndicators(pkg: InvestigationPackage, reasoning: InvestigationReasoning): NormalizedIndicator[] {
-  const v2 = pkg.risk_assessment_v2?.indicators ?? [];
-  if (v2.length > 0) {
-    return v2.map((i) => ({
-      name: i.name,
-      severity: i.severity,
-      score: i.score,
-      reason: i.reason,
-      review: i.review_required,
-      reviewNote: i.review_note,
-      records: i.supporting_records.length,
-      status: i.evidence_status,
-      category: i.category,
-      recordRefs: i.supporting_records,
-      contextNotes: i.context_notes,
-      requiredEvidence: i.required_evidence
-    }));
-  }
-  if (reasoning.findings.length > 0) {
-    return reasoning.findings.map((f) => ({
-      name: f.title,
-      severity: f.severity,
-      score: f.score,
-      reason: f.detail,
-      review: !f.evidence_backed,
-      reviewNote: "",
-      records: f.citations.length,
-      status: f.evidence_backed ? "verified" : "unknown",
-      category: "finding",
-      recordRefs: f.citations.map((c) => c.related_tender).filter((r): r is string => Boolean(r)),
-      contextNotes: [],
-      requiredEvidence: []
-    }));
-  }
-  return pkg.indicators.map((i) => ({
-    name: i.title,
-    severity: i.severity,
-    score: i.score,
-    reason: i.summary,
-    review: false,
-    reviewNote: "",
-    records: i.related_tenders.length,
-    status: "probable",
-    category: i.type,
-    recordRefs: i.related_tenders,
-    contextNotes: [],
-    requiredEvidence: []
-  }));
-}
+/* ============================================================ finding case files */
 
 /** Official government source (URL + portal) for a tender reference number. */
-type OfficialSource = { ref: string; url: string; source: string };
-
-/** Build reference_number → official source URL from the package's own records. */
 function buildSourceIndex(pkg: InvestigationPackage): Map<string, OfficialSource> {
   const index = new Map<string, OfficialSource>();
   for (const r of pkg.records) {
@@ -1186,166 +1110,236 @@ function buildSourceIndex(pkg: InvestigationPackage): Map<string, OfficialSource
   return index;
 }
 
-const SEV_PILL: Record<NormalizedIndicator["severity"], string> = {
-  critical: "border-danger/60 bg-danger/15 text-danger",
-  high: "border-danger/40 bg-danger/10 text-danger",
-  medium: "border-warning/40 bg-warning/10 text-warning",
-  low: "border-success/40 bg-success/10 text-success"
-};
-
-function RiskSeverityPill({ severity, score }: { severity: NormalizedIndicator["severity"]; score?: number }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${SEV_PILL[severity]}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {severity}
-      {typeof score === "number" && score > 0 && <span className="tabular opacity-80">· {score}</span>}
-    </span>
-  );
+/** Findings for the case files: deterministic screening first, legacy fallbacks kept. */
+function caseFileFindings(pkg: InvestigationPackage): CaseFileFinding[] {
+  const v2 = pkg.risk_assessment_v2?.indicators ?? [];
+  if (v2.length > 0) {
+    return v2.map((i) => ({
+      id: i.id,
+      name: i.name,
+      severity: i.severity,
+      reason: i.reason,
+      evidenceStatus: i.evidence_status,
+      recordRefs: i.supporting_records,
+      contextNotes: i.context_notes
+    }));
+  }
+  return pkg.indicators.map((i) => ({
+    id: i.type,
+    name: i.title,
+    severity: i.severity,
+    reason: i.summary,
+    evidenceStatus: "recorded",
+    recordRefs: i.related_tenders,
+    contextNotes: []
+  }));
 }
 
 /**
- * The demo's whole point: from a red flag straight to the official government
- * record. Resolves the indicator's supporting tenders to their source URLs and
- * renders a prominent link on the flag itself — one click from finding to proof.
+ * Recommended next investigations for one finding, each with a reason —
+ * derived from the finding's own supporting records (suppliers awarded the
+ * flagged tenders, then their procuring entities), never from speculation.
  */
-function IndicatorSourceLink({ refs, index }: { refs: string[]; index: Map<string, OfficialSource> }) {
-  const sources = useMemo(() => {
-    const seen = new Set<string>();
-    const out: OfficialSource[] = [];
-    for (const ref of refs) {
-      const src = index.get(ref);
-      if (src && !seen.has(src.url)) {
-        seen.add(src.url);
-        out.push(src);
-      }
+function nextStepsFor(
+  refs: string[],
+  pkg: InvestigationPackage,
+  activeQuery: string
+): NextStep[] {
+  const refSet = new Set(refs);
+  const active = activeQuery.trim().toLowerCase();
+  const supplierCounts = new Map<string, number>();
+  const buyers = new Map<string, number>();
+  for (const r of pkg.records) {
+    if (!refSet.has(r.tender.reference_number)) continue;
+    for (const a of r.awards) {
+      if (a.company_name) supplierCounts.set(a.company_name, (supplierCounts.get(a.company_name) ?? 0) + 1);
     }
-    return out;
-  }, [refs, index]);
-
-  if (sources.length === 0) return null;
-  const primary = sources[0];
-
-  return (
-    <div className="mt-3 border-t border-border/60 pt-3">
-      <a
-        href={primary.url}
-        target="_blank"
-        rel="noreferrer"
-        className="group/src inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/[0.08] px-2.5 py-1.5 text-[12px] font-semibold text-accent transition hover:bg-accent/15"
-      >
-        <ExternalLink className="h-3.5 w-3.5" />
-        View official record
-        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/src:translate-x-0.5" />
-      </a>
-      <span className="ml-2 text-[11px] text-faint">
-        {sources.length === 1
-          ? `on ${primary.source}`
-          : `${sources.length} records on ${primary.source}`}
-      </span>
-    </div>
-  );
+    const buyer = r.tender.procuring_entity?.trim();
+    if (buyer) buyers.set(buyer, (buyers.get(buyer) ?? 0) + 1);
+  }
+  const steps: NextStep[] = [];
+  for (const [supplier, n] of [...supplierCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2)) {
+    if (supplier.toLowerCase() === active) continue;
+    steps.push({
+      label: `Investigate ${supplier}`,
+      query: supplier,
+      reason: `Awarded ${n} of the flagged tender${n === 1 ? "" : "s"}`
+    });
+  }
+  for (const [buyer, n] of [...buyers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1)) {
+    if (buyer.toLowerCase() === active || active.includes(buyer.toLowerCase()) || buyer.toLowerCase().includes(active)) continue;
+    steps.push({
+      label: `Investigate buyer ${buyer.split("||").pop() ?? buyer}`,
+      query: buyer,
+      reason: `Procuring entity for ${n} flagged tender${n === 1 ? "" : "s"}`
+    });
+  }
+  return steps.slice(0, 3);
 }
 
-function RiskIndicatorsSection({ pkg, reasoning }: { pkg: InvestigationPackage; reasoning: InvestigationReasoning }) {
-  const items = normalizeIndicators(pkg, reasoning);
-  const deterministic = (pkg.risk_assessment_v2?.indicators?.length ?? 0) > 0;
+/**
+ * "Why was this finding triggered?" — a deterministic fact chain computed from
+ * the SAME records the engine screened. No probabilities, no model reasoning:
+ * buyer/supplier identity, counts, and date arithmetic only, closing with the
+ * indicator that those facts triggered.
+ */
+function triggerFactsFor(finding: CaseFileFinding, pkg: InvestigationPackage): string[] {
+  const refSet = new Set(finding.recordRefs);
+  const records = pkg.records.filter((r) => refSet.has(r.tender.reference_number));
+  if (records.length === 0) return [];
+
+  const facts: string[] = [];
+  const buyers = [...new Set(records.map((r) => r.tender.procuring_entity?.trim()).filter(Boolean))] as string[];
+  if (buyers.length === 1) facts.push(`Same buyer: ${buyers[0]!.split("||").pop()}`);
+  else if (buyers.length > 1) facts.push(`${buyers.length} procuring entities`);
+
+  const suppliers = [...new Set(records.flatMap((r) => r.awards.map((a) => a.company_name)).filter(Boolean))];
+  if (suppliers.length === 1) facts.push(`Same supplier: ${suppliers[0]}`);
+
+  const awardCount = records.reduce((n, r) => n + r.awards.length, 0);
+  if (awardCount > 0) facts.push(`${awardCount} award${awardCount === 1 ? "" : "s"}`);
+  else facts.push(`${records.length} tender${records.length === 1 ? "" : "s"}, no awards on record`);
+
+  const awardDates = records
+    .flatMap((r) => r.awards.map((a) => a.award_date))
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  if (awardDates.length >= 2) {
+    const span = Math.round(
+      (new Date(awardDates[awardDates.length - 1]).getTime() - new Date(awardDates[0]).getTime()) / 86400000
+    );
+    facts.push(`${span}-day award window`);
+  }
+
+  const pubDates = [...new Set(records.map((r) => r.tender.published_date).filter(Boolean))];
+  if (records.length > 1 && pubDates.length === 1) facts.push(`Single publication date (${formatDate(pubDates[0]!)})`);
+  const closeDates = [...new Set(records.map((r) => r.tender.closing_date).filter(Boolean))];
+  if (records.length > 1 && closeDates.length === 1) facts.push(`Single closing date (${formatDate(closeDates[0]!)})`);
+
+  const values = records.map((r) => r.tender.estimated_value).filter(Boolean);
+  const duplicateValues = values.length - new Set(values).size;
+  if (duplicateValues > 0) facts.push(`${duplicateValues + 1}+ tenders with identical estimated values`);
+
+  facts.push(`${finding.name} indicator triggered`);
+  return facts;
+}
+
+/**
+ * Evidence review filtered to CASE-LEVEL facts only. Finding-level items
+ * (basis risk_engine:*) live in their case files — referenced, not duplicated.
+ */
+function caseLevelReview(review: NonNullable<InvestigationReasoning["investigator_review"]>) {
+  return {
+    ...review,
+    supporting: review.supporting.filter((i) => i.basis.startsWith("records:")),
+    routine: review.routine.filter((i) => !i.basis.startsWith("risk_engine:context:")),
+    required: []
+  };
+}
+
+function FindingCaseFilesSection({
+  pkg,
+  reasoning,
+  activeQuery,
+  onInvestigate
+}: {
+  pkg: InvestigationPackage;
+  reasoning: InvestigationReasoning;
+  activeQuery: string;
+  onInvestigate: (query: string) => void;
+}) {
+  const findings = caseFileFindings(pkg);
   const sourceIndex = useMemo(() => buildSourceIndex(pkg), [pkg]);
-  // The engine's own one-line justification for the overall assessment.
-  const assessmentSummary = pkg.risk_assessment_v2?.summary?.trim();
+  const challengeById = useMemo(() => {
+    const map = new Map<string, NonNullable<InvestigationReasoning["evidence_challenge"]>["challenges"][number]>();
+    for (const c of reasoning.evidence_challenge?.challenges ?? []) {
+      if (!map.has(c.finding_id)) map.set(c.finding_id, c);
+    }
+    return map;
+  }, [reasoning.evidence_challenge]);
+  const screeningSummary = pkg.risk_assessment_v2?.summary?.trim();
+
+  // Retrieved facts for the Procurement Context Analyzer's applicability
+  // evaluation — a minimal, read-only projection of the package records so
+  // guidance is shown only when the evidence actually supports it.
+  const contextFacts: ContextFactsPayload = useMemo(
+    () => ({
+      records: pkg.records.map((r) => ({
+        reference_number: r.tender.reference_number,
+        title: r.tender.title ?? "",
+        description: r.tender.description ?? "",
+        procuring_entity: r.tender.procuring_entity ?? "",
+        suppliers: r.awards.map((a) => a.company_name).filter(Boolean),
+        published_date: r.tender.published_date,
+        closing_date: r.tender.closing_date,
+        award_dates: r.awards.map((a) => a.award_date).filter((d): d is string => Boolean(d))
+      })),
+      as_of: pkg.records
+        .map((r) => r.tender.metadata?.retrieved_at)
+        .filter(Boolean)
+        .sort()
+        .pop()
+        ?.slice(0, 10)
+    }),
+    [pkg]
+  );
 
   return (
     <Section
-      eyebrow="The finding"
-      title="Risk indicators"
+      eyebrow="Findings"
+      title="Investigation case files"
       action={
         <span className="inline-flex items-center gap-1.5 text-xs text-faint">
           <ListChecks className="h-3.5 w-3.5" />
-          {items.length} indicator{items.length === 1 ? "" : "s"}
-          {deterministic ? " · deterministic engine" : ""}
+          {findings.length} finding{findings.length === 1 ? "" : "s"} · each answers the five investigator questions
         </span>
       }
     >
-      {items.length === 0 ? (
-        <EmptyState message="No risk indicators were triggered for this investigation." />
+      {findings.length === 0 ? (
+        <EmptyState message="No findings were raised by deterministic screening for this investigation." />
       ) : (
         <>
-          {assessmentSummary && (
+          {screeningSummary && (
             <p className="mb-3 rounded-[12px] border border-border bg-bg-2/40 px-3.5 py-2.5 text-sm leading-relaxed text-muted">
-              {assessmentSummary}
+              {screeningSummary}
             </p>
           )}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {items.map((it, i) => (
-              <motion.div
-                key={`${it.name}-${i}`}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i, 8) * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className="rounded-[14px] border border-border bg-bg-2/40 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h4 className="min-w-0 text-sm font-semibold text-text">{it.name}</h4>
-                  <RiskSeverityPill severity={it.severity} score={it.score} />
-                </div>
-                {it.reason && <p className="mt-1.5 text-sm text-muted">{it.reason}</p>}
-                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                  {it.records > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-0.5 text-muted">
-                      <FileText className="h-3 w-3" /> {it.records} record{it.records === 1 ? "" : "s"}
-                    </span>
-                  )}
-                  <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 uppercase tracking-wide text-faint">
-                    {it.status}
-                  </span>
-                  {it.review && (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 font-semibold text-accent"
-                      title={it.reviewNote || undefined}
-                    >
-                      Requires review
-                    </span>
-                  )}
-                </div>
-
-                {/* Context the engine applied — why the severity is what it is (item: risk justification). */}
-                {it.contextNotes.length > 0 && (
-                  <ul className="mt-2.5 space-y-1">
-                    {it.contextNotes.map((note, n) => (
-                      <li key={n} className="flex items-start gap-1.5 text-[11px] leading-snug text-faint">
-                        <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-muted" />
-                        <span>{note}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {/* Evidence that would confirm this indicator — honest, per-flag missing evidence. */}
-                {it.requiredEvidence.length > 0 && (
-                  <div className="mt-2.5 rounded-lg border border-border bg-surface/50 px-2.5 py-2">
-                    <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-faint">To confirm, obtain</div>
-                    <ul className="mt-1 flex flex-wrap gap-1.5">
-                      {it.requiredEvidence.map((ev, n) => (
-                        <li key={n} className="rounded-md border border-border bg-bg-2/50 px-1.5 py-0.5 text-[11px] text-muted">
-                          {ev}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <IndicatorSourceLink refs={it.recordRefs} index={sourceIndex} />
-              </motion.div>
-            ))}
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            {findings.map((f, i) => {
+              const sources: OfficialSource[] = [];
+              const seen = new Set<string>();
+              for (const ref of f.recordRefs) {
+                const src = sourceIndex.get(ref);
+                if (src && !seen.has(src.url)) {
+                  seen.add(src.url);
+                  sources.push(src);
+                }
+              }
+              return (
+                <FindingCaseFile
+                  key={`${f.id}-${i}`}
+                  finding={f}
+                  challenge={challengeById.get(f.id) ?? null}
+                  sources={sources}
+                  nextSteps={nextStepsFor(f.recordRefs, pkg, activeQuery)}
+                  index={i}
+                  onInvestigate={onInvestigate}
+                  contextFacts={contextFacts}
+                  triggerFacts={triggerFactsFor(f, pkg)}
+                />
+              );
+            })}
           </div>
           <p className="mt-3 text-[11px] leading-snug text-faint">
-            Indicators are produced by a deterministic risk engine from the procurement records above. They flag patterns for a
-            human investigator to review — they are not, by themselves, a finding of wrongdoing.
+            Findings come from deterministic screening of the official procurement records above. They are leads for a
+            human investigator to review — never, by themselves, a determination of wrongdoing.
           </p>
         </>
       )}
     </Section>
   );
 }
+
 
 /* ============================================================ evidence packet export */
 
@@ -1377,7 +1371,7 @@ function AiSummaryDivider() {
     <div className="relative flex items-center gap-3 pt-2">
       <span className="h-px flex-1 bg-border" />
       <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-faint">
-        AI summary · optional
+        Narrative summary · secondary
       </span>
       <span className="h-px flex-1 bg-border" />
     </div>

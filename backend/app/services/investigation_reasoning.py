@@ -168,6 +168,25 @@ def build_reasoning(
         analyst_report=analyst_report,
     )
 
+    # Investigator Review — organize the deterministic evidence into the three
+    # questions an investigator asks (supports / challenges / still required).
+    # Runs strictly AFTER findings; never alters indicators, scores, or severity.
+    from app.services.investigator_review import build_investigator_review
+
+    try:
+        reasoning.investigator_review = build_investigator_review(pkg)
+    except Exception:
+        reasoning.investigator_review = None  # review is additive, never blocking
+
+    # Evidence Challenge — per-finding falsification ("what would prove this
+    # wrong?"). Also strictly post-findings, read-only, never blocking.
+    from app.services.evidence_challenge import build_evidence_challenge
+
+    try:
+        reasoning.evidence_challenge = build_evidence_challenge(pkg)
+    except Exception:
+        reasoning.evidence_challenge = None
+
     summary, generated_by, provider, model, fallback_reason = _executive_summary(pkg, reasoning)
     reasoning.executive_summary = summary
     reasoning.generated_by = generated_by
