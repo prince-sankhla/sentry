@@ -7,7 +7,6 @@ from app.connectors.base import (
     FileBackedSourceConnector,
     NormalizedAward,
     NormalizedCompany,
-    NormalizedDocument,
     NormalizedProcurementRecord,
     NormalizedTender,
     SourceConnectorMetadata,

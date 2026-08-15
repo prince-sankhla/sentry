@@ -87,7 +87,7 @@ export function CommandCenter() {
   }, []);
 
   const launch = useCallback(
-    (q: string) => router.push(`/?q=${encodeURIComponent(q)}`),
+    (q: string) => router.push(`/investigate?q=${encodeURIComponent(q)}`),
     [router]
   );
 
@@ -310,9 +310,9 @@ function CommandCenterSkeleton() {
   return (
     <div className="mt-2 space-y-5">
       {/* brief hero shell with a live boot log — reads as "coming online" */}
-      <div className="relative overflow-hidden rounded-[22px] border border-border bg-surface/80 p-6 md:p-8">
+      <div className="relative overflow-hidden rounded-3xl border border-border bg-surface/80 p-8 md:p-10">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
+        <div className="t-label flex items-center gap-2 text-accent">
           <Zap className="h-3.5 w-3.5" /> Morning Intelligence Brief
         </div>
         <div className="mt-4 h-7 w-2/3 shimmer rounded-lg" />

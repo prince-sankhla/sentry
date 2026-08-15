@@ -15,7 +15,10 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { AnalyticsOverview, RiskResponse, TimelineResponse } from "@/lib/api";
 import { AnimatedValue } from "@/components/ui/animated-value";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatCompactMoney, formatNumber } from "@/lib/format";
+import { DURATION, EASE } from "@/lib/motion";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = [
@@ -69,28 +72,28 @@ export function MorningBrief({
     <motion.section
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-[22px] border border-border bg-surface/80 elevate"
+      transition={{ duration: DURATION.slow, ease: EASE }}
+      className="relative overflow-hidden rounded-3xl border border-border bg-surface/80 elevate"
     >
-      {/* ambient copper dawn — meaning: "start of day / brief" */}
+      {/* ambient emerald dawn — meaning: "start of day / brief" */}
       <div className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-accent/[0.07] blur-3xl" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
 
-      <div className="relative grid gap-6 p-6 md:p-8 lg:grid-cols-[1.5fr_1fr]">
+      <div className="relative grid gap-8 p-8 md:p-10 lg:grid-cols-[1.5fr_1fr]">
         {/* left: the brief */}
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
+          <div className="t-label flex items-center gap-2 text-accent">
             <Sparkles className="h-3.5 w-3.5" />
             Morning Intelligence Brief
           </div>
           <div className="mt-1 text-xs text-faint">{dateline()} · India Procurement</div>
 
-          <h1 className="mt-4 text-[22px] font-semibold leading-snug tracking-tight text-muted md:text-[26px]">
+          <h1 className="mt-5 text-[22px] font-semibold leading-snug tracking-tight text-muted md:text-[26px]">
             {headline}
           </h1>
 
           {topSignal && (
-            <div className="mt-4 flex items-start gap-2.5 rounded-[14px] border border-border bg-bg-2/50 p-3.5">
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-border bg-bg-2/50 p-3.5">
               <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md border border-danger/30 bg-danger/10 text-danger">
                 <Radar className="h-3.5 w-3.5" />
               </span>
@@ -108,24 +111,25 @@ export function MorningBrief({
               e.preventDefault();
               if (q.trim()) onLaunch(q.trim());
             }}
-            className="mt-5 flex flex-col gap-2 sm:flex-row"
+            className="mt-6 flex flex-col gap-2.5 sm:flex-row"
           >
             <div className="relative flex-1">
               <Zap className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-accent" />
-              <input
+              <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Investigate an entity, buyer, or pattern…"
-                className="h-11 w-full rounded-xl border border-border bg-bg/60 pl-10 pr-4 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/60"
+                className="pl-10"
               />
             </div>
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-bg transition hover:bg-accent-hi"
+              className="shrink-0 px-5"
+              trailing={<ArrowUpRight className="h-4 w-4" />}
             >
               Launch investigation
-              <ArrowUpRight className="h-4 w-4" />
-            </button>
+            </Button>
           </form>
         </div>
 
@@ -179,13 +183,13 @@ function BriefStat({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[14px] border border-border bg-bg-2/50 p-3.5">
+    <div className="rounded-xl border border-border bg-bg-2/50 p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{label}</span>
+        <span className="t-label">{label}</span>
         <span className={STAT_TONE[tone]}>{icon}</span>
       </div>
-      <AnimatedValue value={value} className={`mt-2 block text-2xl font-semibold tabular ${STAT_TONE[tone]}`} />
-      <div className="mt-0.5 text-[11px] text-faint">{sub}</div>
+      <AnimatedValue value={value} className={`mt-2.5 block text-2xl font-semibold tabular ${STAT_TONE[tone]}`} />
+      <div className="mt-1 text-[11px] text-faint">{sub}</div>
     </div>
   );
 }

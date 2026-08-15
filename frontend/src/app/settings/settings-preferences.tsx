@@ -3,6 +3,9 @@
 import { Check, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/input";
+
 /**
  * Local-only analyst preferences. Persisted to localStorage — the backend has
  * no settings endpoint, so these are client-side workspace defaults that other
@@ -60,7 +63,7 @@ export function SettingsPreferences() {
         <select
           value={prefs.resultLimit}
           onChange={(e) => update("resultLimit", Number(e.target.value))}
-          className="h-9 rounded-lg border border-border bg-bg-2 px-3 text-sm text-text outline-none focus:border-accent/60"
+          className="h-10 rounded-xl border border-border bg-bg-2 px-3 text-sm text-text outline-none transition-all duration-200 focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
         >
           {[10, 25, 50, 100].map((n) => (
             <option key={n} value={n}>
@@ -74,7 +77,7 @@ export function SettingsPreferences() {
         <select
           value={prefs.graphDepth}
           onChange={(e) => update("graphDepth", Number(e.target.value))}
-          className="h-9 rounded-lg border border-border bg-bg-2 px-3 text-sm text-text outline-none focus:border-accent/60"
+          className="h-10 rounded-xl border border-border bg-bg-2 px-3 text-sm text-text outline-none transition-all duration-200 focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
         >
           {[1, 2, 3].map((n) => (
             <option key={n} value={n}>
@@ -88,26 +91,14 @@ export function SettingsPreferences() {
         label="Auto-collect web evidence"
         hint="Run open-source web search automatically with each investigation."
       >
-        <button
-          type="button"
-          role="switch"
-          aria-checked={prefs.autoWebEvidence}
-          onClick={() => update("autoWebEvidence", !prefs.autoWebEvidence)}
-          className={`relative h-6 w-11 rounded-full border transition ${
-            prefs.autoWebEvidence
-              ? "border-accent/50 bg-accent/30"
-              : "border-border bg-bg-2"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 h-4 w-4 rounded-full transition ${
-              prefs.autoWebEvidence ? "left-[22px] bg-accent" : "left-0.5 bg-border-strong"
-            }`}
-          />
-        </button>
+        <Toggle
+          checked={prefs.autoWebEvidence}
+          onChange={(next) => update("autoWebEvidence", next)}
+          label="Auto-collect web evidence"
+        />
       </Row>
 
-      <div className="flex items-center justify-between border-t border-border pt-4">
+      <div className="flex items-center justify-between border-t border-border pt-5">
         <span className="flex items-center gap-1.5 text-xs text-success">
           {saved && (
             <>
@@ -115,13 +106,14 @@ export function SettingsPreferences() {
             </>
           )}
         </span>
-        <button
-          type="button"
+        <Button
+          variant="subtle"
+          size="sm"
           onClick={reset}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-muted transition hover:text-text"
+          icon={<RotateCcw className="h-3.5 w-3.5" />}
         >
-          <RotateCcw className="h-3.5 w-3.5" /> Reset to defaults
-        </button>
+          Reset to defaults
+        </Button>
       </div>
     </div>
   );

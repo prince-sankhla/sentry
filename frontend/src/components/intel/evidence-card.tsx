@@ -9,7 +9,7 @@
  * source URL, "open original", publication date, a confidence read-out, and a
  * one-click "copy citation" that yields an analyst-grade reference string.
  *
- * Indian sources are visually promoted (India chip + copper edge); World Bank /
+ * Indian sources are visually promoted (India chip + emerald edge); World Bank /
  * international feeds render as secondary.
  */
 
@@ -30,6 +30,7 @@ import {
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { isIndianSource, sourceMeta } from "@/lib/sources";
+import { DURATION, EASE } from "@/lib/motion";
 
 export type EvidenceItem = {
   /** Human title of the evidence (tender title, article headline, record label). */
@@ -57,6 +58,15 @@ export type EvidenceItem = {
   relatedTenders?: string[];
   relatedOrganizations?: string[];
   tags?: string[];
+  /* ── Evidence preservation fields ── */
+  /** ISO datetime the evidence was retrieved and stored. */
+  retrievedAt?: string | null;
+  /** SHA-256 content hash for integrity verification. */
+  integrityHash?: string | null;
+  /** URL to archived/stored copy (does not expire even if original goes offline). */
+  archivedUrl?: string | null;
+  /** Whether the original source URL is still reachable. */
+  sourceAvailable?: boolean | null;
 };
 
 function fmtDate(value?: string | null): string {
@@ -108,49 +118,50 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index, 12) * 0.035, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className={`group relative overflow-hidden rounded-[14px] border bg-surface/70 p-3.5 transition-colors hover:border-border-strong ${
+      transition={{ delay: Math.min(index, 12) * 0.035, duration: DURATION.base, ease: EASE }}
+      whileHover={{ y: -2 }}
+      className={`group relative overflow-hidden rounded-xl border bg-surface/70 p-4 transition-colors duration-200 hover:border-border-strong ${
         indian ? "border-l-2 border-l-accent/60 border-y-border border-r-border" : "border-border"
       }`}
     >
       {/* header: source identity */}
       <div className="flex items-center gap-2">
         <span
-          className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border ${
             indian ? "border-accent/30 bg-accent/[0.08] text-accent" : "border-border bg-bg-2 text-muted"
           }`}
         >
           <Glyph className="h-3.5 w-3.5" />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-muted">{meta.label}</span>
-        <span className="shrink-0 rounded border border-border bg-bg-2/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-faint">
+        <span className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-muted">{meta.label}</span>
+        <span className="shrink-0 rounded-md border border-border bg-bg-2/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-faint">
           {evidenceType}
         </span>
         {indian && (
-          <span className="shrink-0 rounded border border-accent/30 bg-accent/[0.08] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
+          <span className="shrink-0 rounded-md border border-accent/30 bg-accent/[0.08] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
             India
           </span>
         )}
       </div>
 
       {/* body: title + detail */}
-      <div className="mt-2">
-        <div className="line-clamp-2 text-sm font-medium text-text">{item.title}</div>
-        {item.detail && <div className="mt-1 line-clamp-2 text-xs text-muted">{item.detail}</div>}
+      <div className="mt-3">
+        <div className="line-clamp-2 text-[13.5px] font-medium leading-relaxed text-text">{item.title}</div>
+        {item.detail && <div className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">{item.detail}</div>}
         {item.reference && (
-          <div className="mt-1 truncate font-mono text-[11px] text-faint">{item.reference}</div>
+          <div className="mt-1.5 truncate font-mono text-[11px] text-faint">{item.reference}</div>
         )}
       </div>
 
       {/* meta row: date + confidence */}
-      <div className="mt-2.5 grid grid-cols-2 gap-2 text-[11px]">
+      <div className="mt-3.5 grid grid-cols-2 gap-2.5 text-[11px]">
         <MetaPill label="Published" value={fmtDate(item.date)} />
         {conf && (
           <MetaPill label="Confidence" value={`${Math.round((item.confidence as number) * 100)}%`} valueClassName={conf.cls} />
         )}
       </div>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3.5 space-y-2.5">
         <EvidenceChips icon={<Building2 className="h-3 w-3" />} label="Entities" items={item.relatedEntities} />
         <EvidenceChips icon={<BriefcaseBusiness className="h-3 w-3" />} label="Contracts" items={item.relatedContracts} />
         <EvidenceChips icon={<FileText className="h-3 w-3" />} label="Tenders" items={item.relatedTenders} />
@@ -159,8 +170,8 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
       </div>
 
       {item.citation ? (
-        <div className="mt-3 rounded-lg border border-border bg-bg-2/40 p-2 text-[11px] leading-relaxed text-muted">
-          <span className="mb-1 flex items-center gap-1 font-semibold uppercase tracking-wide text-faint">
+        <div className="mt-3.5 rounded-lg border border-border bg-bg-2/40 p-2.5 text-[11px] leading-relaxed text-muted">
+          <span className="mb-1.5 flex items-center gap-1 font-semibold uppercase tracking-wide text-faint">
             <BadgeCheck className="h-3 w-3" />
             Citation
           </span>
@@ -169,30 +180,85 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
       ) : null}
 
       {/* action row: full provenance controls */}
-      <div className="mt-3 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
-        {item.sourceUrl ? (
-          <a
-            href={item.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
-          >
-            <ExternalLink className="h-3 w-3" /> Open Original Source
-          </a>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/40 px-2 py-1 font-mono text-[10px] text-faint">
-            {item.recordId ?? "No public URL"}
-          </span>
+      <div className="mt-3.5 border-t border-border/60 pt-3">
+        {/* source availability row */}
+        {(item.sourceUrl || item.archivedUrl) && (
+          <div className="mb-2.5 flex flex-wrap items-center gap-2">
+            {item.sourceUrl ? (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-200 ${
+                  item.sourceAvailable === false
+                    ? "border-border bg-bg-2/40 text-faint line-through"
+                    : "border-border bg-bg-2/60 text-muted hover:border-accent/40 hover:text-accent"
+                }`}
+              >
+                <ExternalLink className="h-3 w-3" />
+                {item.sourceAvailable === false ? "Original unavailable" : "Open Original Source"}
+              </a>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-bg-2/40 px-2.5 py-1.5 font-mono text-[10px] text-faint">
+                {item.recordId ?? "No public URL"}
+              </span>
+            )}
+            {item.archivedUrl && (
+              <a
+                href={item.archivedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-success/30 bg-success/[0.07] px-2.5 py-1.5 text-[11px] font-medium text-success transition-colors duration-200 hover:bg-success/15"
+              >
+                <ShieldCheck className="h-3 w-3" />
+                Archived Evidence
+              </a>
+            )}
+          </div>
         )}
-        <button
-          type="button"
-          onClick={copyCitation}
-          className="ml-auto inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
-          aria-label="Copy citation"
-        >
-          {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-          {copied ? "Copied" : "Cite"}
-        </button>
+
+        {/* preservation metadata */}
+        {(item.retrievedAt || item.integrityHash) && (
+          <div className="mb-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10.5px] text-faint">
+            {item.retrievedAt && (
+              <span className="flex items-center gap-1">
+                <span className="text-faint/60">Retrieved</span>
+                {fmtDate(item.retrievedAt)}
+              </span>
+            )}
+            {item.integrityHash && (
+              <span className="flex items-center gap-1 font-mono" title={`SHA-256: ${item.integrityHash}`}>
+                <span className="text-faint/60">SHA-256</span>
+                {item.integrityHash.slice(0, 8)}…{item.integrityHash.slice(-6)}
+                <span className="ml-0.5 rounded border border-success/20 bg-success/[0.06] px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-success">
+                  verified
+                </span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* no source at all */}
+        {!item.sourceUrl && !item.archivedUrl && (
+          <div className="mb-2.5">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-bg-2/40 px-2.5 py-1.5 font-mono text-[10px] text-faint">
+              {item.recordId ?? "No public URL"}
+            </span>
+          </div>
+        )}
+
+        {/* cite button */}
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={copyCitation}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-2/60 px-2.5 py-1.5 text-[11px] font-medium text-muted transition-colors duration-200 hover:border-accent/40 hover:text-accent"
+            aria-label="Copy citation"
+          >
+            {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+            {copied ? "Copied" : "Cite"}
+          </button>
+        </div>
       </div>
     </motion.div>
   );
@@ -208,9 +274,9 @@ function MetaPill({
   valueClassName?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-bg-2/40 px-2 py-1.5">
+    <div className="rounded-lg border border-border bg-bg-2/40 px-2.5 py-2">
       <div className="text-[9px] font-semibold uppercase tracking-wide text-faint">{label}</div>
-      <div className={`mt-0.5 truncate tabular text-[11px] font-semibold ${valueClassName}`}>{value}</div>
+      <div className={`mt-1 truncate tabular text-[11.5px] font-semibold ${valueClassName}`}>{value}</div>
     </div>
   );
 }
@@ -234,10 +300,10 @@ function EvidenceChips({
         {icon}
         {label}
       </div>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {shown.map((item, index) => (
           <span
-            className={`rounded-md border px-1.5 py-0.5 text-[10px] ${
+            className={`rounded-md border px-2 py-0.5 text-[10px] ${
               tone === "accent" ? "border-accent/25 bg-accent/[0.08] text-accent" : "border-border bg-bg-2/60 text-muted"
             }`}
             key={`${label}-${item}-${index}`}

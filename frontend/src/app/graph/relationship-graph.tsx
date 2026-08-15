@@ -27,6 +27,9 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { GraphEdgeType, GraphNodeType, RelationshipGraph, RelationshipGraphNode } from "@/lib/api";
+import { GRAPH, PALETTE, RISK, alpha } from "@/lib/theme";
+import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/input";
 
 type SelectedItem = { kind: "node"; id: string } | { kind: "edge"; id: string } | null;
 type LayoutMode = "LR" | "TB";
@@ -63,37 +66,36 @@ const typeLabels: Record<GraphNodeType, string> = {
   category: "Category"
 };
 
-const nodeStyles: Record<GraphNodeType, { border: string; fill: string; accent: string }> = {
-  company: { border: "#3B6FE0", fill: "#101a2c", accent: "#7fa6f0" },
-  tender: { border: "#b8842a", fill: "#231c0e", accent: "#f0b429" },
-  award: { border: "#2e8b63", fill: "#0e1e18", accent: "#43c08a" },
-  buyer: { border: "#2a8c86", fill: "#0c1e1d", accent: "#4fd1c5" },
-  indicator: { border: "#c0392b", fill: "#241012", accent: "#ef4d54" },
-  evidence: { border: "#46566b", fill: "#141b26", accent: "#93a1b5" },
-  document: { border: "#46566b", fill: "#141b26", accent: "#93a1b5" },
-  web_evidence: { border: "#46566b", fill: "#141b26", accent: "#93a1b5" },
-  organization: { border: "#7c5cd0", fill: "#171426", accent: "#b79cf0" },
-  category: { border: "#b8842a", fill: "#231c0e", accent: "#f0b429" }
-};
+/**
+ * Nodes are deliberately monochrome — every type wears the same graphite chip
+ * and is told apart by its icon, exactly as on the landing-page graph. Colour
+ * is spent only on state: emerald for what you selected or searched, a red
+ * tint for edges that carry a risk indicator. That way the one coloured thing
+ * on the canvas is always the thing you are looking at.
+ */
+const NODE_BASE = GRAPH.node;
 
-const HL = "#e0a73e"; // gold highlight for selection/search
+/** Only `indicator` earns a tint — it encodes risk, not category. */
+const RISK_TYPES: ReadonlySet<GraphNodeType> = new Set<GraphNodeType>(["indicator"]);
+
+const HL = GRAPH.highlight.border; // emerald highlight for selection/search
 
 const edgeColors: Record<GraphEdgeType, string> = {
-  company_tender: "#46566b",
-  tender_award: "#5b6f4a",
-  award_company: "#46566b",
-  buyer_tender: "#3f5560",
-  buyer_company: "#3f5560",
-  tender_indicator: "#7a3a3a",
-  company_indicator: "#7a3a3a",
-  evidence_indicator: "#7a3a3a",
-  tender_evidence: "#3a4453",
-  web_evidence_company: "#3a4453",
-  web_evidence_tender: "#3a4453",
-  web_evidence_award: "#3a4453",
-  document_tender: "#3a4453",
-  category_tender: "#3a4453",
-  organization_evidence: "#3a4453"
+  company_tender: GRAPH.edge.default,
+  tender_award: GRAPH.edge.default,
+  award_company: GRAPH.edge.default,
+  buyer_tender: GRAPH.edge.default,
+  buyer_company: GRAPH.edge.default,
+  tender_indicator: GRAPH.edge.risk,
+  company_indicator: GRAPH.edge.risk,
+  evidence_indicator: GRAPH.edge.risk,
+  tender_evidence: GRAPH.edge.dimmed,
+  web_evidence_company: GRAPH.edge.dimmed,
+  web_evidence_tender: GRAPH.edge.dimmed,
+  web_evidence_award: GRAPH.edge.dimmed,
+  document_tender: GRAPH.edge.dimmed,
+  category_tender: GRAPH.edge.dimmed,
+  organization_evidence: GRAPH.edge.dimmed
 };
 
 const filterTypes: GraphNodeType[] = ["company", "buyer", "tender", "award", "indicator", "evidence", "document", "web_evidence", "organization", "category"];
@@ -300,7 +302,7 @@ function RelationshipGraphCanvas({
       <section className={
         fullscreen
           ? "flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border bg-bg"
-          : "overflow-hidden rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)]"
+          : "overflow-hidden rounded-2xl border border-border bg-surface float"
       }>
         <div className="flex shrink-0 flex-col gap-3 border-b border-border bg-bg-2/40 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -313,23 +315,25 @@ function RelationshipGraphCanvas({
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="relative block">
-              <span className="sr-only">Search graph nodes</span>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
-              <input
-                className="h-10 w-full rounded-[12px] border border-border bg-bg pl-9 pr-3 text-sm text-text outline-none placeholder:text-faint focus:border-accent/60 sm:w-80"
+            <div className="sm:w-80">
+              <SearchInput
+                aria-label="Search graph nodes"
                 onChange={(event) => onSearch(event.target.value)}
                 placeholder="Search graph nodes"
-                type="search"
                 value={query}
               />
-            </label>
-            <div className="inline-flex h-10 rounded-[12px] border border-border bg-bg p-0.5" aria-label="Graph layout">
+            </div>
+            <div
+              className="inline-flex h-10 shrink-0 items-center rounded-xl border border-border bg-bg-2/50 p-1"
+              aria-label="Graph layout"
+            >
               {(["LR", "TB"] as LayoutMode[]).map((mode) => (
                 <button
                   aria-pressed={layoutMode === mode}
-                  className={`rounded-[9px] px-3 text-xs font-semibold transition ${
-                    layoutMode === mode ? "bg-accent/15 text-accent" : "text-muted hover:text-text"
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-200 ${
+                    layoutMode === mode
+                      ? "border border-border-strong/70 bg-surface-2 text-text elevate"
+                      : "text-muted hover:text-text"
                   }`}
                   key={mode}
                   onClick={() => setLayoutMode(mode)}
@@ -339,40 +343,35 @@ function RelationshipGraphCanvas({
                 </button>
               ))}
             </div>
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface px-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-accent"
+            <Button
               onClick={() => fitGraph(420)}
-              type="button"
+              icon={<Maximize2 className="h-4 w-4" aria-hidden="true" />}
             >
-              <Maximize2 className="h-4 w-4" aria-hidden="true" />
               Fit Graph
-            </button>
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-accent"
+            </Button>
+            <Button
+              variant="subtle"
               onClick={centerGraph}
-              type="button"
+              icon={<Crosshair className="h-4 w-4" aria-hidden="true" />}
             >
-              <Crosshair className="h-4 w-4" aria-hidden="true" />
               Center Graph
-            </button>
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-accent"
+            </Button>
+            <Button
+              variant="subtle"
               onClick={resetView}
-              type="button"
+              icon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}
             >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
               Reset Camera
-            </button>
+            </Button>
             {fullscreen && onExitFullscreen ? (
-              <button
+              <Button
+                variant="subtle"
+                iconOnly
                 aria-label="Exit full graph"
-                className="grid h-10 w-10 place-items-center rounded-[12px] border border-border bg-surface text-muted transition hover:border-border-strong hover:text-text"
-                onClick={onExitFullscreen}
                 title="Exit full graph"
-                type="button"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
+                onClick={onExitFullscreen}
+                icon={<X className="h-4 w-4" aria-hidden="true" />}
+              />
             ) : null}
           </div>
         </div>
@@ -383,7 +382,7 @@ function RelationshipGraphCanvas({
           </div>
           {filterTypes.map((type) => (
             <button
-              className={`h-8 rounded-[10px] border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${enabledTypes.has(type) ? "border-accent/50 bg-accent/10 text-accent" : "border-border bg-surface text-muted hover:text-text"}`}
+              className={`h-8 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${enabledTypes.has(type) ? "border-accent/50 bg-accent/10 text-accent" : "border-border bg-surface text-muted hover:text-text"}`}
               disabled={!nodeCounts[type]}
               key={type}
               onClick={() => toggleType(type)}
@@ -399,7 +398,7 @@ function RelationshipGraphCanvas({
           </div>
           {filterTypes.filter((type) => (nodeCounts[type] ?? 0) > 0).map((type) => (
             <button
-              className={`inline-flex h-8 items-center gap-1.5 rounded-[10px] border px-2.5 text-xs font-semibold transition ${
+              className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition ${
                 collapsedTypes.has(type) ? "border-warning/40 bg-warning/10 text-warning" : "border-border bg-surface text-muted hover:text-text"
               }`}
               key={type}
@@ -445,12 +444,16 @@ function RelationshipGraphCanvas({
             zoomOnPinch
             zoomOnScroll
           >
-            <Background color="#1c2634" gap={34} lineWidth={0.4} variant={BackgroundVariant.Lines} />
+            <Background color={PALETTE.border} gap={34} lineWidth={0.4} variant={BackgroundVariant.Lines} />
             <Controls fitViewOptions={{ padding: fitPadding }} position="bottom-left" />
             <MiniMap
               className="!bg-bg-2/90"
-              maskColor="rgba(8, 11, 17, 0.82)"
-              nodeColor={(node) => nodeStyles[(node.data as unknown as FlowNodeData).graphNode.type]?.border ?? "#46566b"}
+              maskColor={alpha(PALETTE.bg, 0.82)}
+              nodeColor={(node) =>
+                RISK_TYPES.has((node.data as unknown as FlowNodeData).graphNode.type)
+                  ? RISK.high
+                  : PALETTE.borderStrong
+              }
               pannable
               position="bottom-right"
               zoomable
@@ -462,7 +465,7 @@ function RelationshipGraphCanvas({
       <aside className={
         fullscreen
           ? "hidden min-h-0 overflow-y-auto bg-surface xl:block"
-          : `rounded-[16px] border border-border bg-surface shadow-[0_24px_48px_-24px_rgba(0,0,0,0.7)] ${compact ? "max-xl:hidden" : ""}`
+          : `rounded-2xl border border-border bg-surface float ${compact ? "max-xl:hidden" : ""}`
       }>
         <div className="sticky top-0 z-10 border-b border-border bg-bg-2/95 px-4 py-3 backdrop-blur">
           <h2 className="text-base font-semibold text-text">Details</h2>
@@ -482,7 +485,7 @@ function RelationshipGraphCanvas({
             ) : selectedEdge ? (
               <DetailsPanel badge="Relationship" graph={visibleGraph} itemId={selectedEdge.id} fields={selectedEdge.data} label={selectedEdge.label} meta={`${selectedEdge.source} -> ${selectedEdge.target}`} />
             ) : (
-              <div className="rounded-[14px] border border-dashed border-border bg-bg-2/30 p-5 text-sm text-muted">
+              <div className="rounded-xl border border-dashed border-border bg-bg-2/30 p-5 text-sm text-muted">
                 Select a node or relationship to inspect connected entities, metadata, evidence, and statistics.
               </div>
             )}
@@ -495,42 +498,97 @@ function RelationshipGraphCanvas({
 
 function InvestigationNode({ data }: NodeProps<Node<FlowNodeData>>) {
   const graphNode = data.graphNode;
-  const style = nodeStyles[graphNode.type];
   const Icon = nodeIcon(graphNode.type);
   const targetPosition = data.layoutMode === "TB" ? Position.Top : Position.Left;
   const sourcePosition = data.layoutMode === "TB" ? Position.Bottom : Position.Right;
 
+  const active = data.selected || data.matched;
+  const isRisk = RISK_TYPES.has(graphNode.type);
+
+  // Emerald when active; a restrained red only for risk indicators; graphite
+  // otherwise. Dimmed nodes drop to the faint ramp so the focused path reads.
+  const iconColor = active
+    ? GRAPH.highlight.icon
+    : data.dimmed
+      ? GRAPH.dimmed.icon
+      : isRisk
+        ? RISK.high
+        : NODE_BASE.icon;
+
   return (
     <motion.div
-      animate={{ opacity: data.dimmed ? 0.35 : 1, scale: data.selected ? 1.03 : 1 }}
-      transition={{ duration: 0.14 }}
+      animate={{ opacity: data.dimmed ? 0.4 : 1, scale: data.selected ? 1.02 : 1 }}
+      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
     >
       <div
-        className="rounded-[14px] border p-3"
+        className="rounded-2xl border p-4 backdrop-blur-sm"
         style={{
-          backgroundColor: style.fill,
-          borderColor: data.selected || data.matched ? HL : data.connected ? style.border : "#212c3b",
-          boxShadow: data.selected || data.matched
-            ? `0 0 0 2px rgba(224,167,62,0.35), 0 18px 48px rgba(0,0,0,0.6)`
+          backgroundColor: active
+            ? GRAPH.highlight.fill
+            : data.dimmed
+              ? GRAPH.dimmed.fill
+              : NODE_BASE.fill,
+          borderColor: active
+            ? HL
+            : data.connected
+              ? PALETTE.borderStrong
+              : GRAPH.dimmed.border,
+          boxShadow: active
+            ? `0 0 0 1px ${alpha(PALETTE.accent, 0.35)}, 0 8px 24px -8px ${GRAPH.highlight.glow}, 0 24px 56px -24px rgba(0,0,0,0.7)`
             : "0 12px 32px -16px rgba(0,0,0,0.7)",
           width: 300
         }}
       >
-        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={targetPosition} type="target" />
-        <Handle className="!h-2 !w-2 !border-0 !bg-[#e0a73e]" position={sourcePosition} type="source" />
+        <Handle
+          className="!h-2 !w-2 !border-0"
+          style={{ background: active ? HL : PALETTE.borderStrong }}
+          position={targetPosition}
+          type="target"
+        />
+        <Handle
+          className="!h-2 !w-2 !border-0"
+          style={{ background: active ? HL : PALETTE.borderStrong }}
+          position={sourcePosition}
+          type="source"
+        />
         <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4" style={{ color: style.accent }} aria-hidden="true" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: style.accent }}>
-          {typeLabels[graphNode.type]}
+          <span
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border"
+            style={{
+              borderColor: active ? alpha(PALETTE.accent, 0.4) : PALETTE.border,
+              backgroundColor: active
+                ? alpha(PALETTE.accent, 0.1)
+                : alpha(PALETTE.bg, 0.5)
+            }}
+          >
+            <Icon className="h-3.5 w-3.5" style={{ color: iconColor }} aria-hidden="true" />
           </span>
-          {data.connected ? <Crosshair className="ml-auto h-3.5 w-3.5" style={{ color: HL }} aria-hidden="true" /> : null}
+          <span
+            className="text-[10px] font-semibold uppercase tracking-[0.15em]"
+            style={{ color: active ? GRAPH.highlight.icon : NODE_BASE.sublabel }}
+          >
+            {typeLabels[graphNode.type]}
+          </span>
+          {data.connected ? (
+            <Crosshair className="ml-auto h-3.5 w-3.5" style={{ color: HL }} aria-hidden="true" />
+          ) : null}
         </div>
-        <div className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-[#e7ecf3]">{graphNode.label}</div>
-        <div className="mt-3 space-y-1 text-[11px] text-[#93a1b5]">
+        <div
+          className="mt-3 line-clamp-2 text-[14px] font-semibold leading-snug"
+          style={{ color: data.dimmed ? GRAPH.dimmed.label : NODE_BASE.label }}
+        >
+          {graphNode.label}
+        </div>
+        <div className="mt-3 space-y-1.5 text-[11px]" style={{ color: NODE_BASE.sublabel }}>
           {renderNodeFacts(graphNode).map((fact) => (
             <div className="flex justify-between gap-3" key={fact.label}>
               <span>{fact.label}</span>
-              <span className="max-w-[170px] truncate text-right tabular-nums text-[#c3ccd8]">{fact.value}</span>
+              <span
+                className="max-w-[170px] truncate text-right tabular-nums"
+                style={{ color: PALETTE.text }}
+              >
+                {fact.value}
+              </span>
             </div>
           ))}
         </div>
@@ -567,7 +625,7 @@ function DetailsPanel({
   const relatedAwards = relatedNodes.filter((node) => node.type === "award");
   return (
     <div>
-      <div className="inline-flex rounded-[10px] border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+      <div className="inline-flex rounded-lg border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
         {badge}
       </div>
       <h3 className="mt-3 text-lg font-semibold text-text">{label}</h3>
@@ -657,7 +715,7 @@ function DetailSection({ children, title }: { children: ReactNode; title: string
   return (
     <section className="mt-5">
       <h4 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">{title}</h4>
-      <div className="mt-2 divide-y divide-border rounded-[12px] border border-border bg-bg-2/30">{children}</div>
+      <div className="mt-2 divide-y divide-border rounded-xl border border-border bg-bg-2/30">{children}</div>
     </section>
   );
 }
@@ -711,8 +769,8 @@ function toFlowEdges(graph: RelationshipGraph): Edge[] {
     label: edge.label,
     markerEnd: { type: MarkerType.ArrowClosed, color: edgeColors[edge.type] },
     style: { stroke: edgeColors[edge.type], strokeWidth: edge.type.includes("indicator") ? 2.2 : 1.45, opacity: large ? 0.82 : 1 },
-    labelStyle: { fill: "#93a1b5", fontSize: large ? 10 : 11, fontWeight: 600 },
-    labelBgStyle: { fill: "#111823", fillOpacity: 0.92 },
+    labelStyle: { fill: PALETTE.muted, fontSize: large ? 10 : 11, fontWeight: 600 },
+    labelBgStyle: { fill: PALETTE.bg2, fillOpacity: 0.92 },
     labelBgPadding: [6, 3] as [number, number],
     labelBgBorderRadius: 6,
     pathOptions: { borderRadius: large ? 22 : 14, offset: large ? 42 : 28 },

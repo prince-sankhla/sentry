@@ -16,7 +16,6 @@ import {
   Radar,
   Search,
   Settings,
-  Shield,
   Clock,
   UserCircle,
   Command,
@@ -26,6 +25,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { StatusChip } from "@/components/ui/chip";
+import { Wordmark } from "@/components/ui/logo";
+import { EASE, SPRING } from "@/lib/motion";
 import { CommandPalette } from "./command-palette";
 import { PageTransition } from "./page-transition";
 
@@ -73,6 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
+  // The marketing homepage renders chromeless — its own floating navbar and
+  // full-bleed sections replace the application shell (sidebar + header).
+  const isMarketing = pathname === "/";
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -87,6 +94,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   // close mobile drawer on route change
   useEffect(() => setMobileOpen(false), [pathname]);
 
+  // Chromeless marketing home (all hooks above run unconditionally first).
+  if (isMarketing) {
+    return <div className="min-h-screen">{children}</div>;
+  }
+
   const width = collapsed ? 76 : 248;
 
   return (
@@ -94,69 +106,64 @@ export function AppShell({ children }: { children: ReactNode }) {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
       {/* ---------------- Header ---------------- */}
-      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-bg-2/80 px-3 backdrop-blur-xl">
-        <button
-          className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-text lg:hidden"
+      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-bg-2/80 px-4 backdrop-blur-xl">
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          className="lg:hidden"
           onClick={() => setMobileOpen((v) => !v)}
-          type="button"
           aria-label="Toggle navigation"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+          icon={<Menu className="h-5 w-5" />}
+        />
 
-        <Link href="/" className="group flex items-center gap-2.5 pl-1 pr-2">
-          <span className="relative grid h-8 w-8 place-items-center overflow-hidden rounded-lg border border-accent/25 bg-accent/[0.08] text-accent transition-colors group-hover:border-accent/40">
-            <Shield className="h-[18px] w-[18px]" />
-          </span>
-          <span className="hidden leading-none sm:block">
-            <span className="block text-[15px] font-semibold tracking-tight">SENTRY</span>
-            <span className="mt-0.5 block text-[8px] font-semibold uppercase tracking-[0.22em] text-faint">
-              Evidence · Intelligence · Impact
-            </span>
-          </span>
+        <Link
+          href="/"
+          className="group flex items-center gap-2.5 pl-1 pr-2"
+          aria-label="SENTRY home"
+        >
+          <Wordmark tagline="Evidence over assumptions" size="sm" />
         </Link>
 
         <button
           onClick={() => setPaletteOpen(true)}
-          className="group ml-2 flex h-9 max-w-xl flex-1 items-center gap-2 rounded-lg border border-border bg-bg/60 px-3 text-left text-sm text-faint transition hover:border-border-strong hover:bg-surface"
+          className="group ml-3 flex h-10 max-w-xl flex-1 items-center gap-2.5 rounded-xl border border-border bg-bg/50 px-3.5 text-left text-sm text-faint transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-border-strong hover:bg-surface/60"
           type="button"
         >
           <Search className="h-4 w-4 text-muted transition-colors group-hover:text-accent" />
           <span className="flex-1 truncate">
             Search companies, buyers, tenders, awards…
           </span>
-          <kbd className="hidden items-center gap-0.5 rounded border border-border bg-bg-2 px-1.5 py-0.5 text-[10px] font-medium text-muted sm:flex">
+          <kbd className="hidden items-center gap-0.5 rounded-md border border-border bg-bg-2 px-1.5 py-0.5 text-[10px] font-medium text-muted sm:flex">
             ⌘K
           </kbd>
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2.5">
           {/* Single, quiet system-status chip — colour reserved for meaning */}
-          <span className="hidden items-center gap-2 rounded-full border border-border bg-surface/70 px-3 py-1 text-[11px] font-medium text-muted xl:flex">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-success pulse-live" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
-            </span>
-            <span className="text-text">Operational</span>
-            <span className="text-faint">·</span>
-            <span>Live data</span>
+          <span className="hidden xl:block">
+            <StatusChip label="Operational" detail="Live data" pulse />
           </span>
 
           <div className="mx-0.5 hidden h-5 w-px bg-border xl:block" />
 
-          <button
-            className="relative grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-muted transition hover:border-border-strong hover:text-text"
-            type="button"
+          <Button
+            variant="subtle"
+            iconOnly
             aria-label="Notifications"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-danger ring-2 ring-bg-2" />
-          </button>
+            className="relative"
+            icon={
+              <>
+                <Bell className="h-4 w-4" />
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-danger ring-2 ring-bg-2" />
+              </>
+            }
+          />
           <Link
             href="/profile"
-            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5 text-sm text-text transition hover:border-border-strong md:pl-2 md:pr-2.5"
+            className="flex items-center gap-2 rounded-xl border border-border bg-surface/60 px-2 py-1.5 text-sm text-text transition-all duration-200 hover:border-border-strong md:pr-3"
           >
-            <span className="grid h-6 w-6 place-items-center rounded-md bg-accent/12 text-accent">
+            <span className="grid h-6 w-6 place-items-center rounded-lg bg-accent/12 text-accent">
               <UserCircle className="h-4 w-4" />
             </span>
             <span className="hidden md:block">Analyst</span>
@@ -168,19 +175,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       <motion.aside
         animate={{ width }}
         initial={false}
-        transition={{ duration: 0.18, ease: [0.2, 0.7, 0.2, 1] }}
-        className={`fixed bottom-0 left-0 top-14 z-30 border-r border-border bg-bg-2/80 backdrop-blur-xl ${
+        transition={{ duration: 0.18, ease: EASE }}
+        className={`fixed bottom-0 left-0 top-16 z-30 border-r border-border bg-bg-2/70 backdrop-blur-xl ${
           mobileOpen ? "block" : "hidden lg:block"
         }`}
       >
-        <div className="flex h-full flex-col overflow-y-auto px-3 py-4">
-          <nav className="flex-1 space-y-5">
+        <div className="flex h-full flex-col overflow-y-auto px-3 py-5">
+          <nav className="flex-1 space-y-6">
             {navGroups.map((group) => (
               <div key={group.label}>
                 {!collapsed && (
-                  <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">
-                    {group.label}
-                  </div>
+                  <div className="t-label px-2 pb-2.5">{group.label}</div>
                 )}
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
@@ -193,21 +198,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                         key={item.href}
                         href={item.href}
                         title={collapsed ? item.label : undefined}
-                        className={`group relative flex h-9 items-center gap-3 rounded-lg px-3 text-sm transition-colors duration-150 ${
+                        className={`group relative flex h-10 items-center gap-3 rounded-xl px-3 text-[13.5px] transition-colors duration-150 ${
                           active
                             ? "font-medium text-text"
-                            : "text-muted hover:bg-surface/60 hover:text-text"
+                            : "text-muted hover:bg-surface/50 hover:text-text"
                         }`}
                       >
                         {active && (
                           <motion.span
                             layoutId="nav-active"
-                            transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                            className="absolute inset-0 rounded-lg border border-border-strong/70 bg-surface-2"
+                            transition={SPRING}
+                            className="absolute inset-0 rounded-xl border border-border-strong/60 bg-surface-2"
                           />
                         )}
                         {active && (
-                          <span className="absolute inset-y-1.5 left-0 z-10 w-0.5 rounded-full bg-accent" />
+                          <span className="absolute inset-y-2 left-0 z-10 w-0.5 rounded-full bg-accent" />
                         )}
                         <Icon
                           className={`relative z-10 h-[18px] w-[18px] shrink-0 transition-colors ${
@@ -226,42 +231,52 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
 
           {!collapsed && (
-            <div className="mt-4 rounded-xl border border-border bg-surface/70 p-3.5 elevate">
-              <div className="flex items-center gap-2 text-sm font-semibold text-text">
-                <span className="grid h-6 w-6 place-items-center rounded-md border border-accent/25 bg-accent/[0.08] text-accent">
+            <div className="mt-5 rounded-2xl border border-border bg-surface/60 p-4 elevate">
+              <div className="flex items-center gap-2 text-[13.5px] font-semibold text-text">
+                <span className="grid h-6 w-6 place-items-center rounded-lg border border-accent/25 bg-accent/[0.08] text-accent">
                   <Zap className="h-3.5 w-3.5" />
                 </span>
                 New Investigation
               </div>
-              <p className="mt-1.5 text-[11px] leading-snug text-muted">
+              <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
                 Launch an AI investigation from a single prompt.
               </p>
-              <Link
+              <Button
                 href="/investigations"
-                className="group mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent text-sm font-semibold text-bg transition-colors hover:bg-accent-hi"
+                variant="primary"
+                size="sm"
+                fullWidth
+                className="mt-3.5"
+                trailing={
+                  <Command className="h-3.5 w-3.5 opacity-70 transition-transform group-hover:translate-x-0.5" />
+                }
               >
                 Start
-                <Command className="h-3.5 w-3.5 opacity-70 transition-transform group-hover:translate-x-0.5" />
-              </Link>
+              </Button>
             </div>
           )}
 
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setCollapsed((v) => !v)}
-            className="mt-3 hidden h-9 items-center gap-2 rounded-lg px-3 text-xs text-faint transition hover:bg-surface-2 hover:text-text lg:flex"
-            type="button"
+            className="mt-3 hidden justify-start lg:flex"
+            icon={
+              <ChevronsLeft
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  collapsed ? "rotate-180" : ""
+                }`}
+              />
+            }
           >
-            <ChevronsLeft
-              className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`}
-            />
-            {!collapsed && <span>Collapse</span>}
-          </button>
+            {!collapsed && "Collapse"}
+          </Button>
         </div>
       </motion.aside>
 
       {mobileOpen && (
         <div
-          className="fixed inset-0 top-14 z-20 bg-black/50 lg:hidden"
+          className="fixed inset-0 top-16 z-20 bg-bg/60 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -270,8 +285,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <motion.main
         animate={{ paddingLeft: width }}
         initial={false}
-        transition={{ duration: 0.18, ease: [0.2, 0.7, 0.2, 1] }}
-        className="min-h-screen pt-14 max-lg:!pl-0"
+        transition={{ duration: 0.18, ease: EASE }}
+        className="min-h-screen pt-16 max-lg:!pl-0"
       >
         <PageTransition>{children}</PageTransition>
       </motion.main>

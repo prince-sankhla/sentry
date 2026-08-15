@@ -15,10 +15,10 @@ pipeline simply never extracts them.
 ## 1. Does Odisha GePNIC expose primary procurement documents? — YES
 
 Odisha runs standard NIC GePNIC (Apache Tapestry) at `https://tendersodisha.gov.in`
-(portal registered in [portals.py:30](backend/app/connectors/state_eproc/portals.py#L30)).
+(portal registered in [portals.py:30](../../backend/app/connectors/state_eproc/portals.py#L30)).
 
 Evidence, taken directly from our own stored raw record
-[2026_CERWI_133303_1.json](data/raw/eproc_odisha/2026_CERWI_133303_1.json) — the
+[2026_CERWI_133303_1.json](../../data/raw/eproc_odisha/2026_CERWI_133303_1.json) — the
 `data.detail_html` field contains the public **FrontEndTenderDetails** page, which includes:
 
 - Section labels: `NIT Document`, `Work Item Documents`, `BOQ`, `Download as zip`
@@ -48,7 +48,7 @@ exposure is universal for this portal.
 | 2 | **PDF links** | Present in the stored HTML as real filenames + download anchors. Not missing from the source. |
 | 3 | **Hidden endpoints** | None required. Documents are served by the same `/nicgep/app` Tapestry endpoint via the `docDownoad` component. No separate/undocumented API involved. |
 | 4 | **Session requirements** | The `docDownoad` links are **stateful Tapestry links** — `...&session=T` with **no `sp=` serialized state**. The document is resolved server-side from the live session/page state, keyed only by the anchor `id`. The detail-page **HTML** is public and needs no login; fetching the **PDF bytes** requires hitting the link inside the *same* session that rendered the page. |
-| 5 | **Cookies** | The existing `httpx.Client` (single session per crawl, [downloader.py:61](backend/app/connectors/cppp/downloader.py#L61)) already carries the JSESSIONID cookie across list→detail requests. No cookie problem for the HTML; a document fetch would just need to reuse that same client before it closes. |
+| 5 | **Cookies** | The existing `httpx.Client` (single session per crawl, [downloader.py:61](../../backend/app/connectors/cppp/downloader.py#L61)) already carries the JSESSIONID cookie across list→detail requests. No cookie problem for the HTML; a document fetch would just need to reuse that same client before it closes. |
 | 6 | **JavaScript rendering** | Not required. Documents and links are server-rendered into the HTML we already capture. No headless browser needed. |
 | 7 | **CAPTCHA / anti-bot** | None encountered on the public list/detail/document path. (GePNIC CAPTCHA appears only on bidder login / bid submission, which we do not touch.) |
 | 8 | **Download URLs** | Recoverable from stored HTML (anchor href + adjacent filename + section label). URLs are session-relative (see #4), so they identify documents but cannot be re-fetched "cold" months later. |
@@ -62,22 +62,22 @@ The connector retrieves the detail HTML successfully. The document links inside 
 dropped at **two** points, neither of which touches the documents section:
 
 1. **Persistence layer — `_save_record` never populates the envelope's `documents` list.**
-   Both [cppp/downloader.py:134](backend/app/connectors/cppp/downloader.py#L134) and the
-   Odisha override [state_eproc/downloader.py:18](backend/app/connectors/state_eproc/downloader.py#L18)
+   Both [cppp/downloader.py:134](../../backend/app/connectors/cppp/downloader.py#L134) and the
+   Odisha override [state_eproc/downloader.py:18](../../backend/app/connectors/state_eproc/downloader.py#L18)
    call `build_envelope(... data={"detail_html": ...})` **without a `documents=` argument.**
-   `build_envelope` defaults it to `[]` ([envelope.py:57](backend/app/connectors/common/envelope.py#L57)).
+   `build_envelope` defaults it to `[]` ([envelope.py:57](../../backend/app/connectors/common/envelope.py#L57)).
    Contrast with connectors that do it correctly, e.g.
-   [cag/downloader.py:60](backend/app/connectors/cag/downloader.py#L60) and
-   [datagovin/downloader.py:80](backend/app/connectors/datagovin/downloader.py#L80),
+   [cag/downloader.py:60](../../backend/app/connectors/cag/downloader.py#L60) and
+   [datagovin/downloader.py:80](../../backend/app/connectors/datagovin/downloader.py#L80),
    which pass `documents=[...]`. The NIC downloader simply omits this.
 
 2. **Mapping layer — `map_notice` parses only caption fields, never document anchors.**
-   [cppp/mapper.py:134 `_extract_label_values`](backend/app/connectors/cppp/mapper.py#L134)
+   [cppp/mapper.py:134 `_extract_label_values`](../../backend/app/connectors/cppp/mapper.py#L134)
    scans `td_caption`/`td_field` pairs for Tender ID / title / dates / value only. It has no
    awareness of the `docDownoad` anchors or `.pdf` filenames.
 
 Consequently, `documents_from_envelope`
-([envelope.py:88](backend/app/connectors/common/envelope.py#L88)) reads
+([envelope.py:88](../../backend/app/connectors/common/envelope.py#L88)) reads
 `raw_record["documents"]` (empty) and yields **only** the single "Source notice" URL. The
 NIT, BoQ, DTCN and Corrigendum PDFs are never turned into `NormalizedDocument` entries.
 
@@ -98,7 +98,7 @@ One small, additive change; no architecture change, no engine change, no new typ
   documents section and returns `{"title": <filename>, "url": <urljoin(base, href)>,
   "document_type": <"nit"|"boq"|"corrigendum"|"work_item"|"attachment" from the section label>}`.
   Reuse the existing `_LinkParser`/regex style already in
-  [cppp/downloader.py](backend/app/connectors/cppp/downloader.py) — no new dependency.
+  [cppp/downloader.py](../../backend/app/connectors/cppp/downloader.py) — no new dependency.
 - Call it in `_save_record` and pass the result as `documents=` to `build_envelope`
   (in both the CPPP and `StateEProcDownloader` overrides). This is exactly the pattern CAG /
   datagovin already use.

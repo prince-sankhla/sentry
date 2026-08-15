@@ -11,6 +11,7 @@
 
 import { motion } from "framer-motion";
 import { Cpu, Sparkles } from "lucide-react";
+import { DURATION, EASE } from "@/lib/motion";
 
 /** Map a raw backend provider key to an analyst-facing display name. */
 export function providerDisplayName(provider: string | null | undefined, model?: string | null): string {
@@ -55,7 +56,7 @@ export function ProviderBadge({
     <motion.span
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: DURATION.base, ease: EASE }}
       className={`inline-flex items-center gap-2 rounded-full border font-medium ${pad} ${
         live ? "border-accent/40 bg-accent/[0.08] text-accent" : "border-border-strong bg-surface-2 text-muted"
       }`}

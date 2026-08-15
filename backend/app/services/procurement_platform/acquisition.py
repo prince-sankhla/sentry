@@ -25,7 +25,6 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.connectors.common.parse import now_utc
 from app.importers.generic import GenericConnectorImporter
 from app.models import Tender
 from app.services.procurement_platform.incremental import plan_delta

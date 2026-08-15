@@ -5,12 +5,10 @@ import html
 import json
 import logging
 import re
-import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlencode, urljoin
 
 import httpx

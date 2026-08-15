@@ -1,14 +1,12 @@
-import { InvestigationWorkspace } from "./investigation-workspace";
+import type { Metadata } from "next";
+import { MarketingHome } from "@/components/marketing/home";
 
-export const dynamic = "force-dynamic";
-
-type PageProps = {
-  searchParams: Promise<{
-    q?: string;
-  }>;
+export const metadata: Metadata = {
+  title: "SENTRY — Evidence. Connected.",
+  description:
+    "Turn fragmented procurement records into one intelligent investigation workspace."
 };
 
-export default async function HomePage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  return <InvestigationWorkspace initialQuery={(params.q ?? "").trim()} />;
+export default function HomePage() {
+  return <MarketingHome />;
 }

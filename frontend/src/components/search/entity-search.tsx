@@ -28,9 +28,12 @@ import {
   Sparkles,
   X
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { resolveEntity, type EntityCandidate, type EntityResolutionResult } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { DURATION, EASE } from "@/lib/motion";
 
 /* ------------------------------------------------------------------ history */
 
@@ -308,19 +311,19 @@ export function EntitySearch({
 
   return (
     <div ref={rootRef} className="animate-rise">
-      <div className="mb-1.5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="t-label flex items-center gap-2 text-accent">
           <Sparkles className="h-3.5 w-3.5" /> AI Investigation Workspace
         </div>
         {providerBadge}
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2.5 sm:flex-row">
         <div className="relative flex-1">
           {loading ? (
-            <Loader2 className="pointer-events-none absolute left-4 top-[26px] h-4 w-4 -translate-y-1/2 animate-spin text-accent" />
+            <Loader2 className="pointer-events-none absolute left-4 top-6 h-4 w-4 -translate-y-1/2 animate-spin text-accent" />
           ) : (
-            <Search className="pointer-events-none absolute left-4 top-[26px] h-4 w-4 -translate-y-1/2 text-muted" />
+            <Search className="pointer-events-none absolute left-4 top-6 h-4 w-4 -translate-y-1/2 text-muted" />
           )}
           <input
             ref={inputRef}
@@ -334,12 +337,12 @@ export function EntitySearch({
             aria-autocomplete="list"
             aria-activedescendant={activeIndex >= 0 ? `entity-option-${activeIndex}` : undefined}
             placeholder="Search a verified entity — company, buyer, authority or registration no."
-            className="h-12 w-full rounded-xl border border-border bg-surface pl-11 pr-10 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/60"
+            className="h-12 w-full rounded-xl border border-border bg-surface/70 pl-11 pr-10 text-sm text-text outline-none transition-all duration-200 placeholder:text-faint focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
             spellCheck={false}
             autoComplete="off"
           />
           {selected && (
-            <Check className="pointer-events-none absolute right-4 top-[26px] h-4 w-4 -translate-y-1/2 text-success" />
+            <Check className="pointer-events-none absolute right-4 top-6 h-4 w-4 -translate-y-1/2 text-success" />
           )}
 
           {suggestionsVisible && (
@@ -373,48 +376,60 @@ export function EntitySearch({
           )}
         </div>
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="lg"
           onClick={() => investigate(selected)}
           disabled={!canInvestigate}
+          loading={running}
           title={selected ? "Start investigation" : "Select a verified entity first"}
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-accent px-6 text-sm font-semibold text-bg transition hover:bg-accent-hi disabled:cursor-not-allowed disabled:opacity-45"
+          icon={<ArrowRight className="h-4 w-4" />}
+          className="px-6"
         >
-          {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           {running ? "Investigating" : "Investigate"}
-        </button>
+        </Button>
 
         {(activeQuery || selected) && (
-          <button
-            type="button"
+          <Button
+            variant="subtle"
+            size="lg"
+            iconOnly
             onClick={reset}
             aria-label="Reset investigation"
             title="Reset"
-            className="flex h-12 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm text-muted transition hover:text-text"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
+            icon={<RotateCcw className="h-4 w-4" />}
+          />
         )}
       </div>
 
       {/* Locked selection / active investigation subject */}
       {(selected || activeQuery) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
           {selected ? (
-            <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-success">
+            <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3.5 py-1.5 text-success">
               <Check className="h-3.5 w-3.5" />
               <span className="font-medium">{selected.canonical_name}</span>
               <span className="text-[11px] uppercase tracking-wide text-success/80">
                 {entityTypeLabel(selected.entity_type)} · locked
               </span>
-              <button type="button" onClick={reset} aria-label="Clear selection">
+              <button
+                type="button"
+                onClick={reset}
+                aria-label="Clear selection"
+                className="rounded transition-opacity hover:opacity-70"
+              >
                 <X className="h-3 w-3" />
               </button>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1.5 text-accent">
               {activeQuery}
-              <button type="button" onClick={reset} aria-label="Clear">
+              <button
+                type="button"
+                onClick={reset}
+                aria-label="Clear"
+                className="rounded transition-opacity hover:opacity-70"
+              >
                 <X className="h-3 w-3" />
               </button>
             </span>
@@ -425,7 +440,7 @@ export function EntitySearch({
         </div>
       )}
 
-      <div className="rule mt-5" />
+      <div className="rule mt-7" />
     </div>
   );
 }
@@ -463,9 +478,14 @@ function SuggestionDropdown({
   onTogglePin: (c: EntityCandidate) => void;
 }) {
   return (
-    <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-border-strong bg-surface-2 shadow-2xl shadow-black/40">
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DURATION.fast, ease: EASE }}
+      className="glass-hi float absolute z-30 mt-2.5 w-full overflow-hidden rounded-xl"
+    >
       {loading && candidates.length === 0 && (
-        <div className="flex items-center gap-2 px-4 py-4 text-sm text-muted">
+        <div className="flex items-center gap-2.5 px-4 py-5 text-sm text-muted">
           <Loader2 className="h-4 w-4 animate-spin text-accent" />
           Resolving verified entities…
         </div>
@@ -474,15 +494,15 @@ function SuggestionDropdown({
       {!loading && showEmptyState && <EmptyState term={term} />}
 
       {candidates.length > 0 && (
-        <ul id="entity-suggestions" role="listbox" className="max-h-[420px] overflow-y-auto py-1">
+        <ul id="entity-suggestions" role="listbox" className="max-h-[420px] overflow-y-auto p-1.5">
           {candidates.map((c, i) => (
             <li
               key={c.entity_id}
               id={`entity-option-${i}`}
               role="option"
               aria-selected={i === activeIndex}
-              className={`flex items-start gap-2 px-3.5 py-3 transition ${
-                i === activeIndex ? "bg-elevated" : "hover:bg-elevated/60"
+              className={`flex items-start gap-2 rounded-xl px-3 py-3 transition-colors duration-150 ${
+                i === activeIndex ? "bg-accent/[0.08]" : "hover:bg-surface/60"
               }`}
             >
               <button
@@ -491,22 +511,28 @@ function SuggestionDropdown({
                 onClick={() => onSelect(c)}
                 className="flex min-w-0 flex-1 items-start gap-3 text-left"
               >
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
+                <span
+                  className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                    i === activeIndex
+                      ? "border-accent/40 bg-accent/10"
+                      : "border-border bg-bg-2"
+                  }`}
+                >
                   <EntityTypeIcon type={c.entity_type} className="h-4 w-4 text-accent" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="truncate text-sm font-semibold text-text">{c.canonical_name}</span>
-                    <span className="shrink-0 rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                    <span className="truncate text-[13.5px] font-semibold text-text">{c.canonical_name}</span>
+                    <span className="shrink-0 rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
                       {entityTypeLabel(c.entity_type)}
                     </span>
                   </span>
-                  <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
+                  <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
                     {c.registration_number && <span className="font-mono text-muted">{c.registration_number}</span>}
                     <span>{c.tender_count} tenders</span>
                     {c.award_count > 0 && <span>· {c.award_count} awards</span>}
                     <span>· {Math.round(c.confidence * 100)}% confidence</span>
-                    <span className="rounded bg-surface px-1.5 py-0.5 text-muted">{c.match_type.replace(/_/g, " ")}</span>
+                    <span className="rounded-md bg-surface px-1.5 py-0.5 text-muted">{c.match_type.replace(/_/g, " ")}</span>
                     {c.sources.length > 0 && <span>· {c.sources.slice(0, 3).join(", ")}</span>}
                   </span>
                   {c.aliases.length > 0 && (
@@ -520,7 +546,7 @@ function SuggestionDropdown({
                 type="button"
                 onClick={() => onTogglePin(c)}
                 aria-label={isPinned(c.entity_id) ? "Unpin entity" : "Pin entity"}
-                className="mt-0.5 shrink-0 rounded p-1 text-faint transition hover:text-accent"
+                className="mt-0.5 shrink-0 rounded-md p-1.5 text-faint transition-colors hover:text-accent"
               >
                 <Pin className={`h-3.5 w-3.5 ${isPinned(c.entity_id) ? "fill-accent/25 text-accent" : ""}`} />
               </button>
@@ -530,29 +556,29 @@ function SuggestionDropdown({
       )}
 
       {candidates.length > 0 && (
-        <div className="border-t border-border px-3.5 py-2 text-[11px] text-faint">
+        <div className="border-t border-border bg-bg-2/50 px-4 py-2.5 text-[11px] text-faint">
           Verified procurement entities · use ↑ ↓ to navigate, Enter to select
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
 function EmptyState({ term }: { term: string }) {
   return (
-    <div className="px-4 py-4">
+    <div className="px-5 py-5">
       <p className="text-sm font-semibold text-text">No verified procurement entity found</p>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1.5 text-xs leading-relaxed text-muted">
         “{term.trim()}” does not match any known procurement company, buyer or authority.
       </p>
-      <ul className="mt-3 space-y-1.5 text-xs text-faint">
-        <li className="flex items-center gap-2">
+      <ul className="mt-4 space-y-2 text-xs text-faint">
+        <li className="flex items-center gap-2.5">
           <span className="h-1 w-1 rounded-full bg-accent" /> Check the spelling
         </li>
-        <li className="flex items-center gap-2">
+        <li className="flex items-center gap-2.5">
           <span className="h-1 w-1 rounded-full bg-accent" /> Try the official company name
         </li>
-        <li className="flex items-center gap-2">
+        <li className="flex items-center gap-2.5">
           <span className="h-1 w-1 rounded-full bg-accent" /> Try the registration number (CIN)
         </li>
       </ul>
@@ -583,8 +609,13 @@ function HistoryDropdown({
   if (empty) return null;
 
   return (
-    <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-border-strong bg-surface-2 shadow-2xl shadow-black/40">
-      <div className="max-h-[420px] overflow-y-auto p-2">
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DURATION.fast, ease: EASE }}
+      className="glass-hi float absolute z-30 mt-2.5 w-full overflow-hidden rounded-xl"
+    >
+      <div className="max-h-[420px] overflow-y-auto p-2.5">
         {pinned.length > 0 && (
           <Group title="Pinned entities">
             {pinned.map((e) => (
@@ -632,7 +663,7 @@ function HistoryDropdown({
                 key={s}
                 type="button"
                 onClick={() => onPickSearch(s)}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-muted transition hover:bg-elevated hover:text-text"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13.5px] text-muted transition-colors duration-150 hover:bg-surface/60 hover:text-text"
               >
                 <Search className="h-3.5 w-3.5 text-faint" />
                 <span className="truncate">{s}</span>
@@ -641,15 +672,15 @@ function HistoryDropdown({
           </Group>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 function Group({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="mb-1 last:mb-0">
-      <div className="flex items-center justify-between px-2.5 py-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">{title}</span>
+    <div className="mb-2 last:mb-0">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="t-label">{title}</span>
         {action}
       </div>
       <div className="space-y-0.5">{children}</div>
@@ -671,12 +702,12 @@ function EntityRow({
       <button
         type="button"
         onClick={onPick}
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-elevated"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors duration-150 hover:bg-surface/60"
       >
         <EntityTypeIcon type={entity.entity_type} className="h-3.5 w-3.5 shrink-0 text-accent" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm text-text">{entity.canonical_name}</span>
-          <span className="block text-[11px] text-faint">
+          <span className="block truncate text-[13.5px] text-text">{entity.canonical_name}</span>
+          <span className="mt-0.5 block text-[11px] text-faint">
             {entityTypeLabel(entity.entity_type)}
             {entity.registration_number ? ` · ${entity.registration_number}` : ""}
           </span>

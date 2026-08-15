@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-
+import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page";
 import { ErrorState } from "@/components/ui/states";
 
@@ -12,20 +11,11 @@ export default function Error({ reset }: { reset: () => void }) {
         title="Unable to load graph"
         message="The investigation graph API did not return a successful response."
       />
-      <div className="mt-5 flex justify-center gap-3">
-        <button
-          className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text transition hover:border-border-strong"
-          onClick={reset}
-          type="button"
-        >
-          Retry
-        </button>
-        <Link
-          className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text transition hover:border-border-strong"
-          href="/"
-        >
+      <div className="mt-8 flex justify-center gap-3">
+        <Button onClick={reset}>Retry</Button>
+        <Button href="/" variant="subtle">
           Dashboard
-        </Link>
+        </Button>
       </div>
     </PageShell>
   );

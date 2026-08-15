@@ -2,9 +2,11 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useTransition } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { TenderSort } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { SearchInput, Select } from "@/components/ui/input";
 
 type Props = {
   limit: number;
@@ -55,24 +57,22 @@ export function TenderSearchControls({ limit, offset, total, query, sort }: Prop
   }
 
   return (
-    <div className="rounded-[16px] border border-border bg-surface p-4">
+    <div className="rounded-2xl border border-border bg-surface/70 p-5">
       <form className="grid gap-3 md:grid-cols-[1fr_180px_auto]" onSubmit={onSearch}>
         <label className="relative block">
           <span className="sr-only">Search tenders</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
-          <input
-            className="h-11 w-full rounded-lg border border-border bg-bg-2 pl-9 pr-3 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/60"
+          <SearchInput
             defaultValue={query}
             name="q"
             placeholder="Search by title or procuring entity"
             type="search"
+            pending={isPending}
           />
         </label>
 
         <label className="block">
           <span className="sr-only">Sort tenders</span>
-          <select
-            className="h-11 w-full rounded-lg border border-border bg-bg-2 px-3 text-sm text-text outline-none transition focus:border-accent/60"
+          <Select
             onChange={(event) => updateParams({ sort: event.target.value, offset: 0 })}
             value={sort}
           >
@@ -81,41 +81,37 @@ export function TenderSearchControls({ limit, offset, total, query, sort }: Prop
                 {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
-        <button
-          className="h-11 rounded-lg bg-accent px-5 text-sm font-semibold text-bg transition hover:bg-accent-hi disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={isPending}
-          type="submit"
-        >
+        <Button variant="primary" type="submit" disabled={isPending}>
           Search
-        </button>
+        </Button>
       </form>
 
-      <div className="mt-4 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-5 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
         <div aria-live="polite">
           {isPending ? "Loading results..." : `Page ${currentPage} of ${pageCount}`}
         </div>
         <div className="flex gap-2">
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 font-medium text-text transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45"
+          <Button
+            variant="subtle"
+            size="sm"
             disabled={!hasPrevious || isPending}
             onClick={() => updateParams({ offset: Math.max(0, offset - limit) })}
-            type="button"
+            icon={<ChevronLeft className="h-4 w-4" aria-hidden="true" />}
           >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             Previous
-          </button>
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 font-medium text-text transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45"
+          </Button>
+          <Button
+            variant="subtle"
+            size="sm"
             disabled={!hasNext || isPending}
             onClick={() => updateParams({ offset: offset + limit })}
-            type="button"
+            trailing={<ChevronRight className="h-4 w-4" aria-hidden="true" />}
           >
             Next
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

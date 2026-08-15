@@ -46,13 +46,18 @@ export default async function CompaniesPage({
 
       {data.items.length === 0 ? (
         <EmptyState
-          icon={<Building2 className="h-5 w-5" />}
-          title="No companies found"
+          icon={<Building2 className=”h-5 w-5” />}
+          title=”No companies found”
           message={
             q
-              ? `“${q}” is not available among imported companies.`
-              : "No companies have been imported yet."
+              ? `”${q}” is not available among imported companies.`
+              : “No companies have been imported yet.”
           }
+          suggestions={q ? undefined : [
+            “Run an investigation - entities are resolved and cataloged automatically”,
+            “Import tenders or awards - companies are extracted from procurement records”,
+            “Connect a procurement source in Settings -> Data Sources”
+          ]}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -60,7 +65,7 @@ export default async function CompaniesPage({
             <Link
               key={c.id}
               href={`/companies/${c.id}`}
-              className="group relative overflow-hidden rounded-[16px] border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)]"
+              className="group relative overflow-hidden rounded-2xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-bg-2 text-accent">

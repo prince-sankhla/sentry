@@ -1,9 +1,18 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
+
+/**
+ * Page scaffolding — the outer rhythm every route shares.
+ *
+ * `PageShell` sets the measure and the editorial gutter; `PageHeader` supplies
+ * breadcrumb, display title and action rail. Between them they guarantee that
+ * two unrelated screens still start at the same optical position.
+ */
 
 export function PageShell({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-[1500px] px-5 py-6 md:px-8 md:py-8">
+    <div className="mx-auto w-full max-w-[1500px] px-6 py-8 md:px-10 md:py-12">
       {children}
     </div>
   );
@@ -23,14 +32,22 @@ export function PageHeader({
   breadcrumb?: { label: string; href?: string }[];
 }) {
   return (
-    <div className="mb-6 animate-rise">
+    <div className="mb-10 animate-rise">
       {breadcrumb && breadcrumb.length > 0 && (
-        <nav className="mb-3 flex items-center gap-1.5 text-xs text-faint">
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-4 flex flex-wrap items-center gap-1.5 text-[12px] text-faint"
+        >
           {breadcrumb.map((c, i) => (
             <span key={`${c.label}-${i}`} className="flex items-center gap-1.5">
-              {i > 0 && <span className="text-border-strong">/</span>}
+              {i > 0 && (
+                <ChevronRight className="h-3 w-3 text-border-strong" aria-hidden />
+              )}
               {c.href ? (
-                <Link href={c.href} className="transition hover:text-accent">
+                <Link
+                  href={c.href}
+                  className="transition-colors duration-200 hover:text-accent"
+                >
                   {c.label}
                 </Link>
               ) : (
@@ -40,31 +57,47 @@ export function PageHeader({
           ))}
         </nav>
       )}
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div className="min-w-0">
           {eyebrow && (
-            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-              {eyebrow}
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className="h-1 w-1 rounded-full bg-accent" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+                {eyebrow}
+              </span>
             </div>
           )}
-          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-text md:text-[30px]">
+          <h1 className="text-[30px] font-semibold leading-[1.08] tracking-[-0.028em] text-text md:text-[38px]">
             {title}
           </h1>
           {subtitle && (
-            <div className="mt-1.5 max-w-2xl text-sm text-muted">{subtitle}</div>
+            <div className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">
+              {subtitle}
+            </div>
           )}
         </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2.5">
+            {actions}
+          </div>
+        )}
       </div>
-      <div className="rule mt-5" />
+      <div className="rule mt-8" />
     </div>
   );
 }
 
+/**
+ * Severity badge.
+ *
+ * Kept on the risk lattice, not the brand accent — see `ui/chip.tsx` for the
+ * reasoning. `RiskChip` is the fuller control; this stays for the three-level
+ * call sites that already exist.
+ */
 const SEVERITY = {
-  high: "border-danger/40 bg-danger/10 text-danger",
-  medium: "border-warning/40 bg-warning/10 text-warning",
-  low: "border-success/40 bg-success/10 text-success"
+  high: "border-risk-high/40 bg-risk-high/10 text-risk-high",
+  medium: "border-risk-med/40 bg-risk-med/10 text-risk-med",
+  low: "border-risk-low/40 bg-risk-low/10 text-risk-low"
 } as const;
 
 export function SeverityBadge({
@@ -76,12 +109,12 @@ export function SeverityBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${SEVERITY[severity]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${SEVERITY[severity]}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {severity}
       {typeof score === "number" && (
-        <span className="tabular opacity-80">· {score}</span>
+        <span className="tabular font-medium opacity-80">· {score}</span>
       )}
     </span>
   );
@@ -103,7 +136,7 @@ export function Badge({
   } as const;
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}
     >
       {children}
     </span>
@@ -134,20 +167,25 @@ export function RankBar({
   }[tone];
   const inner = (
     <div className="group relative">
-      <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+      <div className="mb-2 flex items-center justify-between gap-3 text-[13px]">
         <span className="truncate text-text">{label}</span>
-        {meta && <span className="shrink-0 tabular text-xs text-muted">{meta}</span>}
+        {meta && (
+          <span className="shrink-0 tabular text-xs text-muted">{meta}</span>
+        )}
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-bg-2">
         <div
-          className={`h-full rounded-full ${bar} transition-all`}
+          className={`h-full rounded-full ${bar} transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100`}
           style={{ width: `${pct}%` }}
         />
       </div>
     </div>
   );
   return href ? (
-    <Link href={href} className="block transition hover:opacity-90">
+    <Link
+      href={href}
+      className="block transition-opacity duration-200 hover:opacity-90"
+    >
       {inner}
     </Link>
   ) : (

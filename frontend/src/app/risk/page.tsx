@@ -50,6 +50,11 @@ export default async function RiskPage() {
           icon={<Radar className="h-5 w-5" />}
           title="No risk signals detected"
           message="No single-bidder tenders or supplier concentration patterns were found in the current dataset."
+          suggestions={[
+            "Import more tenders to increase screening coverage",
+            "Run an investigation from the Investigation Workspace",
+            "Connect additional procurement sources in Settings"
+          ]}
         />
       ) : (
         <div className="space-y-3">
@@ -59,7 +64,7 @@ export default async function RiskPage() {
             return (
               <div
                 key={`${sig.type}-${sig.tender_id ?? sig.supplier_id ?? i}`}
-                className="animate-rise rounded-[16px] border border-border bg-surface p-5 transition hover:border-border-strong"
+                className="animate-rise rounded-2xl border border-border bg-surface p-5 transition hover:border-border-strong"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">

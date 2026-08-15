@@ -188,7 +188,7 @@ export default async function CompanyInvestigationPage({ params, searchParams }:
               ) : (
                 <div className="space-y-3">
                   {overview.intelligence.relationship_scores.map((relationship) => (
-                    <div className="rounded-[16px] border border-border bg-bg-2 p-3" key={`${relationship.buyer}-${relationship.supplier_id}`}>
+                    <div className="rounded-2xl border border-border bg-bg-2 p-3" key={`${relationship.buyer}-${relationship.supplier_id}`}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-text">{relationship.buyer ?? "Unknown buyer"}</div>
@@ -222,7 +222,7 @@ export default async function CompanyInvestigationPage({ params, searchParams }:
             ) : (
               <div className="grid gap-3">
                 {awards.items.map((award) => (
-                  <div className="grid gap-3 rounded-[16px] border border-border bg-bg-2 p-4 transition hover:bg-surface-2 md:grid-cols-[1fr_auto]" key={award.id}>
+                  <div className="grid gap-3 rounded-2xl border border-border bg-bg-2 p-4 transition hover:bg-surface-2 md:grid-cols-[1fr_auto]" key={award.id}>
                     <div>
                       <Link className="flex items-center gap-2 text-sm font-semibold text-text transition hover:text-accent" href={`/tenders/${award.tender_id}`}>
                         <Award className="h-4 w-4 text-accent" aria-hidden="true" />
@@ -274,7 +274,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[16px] border border-border bg-bg-2 p-3">
+    <div className="rounded-2xl border border-border bg-bg-2 p-3">
       <div className="text-xs font-semibold uppercase tracking-[0.08em] text-faint">{label}</div>
       <div className="mt-2 text-sm font-semibold text-text">{value}</div>
     </div>
@@ -289,7 +289,7 @@ function IntelligenceSignals({ signals }: { signals: ProcurementIntelligenceSign
   return (
     <div className="grid gap-3">
       {signals.map((signal) => (
-        <div className="rounded-[16px] border border-border bg-bg-2 p-4" key={`${signal.type}-${signal.company_id}-${signal.buyer}-${signal.score}`}>
+        <div className="rounded-2xl border border-border bg-bg-2 p-4" key={`${signal.type}-${signal.company_id}-${signal.buyer}-${signal.score}`}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-text">
@@ -341,7 +341,7 @@ function EvidenceDocket({
       ) : (
         <ul className="space-y-2">
           {evidenceItems.map((item, index) => (
-            <li className="rounded-[12px] border border-border bg-bg-2/40 p-3 text-sm text-muted" key={`${item}-${index}`}>
+            <li className="rounded-xl border border-border bg-bg-2/40 p-3 text-sm text-muted" key={`${item}-${index}`}>
               {item}
             </li>
           ))}

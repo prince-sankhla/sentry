@@ -16,6 +16,7 @@ import type {
   ConfidenceAssessment,
   Contradiction
 } from "@/lib/api";
+import { DURATION, EASE } from "@/lib/motion";
 
 export function AnalystReportSections({ report }: { report: AnalystReport }) {
   return (
@@ -51,7 +52,7 @@ function ConfidenceCard({ confidence }: { confidence: ConfidenceAssessment }) {
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {confidence.dimensions.map((d) => (
-          <div key={d.key} className="rounded-[12px] border border-border bg-bg-2/40 p-3">
+          <div key={d.key} className="rounded-xl border border-border bg-bg-2/40 p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-text">{d.label}</span>
               <span className="text-xs tabular-nums text-muted">{Math.round(d.score * 100)}%</span>
@@ -61,7 +62,7 @@ function ConfidenceCard({ confidence }: { confidence: ConfidenceAssessment }) {
                 className="h-full rounded-full bg-accent/70"
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.round(d.score * 100)}%` }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: DURATION.base, ease: EASE }}
               />
             </div>
             <p className="mt-1.5 text-[11px] leading-snug text-faint">{d.detail}</p>
@@ -90,7 +91,7 @@ function ContradictionsCard({ contradictions }: { contradictions: Contradiction[
     >
       <ul className="space-y-2">
         {contradictions.map((c, i) => (
-          <li key={i} className="rounded-[12px] border border-border bg-bg-2/40 p-3">
+          <li key={i} className="rounded-xl border border-border bg-bg-2/40 p-3">
             <div className="flex items-start gap-2.5">
               <span
                 className={`mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${SEV_TONE[c.severity]}`}
@@ -124,7 +125,7 @@ function PatternsCard({ patterns }: { patterns: AnalystReport["procurement_patte
     <Section eyebrow="Signals" title="Procurement patterns">
       <ul className="space-y-2">
         {patterns.map((p, i) => (
-          <li key={i} className="flex items-start gap-2.5 rounded-[12px] border border-border bg-bg-2/40 p-3">
+          <li key={i} className="flex items-start gap-2.5 rounded-xl border border-border bg-bg-2/40 p-3">
             <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
             <div className="min-w-0">
               <p className="text-sm font-medium text-text">{p.pattern}</p>
@@ -153,7 +154,7 @@ function BuyersCard({ buyers }: { buyers: AnalystReport["buyer_analysis"] }) {
     <Section eyebrow="Demand side" title="Buyer analysis">
       <div className="space-y-2">
         {buyers.map((b) => (
-          <div key={b.name} className="rounded-[12px] border border-border bg-bg-2/40 p-3">
+          <div key={b.name} className="rounded-xl border border-border bg-bg-2/40 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-text">{b.name}</span>
               <span className="text-[11px] text-faint">
@@ -182,7 +183,7 @@ function SuppliersCard({ suppliers }: { suppliers: AnalystReport["supplier_analy
     <Section eyebrow="Supply side" title="Supplier analysis">
       <div className="space-y-2">
         {suppliers.map((s) => (
-          <div key={s.name} className="rounded-[12px] border border-border bg-bg-2/40 p-3">
+          <div key={s.name} className="rounded-xl border border-border bg-bg-2/40 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-text">{s.name}</span>
               <span className="text-[11px] text-faint">
@@ -249,7 +250,7 @@ function MissingEvidenceCard({ gaps }: { gaps: string[] }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[12px] border border-border bg-bg-2/40 p-2.5">
+    <div className="rounded-xl border border-border bg-bg-2/40 p-2.5">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-faint">{label}</div>
       <div className="mt-0.5 truncate text-sm font-semibold text-text" title={value}>
         {value}

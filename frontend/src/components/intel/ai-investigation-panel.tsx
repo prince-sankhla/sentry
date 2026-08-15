@@ -24,12 +24,13 @@ import {
 } from "lucide-react";
 import type { InvestigationReasoning, InvestigationRiskLevel } from "@/lib/api";
 import { ProviderBadge, providerDisplayName } from "@/components/intel/provider-badge";
+import { DURATION, EASE } from "@/lib/motion";
 
 const RISK: Record<InvestigationRiskLevel, { label: string; text: string; ring: string; bar: string }> = {
-  critical: { label: "Critical Priority", text: "text-danger", ring: "border-danger/50 bg-danger/[0.07]", bar: "bg-danger" },
-  high: { label: "High Priority", text: "text-danger", ring: "border-danger/40 bg-danger/[0.05]", bar: "bg-danger" },
-  medium: { label: "Medium Priority", text: "text-warning", ring: "border-warning/40 bg-warning/[0.05]", bar: "bg-warning" },
-  low: { label: "Low Priority", text: "text-success", ring: "border-success/40 bg-success/[0.05]", bar: "bg-success" },
+  critical: { label: "Critical Priority", text: "text-risk-crit", ring: "border-risk-crit/50 bg-risk-crit/[0.07]", bar: "bg-risk-crit" },
+  high: { label: "High Priority", text: "text-risk-high", ring: "border-risk-high/40 bg-risk-high/[0.05]", bar: "bg-risk-high" },
+  medium: { label: "Medium Priority", text: "text-risk-med", ring: "border-risk-med/40 bg-risk-med/[0.05]", bar: "bg-risk-med" },
+  low: { label: "Low Priority", text: "text-risk-low", ring: "border-risk-low/40 bg-risk-low/[0.05]", bar: "bg-risk-low" },
   insufficient: { label: "Insufficient Evidence", text: "text-muted", ring: "border-border bg-surface", bar: "bg-border-strong" }
 };
 
@@ -56,18 +57,18 @@ export function AiInvestigationPanel({
     <motion.section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className={`relative overflow-hidden rounded-[20px] border ${style.ring} elevate`}
+      transition={{ duration: DURATION.slow, ease: EASE }}
+      className={`relative overflow-hidden rounded-2xl border ${style.ring} elevate`}
     >
-      {/* copper dawn wash */}
+      {/* emerald ambient wash */}
       <div
         aria-hidden
         className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent/[0.06] blur-3xl"
       />
 
       {/* header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-2/40 px-5 py-3.5">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-2/40 px-5 py-4">
+        <div className="t-label flex items-center gap-2 text-accent">
           <Sparkles className="h-3.5 w-3.5" /> Narrative Summary
         </div>
         <div className="flex items-center gap-2">
@@ -90,7 +91,7 @@ export function AiInvestigationPanel({
       <div className="grid gap-5 p-5 lg:grid-cols-[1fr_300px]">
         {/* left — summary + reasoning */}
         <div className="min-w-0">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Executive summary</div>
+          <div className="mb-2 t-label">Executive summary</div>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -101,8 +102,8 @@ export function AiInvestigationPanel({
           </motion.p>
 
           {reasoning.risk_rationale.length > 0 && (
-            <div className="mt-4">
-              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">
+            <div className="mt-5">
+              <div className="mb-2.5 t-label flex items-center gap-1.5">
                 <Activity className="h-3 w-3 text-accent" /> Analyst reasoning
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -204,7 +205,7 @@ function MetricTile({
   tone: keyof typeof TILE_TONE;
 }) {
   return (
-    <div className="rounded-[12px] border border-border bg-surface/60 p-2.5">
+    <div className="rounded-xl border border-border bg-surface/60 p-2.5">
       <div className={`flex items-center gap-1.5 ${TILE_TONE[tone]}`}>
         {icon}
         <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-faint">{label}</span>

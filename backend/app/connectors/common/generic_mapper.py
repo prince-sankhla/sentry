@@ -8,8 +8,7 @@ record. Unknown shapes degrade gracefully instead of raising.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Sequence
 

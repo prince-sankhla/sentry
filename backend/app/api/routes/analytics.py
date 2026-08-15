@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 

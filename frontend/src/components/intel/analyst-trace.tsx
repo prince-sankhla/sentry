@@ -60,7 +60,7 @@ function TraceStep({ step, index }: { step: AnalystStep; index: number }) {
       </motion.span>
 
       {/* body */}
-      <div className="min-w-0 flex-1 rounded-[14px] border border-border bg-surface/60 p-3 transition hover:border-border-strong">
+      <div className="min-w-0 flex-1 rounded-xl border border-border bg-surface/60 p-3 transition hover:border-border-strong">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">

@@ -103,7 +103,7 @@ function QueueCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="group flex flex-col gap-3 rounded-[16px] border border-border bg-bg-2/40 p-4 text-left transition hover:border-accent/40 hover:bg-bg-2/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+      className="group flex flex-col gap-3 rounded-2xl border border-border bg-bg-2/40 p-4 text-left transition hover:border-accent/40 hover:bg-bg-2/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       {/* priority + evidence strength */}
       <div className="flex items-center justify-between gap-2">
@@ -167,7 +167,7 @@ function QueueSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-[168px] animate-pulse rounded-[16px] border border-border bg-bg-2/40" />
+        <div key={i} className="h-[168px] animate-pulse rounded-2xl border border-border bg-bg-2/40" />
       ))}
     </div>
   );

@@ -47,7 +47,7 @@ INDIA_CLASSES: frozenset[ConnectorClass] = frozenset(
 
 # Explicit per-connector classification. State portals (``eproc_*``) are matched by
 # prefix below, so they do not need individual entries. Kept in sync with
-# INDIA_DATA_AUDIT.md — the single source of truth for the audit is that document.
+# docs/reports/INDIA_DATA_AUDIT.md — the single source of truth for the audit is that document.
 _CLASSIFICATION: dict[str, ConnectorClass] = {
     # -- Indian Procurement --------------------------------------------------
     "cppp": ConnectorClass.INDIA_PROCUREMENT,

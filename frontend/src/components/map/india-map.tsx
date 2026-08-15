@@ -9,6 +9,7 @@
  * TopoJSON is served locally from /geo/india-states.json (public/).
  */
 import { AnimatePresence, motion } from "framer-motion";
+import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   ComposableMap,
@@ -18,6 +19,8 @@ import {
   ZoomableGroup
 } from "react-simple-maps";
 import { canonicalState, STATE_CENTROIDS } from "@/lib/india";
+import { MAP, mapColor } from "@/lib/theme";
+import { Button } from "@/components/ui/button";
 
 const GEO_URL = "/geo/india-states.json";
 
@@ -77,31 +80,32 @@ export function IndiaMap({
 
   function fill(stateName: string): string {
     const datum = byState.get(canonicalState(stateName) ?? "");
-    if (!datum || datum.tenders === 0) return "#131c28";
-    const t = Math.min(1, datum.tenders / maxTenders);
-    // charcoal -> gold heat ramp
-    return heat(t);
+    if (!datum || datum.tenders === 0) return MAP.empty;
+    // graphite -> emerald density ramp, shared with the rest of the platform
+    return mapColor(datum.tenders / maxTenders);
   }
 
   return (
     <div className="relative">
-      <div className="absolute right-3 top-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border bg-surface/90 backdrop-blur">
-        <button
-          className="grid h-8 w-8 place-items-center text-muted transition hover:bg-surface-2 hover:text-accent"
+      <div className="absolute right-3 top-3 z-10 flex flex-col overflow-hidden rounded-xl border border-border bg-surface/90 backdrop-blur">
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
           onClick={() => setZoom((z) => Math.min(z * 1.5, 8))}
-          type="button"
           aria-label="Zoom in"
-        >
-          +
-        </button>
-        <button
-          className="grid h-8 w-8 place-items-center border-t border-border text-muted transition hover:bg-surface-2 hover:text-accent"
+          className="rounded-none text-base"
+          icon={<Plus className="h-4 w-4" />}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
           onClick={() => setZoom((z) => Math.max(z / 1.5, 1))}
-          type="button"
           aria-label="Zoom out"
-        >
-          −
-        </button>
+          className="rounded-none border-t border-border text-base"
+          icon={<Minus className="h-4 w-4" />}
+        />
       </div>
 
       <ComposableMap
@@ -124,9 +128,9 @@ export function IndiaMap({
                     onMouseLeave={() => setHover(null)}
                     onClick={() => onSelectRegion?.(canonicalState(name) ?? name)}
                     style={{
-                      default: { fill: fill(name), stroke: "#0b0f16", strokeWidth: 0.5, outline: "none", transition: "fill 0.2s" },
-                      hover: { fill: "#f6c65a", stroke: "#0b0f16", strokeWidth: 0.6, outline: "none", cursor: "pointer" },
-                      pressed: { fill: "#e0a73e", outline: "none" }
+                      default: { fill: fill(name), stroke: MAP.stroke, strokeWidth: 0.5, outline: "none", transition: "fill 0.2s" },
+                      hover: { fill: MAP.hover, stroke: MAP.stroke, strokeWidth: 0.6, outline: "none", cursor: "pointer" },
+                      pressed: { fill: MAP.pressed, outline: "none" }
                     }}
                   />
                 );
@@ -139,8 +143,8 @@ export function IndiaMap({
             if (!c) return null;
             return (
               <Marker key={h.region} coordinates={c}>
-                <circle r={4} fill="#f6c65a" stroke="#080b11" strokeWidth={1} />
-                <circle r={4} fill="none" stroke="#f6c65a" strokeWidth={1} opacity={0.6}>
+                <circle r={4} fill={MAP.marker} stroke={MAP.markerStroke} strokeWidth={1} />
+                <circle r={4} fill="none" stroke={MAP.marker} strokeWidth={1} opacity={0.6}>
                   <animate attributeName="r" from="4" to="16" dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.6" to="0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
@@ -150,10 +154,15 @@ export function IndiaMap({
         </ZoomableGroup>
       </ComposableMap>
 
-      {/* legend */}
-      <div className="mt-3 flex items-center gap-3 px-1 text-[11px] text-faint">
+      {/* legend — same ramp the choropleth interpolates */}
+      <div className="mt-4 flex items-center gap-3 px-1 text-[11px] text-faint">
         <span>Low</span>
-        <div className="h-1.5 flex-1 rounded-full" style={{ background: "linear-gradient(90deg,#131c28,#7a5a24,#e0a73e,#f6c65a)" }} />
+        <div
+          className="h-1.5 flex-1 rounded-full"
+          style={{
+            background: `linear-gradient(90deg, ${[MAP.empty, ...MAP.scale].join(",")})`
+          }}
+        />
         <span>High</span>
       </div>
 
@@ -181,31 +190,9 @@ export function IndiaMap({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-bg-2/60 px-2 py-1.5">
-      <div className="text-[10px] uppercase tracking-wide text-faint">{label}</div>
-      <div className="mt-0.5 font-semibold tabular-nums text-text">{value}</div>
+    <div className="rounded-lg border border-border bg-bg-2/60 px-2.5 py-2">
+      <div className="t-label">{label}</div>
+      <div className="mt-1 font-semibold tabular-nums text-text">{value}</div>
     </div>
   );
-}
-
-function heat(t: number): string {
-  // interpolate charcoal(#131c28) -> gold(#f6c65a) through amber
-  const stops = [
-    { at: 0, c: [19, 28, 40] },
-    { at: 0.5, c: [122, 90, 36] },
-    { at: 1, c: [246, 198, 90] }
-  ];
-  let lo = stops[0];
-  let hi = stops[stops.length - 1];
-  for (let i = 0; i < stops.length - 1; i++) {
-    if (t >= stops[i].at && t <= stops[i + 1].at) {
-      lo = stops[i];
-      hi = stops[i + 1];
-      break;
-    }
-  }
-  const span = hi.at - lo.at || 1;
-  const k = (t - lo.at) / span;
-  const c = lo.c.map((v, i) => Math.round(v + (hi.c[i] - v) * k));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
 }

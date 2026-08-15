@@ -22,3 +22,20 @@ build/
 coverage/
 .next/
 out/
+
+# Build artifacts
+*.tsbuildinfo
+backend/packet_*.html
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Runtime data (investigation memory grows on every run)
+backend/data/memory/
+
+# Logs & temp
+*.log
+*.tmp

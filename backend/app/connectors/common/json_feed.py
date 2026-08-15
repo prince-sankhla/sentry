@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence
 
 from app.connectors.common.http import BaseHttpDownloader, DownloadStats
 from app.connectors.common.parse import is_url, optional_string

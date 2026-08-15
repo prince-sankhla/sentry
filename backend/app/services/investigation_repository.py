@@ -9,7 +9,7 @@ real imported PostgreSQL data instead of raw files on disk.
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from app.connectors.base import (
     NormalizedAward,
@@ -19,7 +19,7 @@ from app.connectors.base import (
     NormalizedSourceMetadata,
     NormalizedTender,
 )
-from app.models import Award, Company, Document, Tender
+from app.models import Award, Tender
 from app.services.search_query import (
     entity_matches,
     entity_relevance_score,

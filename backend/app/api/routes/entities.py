@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_db
-from app.entity_resolution.models import CanonicalCompany, CanonicalCompanyLink
+from app.entity_resolution.models import CanonicalCompany
 from app.entity_resolution.resolver import CompanyResolver
 from app.entity_resolution.schemas import (
     CanonicalCompanyResponse,
@@ -17,7 +17,7 @@ from app.entity_resolution.schemas import (
     LinkedTender,
     LinkedWebEvidence,
 )
-from app.models import Award, Company, Tender
+from app.models import Award, Company
 from app.webintel.models import WebEvidence, WebProcurementEvidence
 
 router = APIRouter(prefix="/api/entities", tags=["entity-resolution"])

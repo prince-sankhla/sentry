@@ -13,6 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { globalSearch, type SearchHit } from "@/lib/api";
+import { DURATION, EASE } from "@/lib/motion";
 
 type Flat = SearchHit & { group: "Tenders" | "Companies" | "Buyers" };
 
@@ -129,17 +130,17 @@ export function CommandPalette({
           transition={{ duration: 0.14 }}
         >
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-bg/70 backdrop-blur-md"
             onClick={onClose}
           />
           <motion.div
-            className="glass relative w-full max-w-2xl overflow-hidden rounded-2xl shadow-2xl"
-            initial={{ opacity: 0, y: -12, scale: 0.98 }}
+            className="glass-hi float relative w-full max-w-2xl overflow-hidden rounded-2xl"
+            initial={{ opacity: 0, y: -10, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: [0.2, 0.7, 0.2, 1] }}
+            exit={{ opacity: 0, y: -8, scale: 0.985 }}
+            transition={{ duration: DURATION.fast, ease: EASE }}
           >
-            <div className="flex items-center gap-3 border-b border-border px-4">
+            <div className="flex items-center gap-3 border-b border-border px-5">
               {loading ? (
                 <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" />
               ) : (
@@ -151,16 +152,16 @@ export function CommandPalette({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onKeyDown}
                 placeholder="Search companies, buyers, tenders, awards…"
-                className="h-14 w-full bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
+                className="h-16 w-full bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
               />
-              <kbd className="hidden rounded border border-border bg-bg-2 px-1.5 py-0.5 text-[10px] font-medium text-faint sm:block">
+              <kbd className="hidden rounded-md border border-border bg-bg-2 px-1.5 py-0.5 text-[10px] font-medium text-faint sm:block">
                 ESC
               </kbd>
             </div>
 
-            <div className="max-h-[52vh] overflow-y-auto p-2">
+            <div className="max-h-[52vh] overflow-y-auto p-2.5">
               {query.trim().length < 2 && (
-                <div className="px-3 py-8 text-center text-sm text-faint">
+                <div className="px-3 py-10 text-center text-sm leading-relaxed text-faint">
                   Type at least 2 characters to search the local investigation
                   database.
                 </div>
@@ -170,12 +171,14 @@ export function CommandPalette({
                 searched &&
                 hits.length === 0 &&
                 !loading && (
-                  <div className="flex flex-col items-center gap-2 px-3 py-10 text-center">
-                    <SearchX className="h-6 w-6 text-faint" />
+                  <div className="flex flex-col items-center gap-2.5 px-3 py-12 text-center">
+                    <span className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-surface/60 text-faint">
+                      <SearchX className="h-5 w-5" />
+                    </span>
                     <p className="text-sm font-medium text-text">
                       Not in the local investigation database
                     </p>
-                    <p className="max-w-sm text-xs text-muted">
+                    <p className="max-w-sm text-xs leading-relaxed text-muted">
                       “{query.trim()}” is not available among imported buyers,
                       companies, tenders, or awards. Import the entity to
                       investigate it.
@@ -186,10 +189,8 @@ export function CommandPalette({
               {grouped.map((section) => {
                 const Icon = GROUP_ICON[section.group];
                 return (
-                  <div key={section.group} className="mb-1">
-                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">
-                      {section.group}
-                    </div>
+                  <div key={section.group} className="mb-1.5">
+                    <div className="t-label px-3 py-2">{section.group}</div>
                     {section.items.map((hit) => {
                       const idx = hits.indexOf(hit);
                       const isActive = idx === active;
@@ -198,14 +199,14 @@ export function CommandPalette({
                           key={`${hit.group}-${hit.id}`}
                           onMouseEnter={() => setActive(idx)}
                           onClick={() => go(hit)}
-                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${
+                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-150 ${
                             isActive
-                              ? "bg-accent/12 text-text"
-                              : "text-muted hover:bg-surface-2"
+                              ? "bg-accent/[0.10] text-text"
+                              : "text-muted hover:bg-surface/60"
                           }`}
                         >
                           <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
                               isActive
                                 ? "border-accent/40 bg-accent/10 text-accent"
                                 : "border-border bg-bg-2 text-muted"
@@ -234,15 +235,15 @@ export function CommandPalette({
               })}
             </div>
 
-            <div className="flex items-center justify-between border-t border-border bg-bg-2/50 px-4 py-2 text-[11px] text-faint">
-              <span className="flex items-center gap-3">
+            <div className="flex items-center justify-between border-t border-border bg-bg-2/60 px-5 py-2.5 text-[11px] text-faint">
+              <span className="flex items-center gap-3.5">
                 <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-border px-1">↑</kbd>
-                  <kbd className="rounded border border-border px-1">↓</kbd>
+                  <kbd className="rounded-md border border-border px-1">↑</kbd>
+                  <kbd className="rounded-md border border-border px-1">↓</kbd>
                   navigate
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-border px-1">↵</kbd>
+                  <kbd className="rounded-md border border-border px-1">↵</kbd>
                   open
                 </span>
               </span>

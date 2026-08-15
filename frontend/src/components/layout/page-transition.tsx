@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { DURATION, EASE } from "@/lib/motion";
 
 /**
  * Route-level transition. Each navigation fades the outgoing view and lifts the
@@ -18,7 +19,7 @@ export function PageTransition({ children }: { children: ReactNode }) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -6 }}
-        transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: DURATION.base, ease: EASE }}
       >
         {children}
       </motion.div>

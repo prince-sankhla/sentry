@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models import Award, Company, Tender
 from app.schemas.graph import GraphEdge, GraphNode, GraphResponse
-from app.webintel.models import WebEvidence, WebProcurementEvidence
+from app.webintel.models import WebProcurementEvidence
 
 HIGH_VALUE_THRESHOLD = Decimal("10000000")
 SHORT_SUBMISSION_DAYS = 7

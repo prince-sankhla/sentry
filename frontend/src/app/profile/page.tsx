@@ -110,7 +110,7 @@ function Action({
   return (
     <Link
       href={href}
-      className="group rounded-[14px] border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent/40"
+      className="group rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent/40"
     >
       <span className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-bg-2 text-accent transition group-hover:border-accent/40">
         {icon}

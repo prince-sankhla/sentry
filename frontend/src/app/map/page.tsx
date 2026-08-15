@@ -32,7 +32,7 @@ export default async function MapPage() {
         subtitle="Regional distribution of tenders inferred from buyer names and tender titles."
       />
 
-      <div className="mb-5 flex items-start gap-2 rounded-[14px] border border-info/30 bg-info/5 px-4 py-3 text-xs text-muted">
+      <div className="mb-5 flex items-start gap-2 rounded-xl border border-info/30 bg-info/5 px-4 py-3 text-xs text-muted">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
         <span>
           Regions are derived by matching Indian state and union-territory names inside procuring-entity and

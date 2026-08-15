@@ -1,80 +1,115 @@
 @import "tailwindcss";
 
 /* ============================================================
-   SENTRY DESIGN SYSTEM — enterprise intelligence, graphite + copper
+   SENTRY DESIGN SYSTEM — one language, whole platform
    ------------------------------------------------------------
-   Philosophy: a near-monochrome graphite instrument panel. The
-   interface is quiet; colour is spent only where it carries meaning
-   (risk, deltas, live state). One warm copper accent marks identity
-   and primary action — never decoration. Think Palantir / Linear /
-   Stripe: restraint reads as expensive.
+   Graphite + emerald. A quiet, matte instrument surface where
+   colour is spent only where it carries meaning. Emerald marks
+   identity and primary action — never decoration, and never
+   status. Status lives on its own desaturated lattice so a
+   primary button can never be mistaken for a "low risk" chip.
+
+   Reference: Apple / Linear / Arc / Vercel / Palantir.
+   Restraint reads as expensive.
 
    Tailwind v4 @theme tokens. Every `bg-*` / `text-*` / `border-*`
-   utility across the app resolves from here — change a value, every
-   screen updates.
+   utility across the app resolves from here — change a value,
+   every screen updates. Marketing and application share this
+   block; there is no second palette.
    ============================================================ */
 
 @theme {
-  /* base surfaces — neutral obsidian graphite, a whisper of cool */
-  --color-bg: #0a0c0f;
-  --color-bg-2: #0e1116;
-  --color-surface: #14181e;
-  --color-surface-2: #1a1f27;
-  --color-elevated: #212832;
+  /* ---- base surfaces — graphite ------------------------------
+     bg      page field
+     bg-2    secondary surface / headers / rails
+     surface cards
+     surface-2 / elevated  raised states, hovers, popovers */
+  --color-bg: #0f1115;
+  --color-bg-2: #171a21;
+  --color-surface: #1d232e;
+  --color-surface-2: #232a36;
+  --color-elevated: #2a323f;
 
-  /* borders / hairlines */
-  --color-border: #232a33;
-  --color-border-strong: #313a45;
-  --color-border-accent: #5c4527;
+  /* ---- borders / hairlines */
+  --color-border: #262c37;
+  --color-border-strong: #333b48;
+  --color-border-accent: #10b98159;
 
-  /* text — cool graphite ramp */
-  --color-text: #e9edf2;
-  --color-muted: #98a2b0;
+  /* ---- text ramp */
+  --color-text: #f5f7fa;
+  --color-muted: #8d98a7;
   --color-faint: #626c7a;
 
-  /* copper accent system — brand + primary action only */
-  --color-accent: #d29a4e;
-  --color-accent-hi: #ecbd74;
-  --color-accent-lo: #a5762f;
-  --color-copper: #c07c48;
-  --color-amber: #e0a63e;
+  /* ---- emerald accent — brand + primary action ONLY.
+     Never used to encode status. See the risk lattice below. */
+  --color-accent: #10b981;
+  --color-accent-hi: #34d399;
+  --color-accent-lo: #059669;
 
-  /* semantic — informational, used sparingly */
-  --color-success: #3ec08a;
-  --color-warning: #e0a63e;
-  --color-danger: #e5484d;
-  --color-info: #5f92c2;
-  --color-steel: #5f92c2;
-  --color-cyan: #46b4c4;
+  /* ---- legacy accent aliases.
+     Retargeted rather than deleted: ~49 files still reference
+     `copper` / `amber` / `steel` / `cyan` utilities. Pointing them
+     into the palette flips those screens safely in one move. */
+  --color-copper: #10b981;
+  --color-amber: #c8963e;
+  --color-steel: #6e8b93;
+  --color-cyan: #4aa3a8;
 
-  /* risk severity ramp */
-  --color-risk-low: #3ec08a;
-  --color-risk-med: #e0a63e;
-  --color-risk-high: #e5484d;
-  --color-risk-crit: #d0364f;
+  /* ---- semantic — informational, used sparingly.
+     `success` is deliberately cooler and darker than `accent` so a
+     confirmation never reads as a call to action. */
+  --color-success: #2f9e6e;
+  --color-warning: #c8963e;
+  --color-danger: #d4574e;
+  --color-info: #6e8b93;
 
-  /* fonts (wired from next/font in layout.tsx) */
+  /* ---- risk severity lattice — status only, never brand.
+     Desaturated on purpose: these sit beside emerald without
+     competing with it. Ordinal, low → critical. */
+  --color-risk-low: #6e8b93;
+  --color-risk-med: #c8963e;
+  --color-risk-high: #d4574e;
+  --color-risk-crit: #b03a50;
+
+  /* ---- fonts (wired from next/font in layout.tsx) */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
   --font-mono: var(--font-mono), ui-monospace, "SF Mono", "JetBrains Mono",
     "Cascadia Code", monospace;
 
-  /* radii */
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-2xl: 22px;
+  /* ---- radii */
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
 
-  /* motion — shared easing so every transition feels of one hand */
+  /* ---- motion — shared easing so every transition feels of one hand.
+     `--ease-out-quint` is the landing page's curve; it is now the
+     platform default for both CSS and Framer Motion (lib/motion.ts). */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* shadows — neutral, deep, expensive. Elevation, not glow. */
+  /* ---- elevation — neutral and deep. Shadow, never glow.
+     The one emerald shadow is reserved for primary action. */
   --shadow-elev: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
     0 2px 4px -2px rgba(0, 0, 0, 0.5), 0 12px 32px -16px rgba(0, 0, 0, 0.65);
-  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.025) inset,
-    0 28px 56px -28px rgba(0, 0, 0, 0.78);
-  --shadow-glow: 0 0 0 1px rgba(210, 154, 78, 0.18),
-    0 10px 44px -14px rgba(210, 154, 78, 0.22);
+  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 60px -30px rgba(0, 0, 0, 0.8);
+  --shadow-float: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+    0 8px 20px -8px rgba(0, 0, 0, 0.6), 0 32px 72px -32px rgba(0, 0, 0, 0.85);
+  --shadow-glow: 0 0 0 1px rgba(16, 185, 129, 0.2),
+    0 10px 40px -14px rgba(16, 185, 129, 0.28);
+
+  /* ---- 8px spacing rhythm.
+     Two tiers (see the density decision): `editorial` for narrative
+     surfaces — reports, findings, evidence, empty states; `data` for
+     dense surfaces — tables, ledgers, graph inspectors. Data tier is
+     airier than the old defaults but preserves rows-per-viewport. */
+  --space-editorial-gap: 48px;
+  --space-editorial-pad: 32px;
+  --space-data-gap: 24px;
+  --space-data-pad: 16px;
+  --space-data-row: 52px;
 }
 
 /* ------------------------------------------------------------ base */
@@ -90,22 +125,23 @@ body {
 
 body {
   margin: 0;
-  /* Quiet graphite field: a faint copper dawn top-right, a cool steel
-     undertow bottom-left, and a hairline instrument grid. All at very
-     low opacity so the surface reads as brushed metal, not gradient. */
+  /* Matte graphite field: a single emerald wash top-right, and a
+     hairline instrument grid at 56px to match the landing page.
+     Both at very low opacity — the surface should read as brushed
+     aluminium, not as a gradient. */
   background:
-    radial-gradient(1100px 520px at 88% -12%, rgba(210, 154, 78, 0.05), transparent 55%),
-    radial-gradient(900px 560px at -6% 108%, rgba(95, 146, 194, 0.038), transparent 55%),
+    radial-gradient(1100px 560px at 85% -10%, rgba(16, 185, 129, 0.055), transparent 58%),
+    radial-gradient(900px 600px at -6% 106%, rgba(16, 185, 129, 0.022), transparent 55%),
     linear-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px),
     var(--color-bg);
-  background-size: auto, auto, 64px 64px, 64px 64px, auto;
+  background-size: auto, auto, 56px 56px, 56px 56px, auto;
   background-attachment: fixed;
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  letter-spacing: -0.006em;
+  letter-spacing: -0.011em;
 }
 
 button,
@@ -121,13 +157,14 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid rgba(224, 167, 62, 0.7);
+  outline: 2px solid rgba(16, 185, 129, 0.75);
   outline-offset: 2px;
+  border-radius: 6px;
 }
 
 ::selection {
-  background: rgba(224, 167, 62, 0.28);
-  color: #fff;
+  background: rgba(16, 185, 129, 0.26);
+  color: var(--color-text);
 }
 
 /* numeric alignment helper for financial figures */
@@ -136,11 +173,51 @@ a {
   font-feature-settings: "tnum" 1;
 }
 
+/* ------------------------------------------------------------ typography scale
+   Apple-style hierarchy: large, tight display headings; quiet
+   uppercase micro-labels; generous body leading. */
+
+.t-display {
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.028em;
+}
+
+.t-title {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -0.022em;
+}
+
+.t-heading {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.014em;
+}
+
+.t-body {
+  font-size: 14px;
+  line-height: 1.65;
+  letter-spacing: -0.006em;
+}
+
+/* micro-label — the uppercase eyebrow used across panels and tables */
+.t-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-faint);
+}
+
 /* ------------------------------------------------------------ scrollbars */
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2c3a4d transparent;
+  scrollbar-color: #333b48 transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -150,31 +227,41 @@ a {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #212c3b;
+  background: #262c37;
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #2c3a4d;
+  background: #333b48;
   background-clip: padding-box;
 }
 
-/* ------------------------------------------------------------ reusable utilities */
+/* ------------------------------------------------------------ surface utilities */
 
+/* Very light glassmorphism — brushed, faint reflection. Promoted from
+   the landing page so app chrome and marketing share one treatment. */
 @utility glass {
   background: linear-gradient(
-    180deg,
-    rgba(26, 31, 39, 0.74),
-    rgba(20, 24, 30, 0.74)
+    158deg,
+    rgba(29, 35, 46, 0.82) 0%,
+    rgba(23, 26, 33, 0.72) 100%
   );
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  backdrop-filter: blur(14px) saturate(1.2);
   border: 1px solid var(--color-border);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
 }
 
+/* inner top highlight + deep drop — the "floating panel" look */
+@utility glass-hi {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 60px -30px rgba(0, 0, 0, 0.8);
+}
+
+/* matte aluminium card — the workspace's default solid surface */
 @utility panel {
-  background: linear-gradient(180deg, #161b22, #10141a);
+  background: linear-gradient(180deg, #1d232e, #171a21);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-panel);
@@ -184,24 +271,46 @@ a {
   box-shadow: var(--shadow-elev);
 }
 
+@utility float {
+  box-shadow: var(--shadow-float);
+}
+
 @utility glow-border {
   box-shadow: var(--shadow-glow);
 }
 
 @utility accent-gradient-text {
-  background: linear-gradient(92deg, #ecbd74, #d29a4e 55%, #a5762f);
+  background: linear-gradient(92deg, #34d399, #10b981 60%, #059669);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* hairline top-highlight used on premium cards */
-@utility topline {
-  position: relative;
-}
-
 @utility hairline {
   border-color: var(--color-border);
+}
+
+/* procedural grid, masked to fade at the edges. Used behind the hero
+   and any full-bleed feature surface. */
+@utility grid-field {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 70% at 50% 40%,
+    #000 55%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 55%, transparent 100%);
+}
+
+@utility emerald-wash {
+  background: radial-gradient(
+    ellipse 60% 50% at 60% 45%,
+    rgba(16, 185, 129, 0.1),
+    transparent 70%
+  );
 }
 
 /* thin gradient rule */
@@ -214,6 +323,8 @@ a {
     transparent
   );
 }
+
+/* ------------------------------------------------------------ motion */
 
 /* animated shimmer for skeletons */
 .shimmer {
@@ -229,7 +340,7 @@ a {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.05),
     transparent
   );
   animation: shimmer 1.5s infinite;
@@ -252,19 +363,19 @@ a {
   }
 }
 .animate-rise {
-  animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: rise 0.5s var(--ease-out-quint) both;
 }
 
 /* pulsing status dot */
 @keyframes pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 rgba(67, 192, 138, 0.5);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
   }
   70% {
-    box-shadow: 0 0 0 6px rgba(67, 192, 138, 0);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(67, 192, 138, 0);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
   }
 }
 .pulse-live {
@@ -275,7 +386,7 @@ a {
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: translateY(8px) scale(0.99);
   }
   to {
     opacity: 1;
@@ -303,16 +414,6 @@ a {
   animation-delay: calc(min(var(--i, 0), 16) * 22ms);
 }
 
-/* slow copper sheen sweep — for the brand mark / focal chips only */
-@keyframes sheen {
-  0% {
-    background-position: -160% 0;
-  }
-  100% {
-    background-position: 260% 0;
-  }
-}
-
 /* gentle vertical float for ambient marks */
 @keyframes float-y {
   0%,
@@ -327,6 +428,56 @@ a {
   animation: float-y 6s ease-in-out infinite;
 }
 
+/* floating particle drift — ambient, hero surfaces only */
+@keyframes particle-drift {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.5;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-42px) translateX(10px);
+    opacity: 0;
+  }
+}
+.particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  animation: particle-drift var(--dur, 9s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* slow dash flow along connection lines */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.flow-line {
+  stroke-dasharray: 3 7;
+  animation: dash-flow 2.6s linear infinite;
+}
+
+/* node pulse */
+@keyframes node-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.node-pulse {
+  animation: node-pulse 3.4s ease-in-out infinite;
+}
+
 /* honour reduced-motion: kill non-essential animation */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -336,11 +487,14 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+  .particle,
+  .flow-line,
+  .node-pulse {
+    animation: none;
+  }
 }
 
-/* dashed animated flow along graph edges is handled by react-flow */
-
-/* ------------------------------------------------------------ react-flow dark theming */
+/* ------------------------------------------------------------ react-flow theming */
 
 .react-flow__attribution {
   display: none;
@@ -374,7 +528,7 @@ a {
 }
 
 .react-flow__minimap {
-  background: rgba(13, 18, 25, 0.85) !important;
+  background: rgba(15, 17, 21, 0.85) !important;
   border: 1px solid var(--color-border);
   border-radius: 10px;
 }
@@ -396,4 +550,100 @@ a {
 
 .react-flow__handle {
   opacity: 0;
+}
+
+/* ============================================================
+   MARKETING COMPATIBILITY LAYER
+   ------------------------------------------------------------
+   The landing page used to carry its own scoped palette. That
+   palette is now the platform palette above, so `.mkt` simply
+   re-exports the global tokens under the old variable names.
+   Kept as aliases so marketing components keep working while
+   they migrate to plain tokens — no second source of truth.
+   ============================================================ */
+
+.mkt {
+  --mkt-bg: var(--color-bg);
+  --mkt-panel: var(--color-bg-2);
+  --mkt-card: var(--color-surface);
+  --mkt-text: var(--color-text);
+  --mkt-muted: var(--color-muted);
+  --mkt-accent: var(--color-accent);
+  --mkt-accent-hi: var(--color-accent-hi);
+  --mkt-accent-lo: var(--color-accent-lo);
+  --mkt-border: var(--color-border);
+  --mkt-border-hi: var(--color-border-strong);
+
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* legacy marketing class names → global utilities */
+.mkt-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 70% at 50% 40%,
+    #000 55%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 55%, transparent 100%);
+}
+
+.mkt-glass {
+  background: linear-gradient(
+    158deg,
+    rgba(29, 35, 46, 0.82) 0%,
+    rgba(23, 26, 33, 0.72) 100%
+  );
+  border: 1px solid var(--color-border);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.mkt-glass-hi {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 60px -30px rgba(0, 0, 0, 0.8);
+}
+
+.mkt-emerald-wash {
+  background: radial-gradient(
+    ellipse 60% 50% at 60% 45%,
+    rgba(16, 185, 129, 0.1),
+    transparent 70%
+  );
+}
+
+.mkt-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  animation: particle-drift var(--dur, 9s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.mkt-flow {
+  stroke-dasharray: 3 7;
+  animation: dash-flow 2.6s linear infinite;
+}
+
+.mkt-node-pulse {
+  animation: node-pulse 3.4s ease-in-out infinite;
+}
+
+.mkt-text-muted {
+  color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mkt-particle,
+  .mkt-flow,
+  .mkt-node-pulse {
+    animation: none;
+  }
 }

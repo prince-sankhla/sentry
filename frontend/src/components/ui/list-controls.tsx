@@ -1,9 +1,17 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { SearchInput, Select } from "@/components/ui/input";
 
+/**
+ * Search + sort + pagination rail for list routes.
+ *
+ * All state lives in the URL — this component only reads `searchParams` and
+ * pushes new ones, so results stay linkable and the back button works.
+ */
 export function ListControls({
   placeholder = "Search…",
   sortOptions,
@@ -54,55 +62,54 @@ export function ListControls({
   const currentSort = params.get("sort") ?? sortOptions?.[0]?.value ?? "";
 
   return (
-    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <form onSubmit={submit} className="relative w-full max-w-md">
-        {pending ? (
-          <Loader2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-accent" />
-        ) : (
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-        )}
-        <input
+    <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <form onSubmit={submit} className="w-full max-w-md">
+        <SearchInput
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
-          className="h-10 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/60"
+          pending={pending}
+          aria-label={placeholder}
         />
       </form>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         {sortOptions && (
-          <select
+          <Select
             value={currentSort}
             onChange={(e) => setSort(e.target.value)}
-            className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text outline-none transition focus:border-accent/60"
+            aria-label="Sort results"
+            className="min-w-[160px]"
           >
             {sortOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         )}
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5">
-          <span className="px-1 text-xs tabular text-muted">
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-bg-2/50 p-1">
+          <span className="px-2 text-xs tabular text-muted">
             {start}–{end} of {total.toLocaleString()}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             onClick={() => page(-1)}
             disabled={offset === 0 || pending}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted transition enabled:hover:bg-surface-2 enabled:hover:text-text disabled:opacity-30"
             aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
+            icon={<ChevronLeft className="h-4 w-4" />}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             onClick={() => page(1)}
             disabled={end >= total || pending}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted transition enabled:hover:bg-surface-2 enabled:hover:text-text disabled:opacity-30"
             aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+            icon={<ChevronRight className="h-4 w-4" />}
+          />
         </div>
       </div>
     </div>

@@ -22,6 +22,7 @@ import { CircleHelp, Scale, ShieldQuestion, Search } from "lucide-react";
 
 import { Section } from "@/components/ui/card";
 import type { InvestigatorReview as InvestigatorReviewData, InvestigatorReviewItem } from "@/lib/api";
+import { DURATION, EASE } from "@/lib/motion";
 
 const COLUMNS = [
   {
@@ -84,17 +85,17 @@ export function InvestigatorReview({
               key={col.key}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: c * 0.06, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className={`flex flex-col rounded-[14px] border bg-bg-2/40 ${col.accent.split(" ")[0]}`}
+              transition={{ delay: c * 0.06, duration: DURATION.base, ease: EASE }}
+              className={`flex flex-col rounded-xl border bg-bg-2/40 ${col.accent.split(" ")[0]}`}
             >
-              <div className="border-b border-border/60 p-3.5">
-                <div className={`flex items-center gap-2 text-sm font-semibold ${col.accent.split(" ")[1]}`}>
+              <div className="border-b border-border/60 p-4">
+                <div className={`flex items-center gap-2 text-[13.5px] font-semibold ${col.accent.split(" ")[1]}`}>
                   <Icon className="h-4 w-4" />
                   {col.title}
                 </div>
-                <p className="mt-1 text-[11px] leading-snug text-faint">{col.hint}</p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-faint">{col.hint}</p>
               </div>
-              <ul className="flex-1 space-y-2 p-3.5">
+              <ul className="flex-1 space-y-2.5 p-4">
                 {items.length === 0 ? (
                   <li className="text-xs text-faint">
                     {col.key === "routine"
@@ -116,10 +117,10 @@ export function InvestigatorReview({
 
 function ReviewLine({ item, dot }: { item: InvestigatorReviewItem; dot: string }) {
   return (
-    <li className="flex items-start gap-2">
+    <li className="flex items-start gap-2.5">
       <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
       <span className="min-w-0">
-        <span className="block text-[13px] leading-snug text-text">{item.statement}</span>
+        <span className="block text-[13px] leading-relaxed text-text">{item.statement}</span>
         <span className="mt-0.5 block truncate font-mono text-[10px] text-faint">
           {item.basis}
           {item.records.length > 0 ? ` · ${item.records.length} record${item.records.length === 1 ? "" : "s"}` : ""}

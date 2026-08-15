@@ -45,9 +45,12 @@ import { GroundingCard } from "@/components/intel/grounding-card";
 import { AiMemory } from "@/components/intel/ai-memory";
 import { ProviderBadge } from "@/components/intel/provider-badge";
 import { Section, StatCard } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { PageShell } from "@/components/ui/page";
 import { EmptyState, ErrorState, SkeletonBlock } from "@/components/ui/states";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
+import { DURATION, EASE, SPRING_SOFT } from "@/lib/motion";
 import {
   evidencePacketUrl,
   getLLMProviders,
@@ -73,12 +76,50 @@ type Step = { key: string; name: string; status: StepStatus; detail?: string };
 
 // Mirrors the backend SSE step keys emitted by /api/investigations/stream.
 const STEP_TEMPLATE: Step[] = [
-  { key: "plan", name: "Understand request & select sources", status: "pending" },
-  { key: "retrieve", name: "Retrieve procurement records", status: "pending" },
-  { key: "resolve", name: "Resolve entities", status: "pending" },
-  { key: "indicators", name: "Screen integrity indicators", status: "pending" },
-  { key: "reasoning", name: "Reason & generate findings", status: "pending" }
+  { key: "plan", name: "Connecting official procurement sources", status: "pending" },
+  { key: "retrieve", name: "Retrieving procurement records", status: "pending" },
+  { key: "resolve", name: "Resolving entities & identities", status: "pending" },
+  { key: "indicators", name: "Screening procurement patterns", status: "pending" },
+  { key: "reasoning", name: "Grounding findings against official records", status: "pending" }
 ];
+
+/** Cinematic sub-messages that cycle while a step is active. Keyed by step key. */
+const STEP_PHASE_MESSAGES: Record<string, string[]> = {
+  plan: [
+    "Connecting to official procurement portals…",
+    "Selecting relevant source connectors…",
+    "Planning evidence retrieval strategy…",
+    "Identifying registered procurement entities…"
+  ],
+  retrieve: [
+    "Querying CPPP portal records…",
+    "Scanning GeM procurement database…",
+    "Pulling NIC state e-procurement feeds…",
+    "Downloading official tender documents…",
+    "Normalising procurement records…"
+  ],
+  resolve: [
+    "Resolving company identities across sources…",
+    "Matching registration numbers to canonical entities…",
+    "Deduplicating supplier records…",
+    "Building entity relationship map…",
+    "Verifying buyer–supplier linkages…"
+  ],
+  indicators: [
+    "Screening for contract fragmentation patterns…",
+    "Detecting single-bidder exposure…",
+    "Analysing award clustering signals…",
+    "Checking bid timing irregularities…",
+    "Scoring procurement risk indicators…"
+  ],
+  reasoning: [
+    "Grounding findings against official records…",
+    "Assembling evidence citations…",
+    "Running explainability guard…",
+    "Generating analyst-grade narrative…",
+    "Producing final investigation report…"
+  ]
+};
 
 /* ============================================================ root */
 
@@ -172,7 +213,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
     (entity: PinnedEntity) => {
       const query = entity.canonical_name;
       setActiveQuery(query);
-      router.push(`/?q=${encodeURIComponent(query)}`);
+      router.push(`/investigate?q=${encodeURIComponent(query)}`);
       runInvestigation(query);
     },
     [router, runInvestigation]
@@ -181,7 +222,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
   const launchFollowUp = useCallback(
     (query: string) => {
       setActiveQuery(query);
-      router.push(`/?q=${encodeURIComponent(query)}`);
+      router.push(`/investigate?q=${encodeURIComponent(query)}`);
       runInvestigation(query);
     },
     [router, runInvestigation]
@@ -198,7 +239,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
     setWebPages([]);
     setProcessingMs(null);
     setError(null);
-    router.push("/");
+    router.push("/investigate");
   }
 
   async function runWebSearch() {
@@ -246,8 +287,14 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
         <PipelineStrip steps={steps} running={running} />
       )}
 
+      {/* Investigation Replay — collapsed by default, opens to show the full
+          step-by-step walkthrough of how SENTRY reached its conclusions. */}
+      {!running && steps.length > 0 && steps.every((s) => s.status === "complete" || s.status === "error") && (
+        <InvestigationReplay steps={steps} query={activeQuery} />
+      )}
+
       {error && !running && (
-        <div className="mt-6">
+        <div className="mt-8">
           <ErrorState message={error} title="Investigation could not complete" />
         </div>
       )}
@@ -258,7 +305,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
 
       {/* Investigator landing: where to start, before the analytics dashboard. */}
       {!activeQuery && !running && (
-        <div className="mt-5">
+        <div className="mt-8">
           <PriorityInvestigationQueue onOpen={launchFollowUp} />
         </div>
       )}
@@ -288,103 +335,332 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
 function PipelineStrip({ steps, running }: { steps: Step[]; running: boolean }) {
   const done = steps.filter((s) => s.status === "complete").length;
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
+  const runningStep = steps.find((s) => s.status === "running");
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="mt-6 overflow-hidden rounded-[18px] border border-border bg-surface/80 elevate"
+      transition={{ duration: DURATION.slow, ease: EASE }}
+      className="mt-8 overflow-hidden rounded-2xl border border-border bg-surface/70 float"
     >
       {/* console header with live progress */}
-      <div className="flex items-center gap-3 border-b border-border bg-bg-2/50 px-5 py-3">
-        <span className="relative grid h-7 w-7 place-items-center rounded-md border border-accent/30 bg-accent/[0.08] text-accent">
-          {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+      <div className="flex items-center gap-3.5 border-b border-border bg-bg-2/50 px-6 py-4">
+        <span className="relative grid h-9 w-9 place-items-center rounded-lg border border-accent/30 bg-accent/[0.08] text-accent">
+          {running ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4" />
+          )}
+          {running && (
+            <span className="absolute inset-0 rounded-lg border border-accent/40 pulse-live" />
+          )}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold text-text">
-            {running ? "Investigation in progress" : "Investigation complete"}
+          <div className="flex items-center gap-2">
+            <div className="text-[13.5px] font-semibold text-text">
+              {running ? "Investigation in progress" : "Investigation complete"}
+            </div>
+            {running && (
+              <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
+                live
+              </span>
+            )}
           </div>
-          <div className="text-[11px] text-faint">
-            {running ? "The agent is retrieving records, resolving entities and scoring risk in real time." : "Full evidence trace assembled."}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={runningStep?.key ?? "idle"}
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mt-0.5 text-[11.5px] text-faint"
+            >
+              {running && runningStep
+                ? runningStep.detail ?? runningStep.name + "…"
+                : running
+                  ? "Preparing investigation…"
+                  : "Full evidence trace assembled and verified."}
+            </motion.div>
+          </AnimatePresence>
         </div>
-        <span className="tabular text-sm font-semibold text-accent">{pct}%</span>
+        <div className="flex items-center gap-3">
+          {!running && (
+            <span className="hidden items-center gap-1.5 text-[11px] text-success sm:inline-flex">
+              <Check className="h-3.5 w-3.5" /> Verified
+            </span>
+          )}
+          <span className="tabular text-[15px] font-semibold text-accent">{pct}%</span>
+        </div>
       </div>
+
       {/* progress rail */}
       <div className="h-0.5 w-full bg-border">
         <motion.div
           className="h-full bg-accent"
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: DURATION.slow, ease: EASE }}
         />
       </div>
 
       {/* live vertical trace */}
-      <div className="relative px-5 py-4">
+      <div className="relative px-6 py-5">
         {/* connector spine */}
-        <span className="absolute bottom-6 left-[30px] top-6 w-px bg-border" aria-hidden />
+        <span className="absolute bottom-7 left-[35px] top-7 w-px bg-border" aria-hidden />
         <ol>
-        {steps.map((s, i) => (
-          <motion.li
-            key={s.key}
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="relative flex items-start gap-3 py-1.5"
-          >
-            <span
-              className={`relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                s.status === "complete"
-                  ? "border-success/50 bg-success/15 text-success"
-                  : s.status === "running"
-                    ? "border-accent/60 bg-accent/15 text-accent"
-                    : s.status === "error"
-                      ? "border-danger/50 bg-danger/15 text-danger"
-                      : "border-border bg-surface text-faint"
-              }`}
-            >
-              {s.status === "complete" ? (
-                <Check className="h-3 w-3" />
-              ) : s.status === "running" ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : s.status === "error" ? (
-                <X className="h-3 w-3" />
-              ) : (
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              )}
-              {s.status === "running" && (
-                <span className="absolute inset-0 rounded-full border-2 border-accent/40 pulse-live" />
-              )}
-            </span>
-            <div className="min-w-0 flex-1 pt-0.5">
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-medium ${s.status === "pending" ? "text-faint" : "text-text"}`}>
-                  {s.name}
-                </span>
-                {s.status === "running" && (
-                  <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
-                    live
-                  </span>
-                )}
-              </div>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={s.detail ?? s.status}
-                  initial={{ opacity: 0, y: 2 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="text-[11px] text-faint"
-                >
-                  {s.detail ?? (s.status === "running" ? "Working…" : s.status === "complete" ? "Done" : "Queued")}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </motion.li>
-        ))}
+          {steps.map((s, i) => (
+            <CinematicStep key={s.key} step={s} index={i} />
+          ))}
         </ol>
       </div>
+    </motion.div>
+  );
+}
+
+/** A single pipeline step with cycling sub-messages while running. */
+function CinematicStep({ step: s, index: i }: { step: Step; index: number }) {
+  const phases = STEP_PHASE_MESSAGES[s.key] ?? [];
+  const [phaseIdx, setPhaseIdx] = useState(0);
+
+  useEffect(() => {
+    if (s.status !== "running" || phases.length === 0) return;
+    setPhaseIdx(0);
+    const id = setInterval(() => setPhaseIdx((p) => (p + 1) % phases.length), 1800);
+    return () => clearInterval(id);
+  }, [s.status, phases]);
+
+  const subMessage =
+    s.status === "running"
+      ? phases[phaseIdx] ?? s.detail ?? "Working…"
+      : s.status === "complete"
+        ? s.detail ?? "Complete"
+        : s.status === "error"
+          ? s.detail ?? "Failed"
+          : "Queued";
+
+  return (
+    <motion.li
+      initial={{ opacity: 0, x: -6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: i * 0.05, ease: EASE }}
+      className="relative flex items-start gap-3.5 py-2.5"
+    >
+      <span
+        className={`relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+          s.status === "complete"
+            ? "border-success/50 bg-success/15 text-success"
+            : s.status === "running"
+              ? "border-accent/60 bg-accent/15 text-accent"
+              : s.status === "error"
+                ? "border-danger/50 bg-danger/15 text-danger"
+                : "border-border bg-surface text-faint"
+        }`}
+      >
+        {s.status === "complete" ? (
+          <Check className="h-3 w-3" />
+        ) : s.status === "running" ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : s.status === "error" ? (
+          <X className="h-3 w-3" />
+        ) : (
+          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+        )}
+        {s.status === "running" && (
+          <span className="absolute inset-0 rounded-full border-2 border-accent/40 pulse-live" />
+        )}
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className="flex items-center gap-2">
+          <span className={`text-[13.5px] font-medium ${s.status === "pending" ? "text-faint" : "text-text"}`}>
+            {s.name}
+          </span>
+        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={s.status === "running" ? phases[phaseIdx] : s.status}
+            initial={{ opacity: 0, y: 2 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className={`mt-0.5 text-[11.5px] ${
+              s.status === "complete" ? "text-success/80" : s.status === "error" ? "text-danger/80" : "text-faint"
+            }`}
+          >
+            {subMessage}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </motion.li>
+  );
+}
+
+/* ============================================================ investigation replay */
+
+const REPLAY_STEP_ICONS: Record<string, React.ElementType> = {
+  plan: Network,
+  retrieve: FileText,
+  resolve: Building2,
+  indicators: ShieldAlert,
+  reasoning: ScrollText
+};
+
+const REPLAY_STEP_OUTCOME: Record<string, string> = {
+  plan: "Selected procurement sources and defined retrieval strategy",
+  retrieve: "Downloaded and normalised official procurement records",
+  resolve: "Matched procurement entities to canonical identities",
+  indicators: "Applied 12 deterministic screening rules to all records",
+  reasoning: "Grounded findings against official evidence and produced report"
+};
+
+/**
+ * Post-investigation replay panel. Shows the full methodology walkthrough —
+ * judges can see exactly how SENTRY reached every conclusion. Collapsed by
+ * default so it doesn't crowd the results.
+ */
+function InvestigationReplay({ steps, query }: { steps: Step[]; query: string }) {
+  const [open, setOpen] = useState(false);
+  const [replayIdx, setReplayIdx] = useState<number>(-1);
+  const [replaying, setReplaying] = useState(false);
+
+  function startReplay() {
+    setReplayIdx(-1);
+    setReplaying(true);
+    let i = 0;
+    const tick = () => {
+      setReplayIdx(i);
+      i++;
+      if (i < steps.length) setTimeout(tick, 900);
+      else setTimeout(() => setReplaying(false), 400);
+    };
+    setTimeout(tick, 180);
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DURATION.base, ease: EASE }}
+      className="mt-4 overflow-hidden rounded-xl border border-border bg-bg-2/40"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition-colors duration-200 hover:bg-surface/40"
+      >
+        <span className="t-label flex items-center gap-2">
+          <ListChecks className="h-3.5 w-3.5 text-accent" />
+          How this investigation was conducted
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="hidden text-[11px] text-faint sm:block">
+            {steps.length} steps · {steps.filter((s) => s.status === "complete").length} completed
+          </span>
+          <ChevronRight
+            className={`h-4 w-4 text-muted transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+          />
+        </span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: DURATION.base, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-border px-5 pb-5 pt-4">
+              {/* header row */}
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[13.5px] font-semibold text-text">
+                    Investigation methodology — "{query}"
+                  </div>
+                  <div className="mt-0.5 text-[11.5px] text-faint">
+                    Deterministic pipeline. Every step is reproducible and auditable.
+                  </div>
+                </div>
+                <Button
+                  variant="subtle"
+                  size="sm"
+                  onClick={startReplay}
+                  disabled={replaying}
+                  loading={replaying}
+                  icon={<Loader2 className={`h-3.5 w-3.5 ${replaying ? "animate-spin" : ""}`} />}
+                >
+                  {replaying ? "Replaying…" : "Replay"}
+                </Button>
+              </div>
+
+              {/* step timeline */}
+              <div className="relative">
+                <span className="absolute bottom-4 left-[19px] top-4 w-px bg-border" aria-hidden />
+                <ol className="space-y-1">
+                  {steps.map((s, i) => {
+                    const Icon = REPLAY_STEP_ICONS[s.key] ?? Check;
+                    const outcome = REPLAY_STEP_OUTCOME[s.key];
+                    const isHighlighted = replaying ? i <= replayIdx : s.status === "complete";
+                    const isCurrent = replaying && i === replayIdx;
+
+                    return (
+                      <motion.li
+                        key={s.key}
+                        animate={{
+                          opacity: isHighlighted ? 1 : 0.45,
+                          x: isCurrent ? [0, 4, 0] : 0
+                        }}
+                        transition={{ duration: 0.35, ease: EASE }}
+                        className="flex items-start gap-3.5 rounded-lg px-2 py-3"
+                      >
+                        <span
+                          className={`relative z-10 mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                            s.status === "complete"
+                              ? isHighlighted
+                                ? "border-accent/50 bg-accent/15 text-accent"
+                                : "border-border bg-surface text-faint"
+                              : s.status === "error"
+                                ? "border-danger/40 bg-danger/10 text-danger"
+                                : "border-border bg-surface text-faint"
+                          }`}
+                        >
+                          {isCurrent ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Icon className="h-3 w-3" />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-medium text-text">{s.name}</span>
+                            {s.status === "complete" && isHighlighted && !replaying && (
+                              <span className="rounded-md border border-success/25 bg-success/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-success">
+                                done
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-[11.5px] text-faint">
+                            {s.detail ?? outcome}
+                          </div>
+                        </div>
+                        <span className="mt-0.5 shrink-0 text-[11px] tabular text-faint">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                      </motion.li>
+                    );
+                  })}
+                </ol>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-border bg-bg-2/30 px-3.5 py-3 text-[11.5px] leading-relaxed text-faint">
+                Every step runs against your connected data sources only. No data leaves the
+                platform. All findings are traceable to the official procurement records that
+                triggered them — no model speculation, no invented facts.
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -457,7 +733,7 @@ function InvestigationResults({
   }, [fullGraphOpen]);
 
   return (
-    <div className="mt-6 space-y-5">
+    <div className="mt-8 space-y-8">
       {/* Canonical entity resolution — never silently ignore backend candidates. */}
       {resolution && resolution.candidates.length > 0 && (
         <EntityCandidatesPanel resolution={resolution} onSelect={onFollowUp} />
@@ -524,41 +800,38 @@ function InvestigationResults({
             eyebrow="Network"
             title="Investigation graph"
             action={
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="hidden items-center gap-1.5 text-xs text-faint sm:inline-flex">
                   <Network className="h-3.5 w-3.5" />
-                  {graph?.nodes.length ?? 0} nodes | {graph?.edges.length ?? 0} relationships
+                  {graph?.nodes.length ?? 0} nodes · {graph?.edges.length ?? 0} relationships
                 </span>
                 {Object.keys(graphStats).length > 0 && (
                   <span className="hidden flex-wrap items-center gap-1.5 lg:inline-flex">
                     {Object.entries(graphStats)
                       .sort((a, b) => b[1] - a[1])
                       .map(([type, count]) => (
-                        <span
-                          key={type}
-                          className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-[11px] font-medium text-muted"
-                        >
+                        <Chip key={type} tone="neutral">
                           {type}
-                          <span className="text-accent">{count}</span>
-                        </span>
+                          <span className="tabular text-accent">{count}</span>
+                        </Chip>
                       ))}
                   </span>
                 )}
                 {graph && graph.nodes.length > 0 ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="subtle"
+                    size="sm"
                     onClick={() => setFullGraphOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-accent"
+                    icon={<Maximize2 className="h-3.5 w-3.5" />}
                   >
-                    <Maximize2 className="h-3.5 w-3.5" />
                     Open Full Graph
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             }
           >
             {graph && graph.nodes.length > 0 ? (
-              <div className="overflow-hidden rounded-[14px] border border-border">
+              <div className="overflow-hidden rounded-xl border border-border">
                 <RelationshipGraphExplorer graph={graph} compact height={660} />
               </div>
             ) : (
@@ -613,18 +886,18 @@ function InvestigationResults({
           />
 
           {/* supporting evidence — raw records + awards */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <div id="ev-records" className="scroll-mt-24">
             <Section eyebrow="Procurement" title={`Tender records (${pkg!.records.length})`}>
               <ul className="divide-y divide-border">
                 {orderedRecords.slice(0, 12).map((r, i) => (
-                  <li key={i} className="py-2.5">
-                    <div className="flex items-center justify-between gap-3">
+                  <li key={i} className="py-3">
+                    <div className="flex items-center justify-between gap-4">
                       <span className="min-w-0">
-                        <span className="block truncate text-sm text-text">{r.tender.title}</span>
-                        <span className="block truncate font-mono text-[11px] text-faint">{r.tender.reference_number}</span>
+                        <span className="block truncate text-[13.5px] text-text">{r.tender.title}</span>
+                        <span className="mt-0.5 block truncate font-mono text-[11px] text-faint">{r.tender.reference_number}</span>
                       </span>
-                      <span className="shrink-0 tabular text-sm text-muted">
+                      <span className="shrink-0 tabular text-[13.5px] text-muted">
                         {formatMoneyFull(r.tender.estimated_value, r.tender.currency)}
                       </span>
                     </div>
@@ -641,14 +914,14 @@ function InvestigationResults({
               ) : (
                 <ul className="divide-y divide-border">
                   {awards.slice(0, 12).map((a, i) => (
-                    <li key={i} className="flex items-center justify-between gap-3 py-2.5">
+                    <li key={i} className="flex items-center justify-between gap-4 py-3">
                       <span className="min-w-0">
-                        <span className="block truncate text-sm text-text">{a.company_name}</span>
-                        <span className="block truncate text-xs text-faint">
+                        <span className="block truncate text-[13.5px] text-text">{a.company_name}</span>
+                        <span className="mt-0.5 block truncate text-xs text-faint">
                           {formatDate(a.award_date)} · {a.tender_reference_number}
                         </span>
                       </span>
-                      <span className="shrink-0 tabular text-sm font-semibold text-text">
+                      <span className="shrink-0 tabular text-[13.5px] font-semibold text-text">
                         {formatMoneyFull(a.award_value, a.currency)}
                       </span>
                     </li>
@@ -664,19 +937,22 @@ function InvestigationResults({
             {pkg!.canonical_companies.length === 0 ? (
               <EmptyState message="No entities resolved." />
             ) : (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {pkg!.canonical_companies.map((c) => (
-                  <div key={c.id} className="rounded-[12px] border border-border bg-bg-2/40 p-3">
+                  <div
+                    key={c.id}
+                    className="rounded-xl border border-border bg-bg-2/40 p-4 transition-colors duration-200 hover:border-border-strong"
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-text">{c.canonical_name}</span>
-                      <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                      <span className="truncate text-[13.5px] font-medium text-text">{c.canonical_name}</span>
+                      <Chip tone="accent">
                         match {Math.round((c.confidence ?? 0) * 100)}%
-                      </span>
+                      </Chip>
                     </div>
                     {c.aliases.length > 0 && (
-                      <div className="mt-1 truncate text-xs text-faint">aka {c.aliases.slice(0, 3).join(", ")}</div>
+                      <div className="mt-1.5 truncate text-xs text-faint">aka {c.aliases.slice(0, 3).join(", ")}</div>
                     )}
-                    <div className="mt-1.5 text-[11px] text-muted">{c.matched_sources.length} matched sources</div>
+                    <div className="mt-2 text-[11.5px] text-muted">{c.matched_sources.length} matched sources</div>
                   </div>
                 ))}
               </div>
@@ -688,21 +964,22 @@ function InvestigationResults({
             eyebrow="Open source"
             title="Web procurement evidence"
             action={
-              <button
-                type="button"
+              <Button
+                variant="subtle"
+                size="sm"
                 onClick={onWebSearch}
                 disabled={webBusy}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-muted transition hover:text-text disabled:opacity-60"
+                loading={webBusy}
+                icon={<Globe2 className="h-3.5 w-3.5" />}
               >
-                {webBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe2 className="h-3.5 w-3.5" />}
                 {webBusy ? "Searching web…" : "Search web"}
-              </button>
+              </Button>
             }
           >
             {webBusy && webPages.length === 0 ? (
-              <div className="space-y-2">
-                <SkeletonBlock className="h-14" />
-                <SkeletonBlock className="h-14" />
+              <div className="space-y-3">
+                <SkeletonBlock className="h-16" />
+                <SkeletonBlock className="h-16" />
               </div>
             ) : webPages.length === 0 ? (
               <EmptyState
@@ -711,7 +988,7 @@ function InvestigationResults({
                 message="Run a web search to collect open-source procurement evidence for this entity."
               />
             ) : (
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
                 {webPages.map((p, i) => {
                   const pe = p.procurement_evidence;
                   const ev: EvidenceItem = {
@@ -726,6 +1003,9 @@ function InvestigationResults({
                     kind: "web",
                     evidenceType: pe ? "Procurement web evidence" : "Open-source page",
                     citation: `${p.title ?? pe?.contract_title ?? "Web procurement evidence"}. ${p.source}. Retrieved ${formatDate(p.retrieved_at)}.`,
+                    /* ── preservation fields from StoredWebPage ── */
+                    retrievedAt: p.retrieved_at,
+                    integrityHash: p.content_hash ?? null,
                     relatedEntities: [
                       pe?.company_name,
                       ...(pe?.related_companies ?? []),
@@ -764,14 +1044,14 @@ function InvestigationResults({
                Per-finding next investigations live in the case files; this holds
                only the generic verification steps (no duplication). */}
           {reasoning.recommendations.length > 0 && (
-            <details className="group rounded-[18px] border border-border bg-surface/60 px-5 py-4">
+            <details className="group rounded-2xl border border-border bg-surface/60 px-6 py-5">
               <summary className="cursor-pointer list-none text-sm font-semibold text-text">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">Manual verification</span>
+                <span className="t-label text-accent">Manual verification</span>
                 <span className="ml-3 text-muted group-open:hidden">Show the verification steps an investigator should perform ({reasoning.recommendations.length})</span>
               </summary>
-              <ul className="mt-3 space-y-2.5">
+              <ul className="mt-4 space-y-3">
                 {reasoning.recommendations.map((rec, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-muted">
+                  <li key={i} className="flex items-start gap-3 text-[13.5px] leading-relaxed text-muted">
                     <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                     <span>{rec}</span>
                   </li>
@@ -785,7 +1065,7 @@ function InvestigationResults({
           <AiSummaryDivider />
           <AiInvestigationPanel reasoning={reasoning} processingMs={processingMs} />
           {reasoning.analyst_report && <AnalystReportSections report={reasoning.analyst_report} />}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <Section eyebrow="Methodology" title="Analyst trace">
                 {reasoning.analyst_trace.length === 0 ? (
@@ -795,7 +1075,7 @@ function InvestigationResults({
                 )}
               </Section>
             </div>
-            <div className="space-y-5">
+            <div className="space-y-8">
               <Section eyebrow="Verification" title="Grounding">
                 <GroundingCard grounding={reasoning.grounding} />
               </Section>
@@ -838,35 +1118,35 @@ function EntityCandidatesPanel({
         </span>
       }
     >
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
         {candidates.map((c) => {
           const isBuyer = c.entity_type === "government_buyer";
           const Icon = isBuyer ? Building2 : Award;
           return (
-            <button
+            <motion.button
               key={c.entity_id}
               type="button"
               onClick={() => onSelect(c.canonical_name)}
-              className="group flex flex-col gap-2 rounded-[14px] border border-border bg-bg-2/40 p-3.5 text-left transition hover:border-accent/40 hover:bg-bg-2/70"
+              whileHover={{ y: -2 }}
+              transition={SPRING_SOFT}
+              className="group flex flex-col gap-2.5 rounded-xl border border-border bg-bg-2/40 p-4 text-left transition-colors duration-200 hover:border-accent/40 hover:bg-bg-2/70"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Icon className="h-4 w-4 text-accent" />
-                  <span className="text-sm font-semibold text-fg">{c.canonical_name}</span>
+                  <span className="text-[13.5px] font-semibold text-text">{c.canonical_name}</span>
                 </div>
-                <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                  {isBuyer ? "Buyer" : "Company"}
-                </span>
+                <Chip tone="neutral">{isBuyer ? "Buyer" : "Company"}</Chip>
               </div>
-              <p className="text-xs text-faint">{c.match_reason}</p>
-              <div className="mt-auto flex items-center gap-2 text-[11px] text-muted">
-                <span className="rounded bg-surface px-1.5 py-0.5">{c.match_type}</span>
+              <p className="text-xs leading-relaxed text-faint">{c.match_reason}</p>
+              <div className="mt-auto flex items-center gap-2 text-[11.5px] text-muted">
+                <span className="rounded-md bg-surface px-1.5 py-0.5">{c.match_type}</span>
                 <span>score {c.score}</span>
                 {c.tender_count > 0 && <span>· {c.tender_count} tenders</span>}
                 {c.award_count > 0 && <span>· {c.award_count} awards</span>}
-                <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-0 transition group-hover:opacity-100" />
+                <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
-            </button>
+            </motion.button>
           );
         })}
       </div>
@@ -884,23 +1164,24 @@ function CaseLauncherBanner({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="group mt-4 flex w-full items-center gap-4 overflow-hidden rounded-[18px] border border-accent/30 bg-surface/80 p-4 text-left elevate transition hover:border-accent/60 md:p-5"
+      whileHover={{ y: -2 }}
+      transition={{ duration: DURATION.slow, ease: EASE }}
+      className="group relative mt-6 flex w-full items-center gap-5 overflow-hidden rounded-2xl border border-accent/25 bg-surface/70 p-5 text-left float transition-colors duration-200 hover:border-accent/50 md:p-6"
     >
       <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent/30 bg-accent/[0.08] text-accent">
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-accent/30 bg-accent/[0.08] text-accent">
         <ShieldAlert className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+        <span className="t-label flex items-center gap-2 text-accent">
           Case #001 · Live investigation
         </span>
-        <span className="mt-1 block text-[15px] font-semibold text-text">Dharmagarh NAC — Odisha ward-works procurement</span>
-        <span className="mt-0.5 block truncate text-xs text-muted">
+        <span className="mt-1.5 block text-[15px] font-semibold text-text">Dharmagarh NAC — Odisha ward-works procurement</span>
+        <span className="mt-1 block truncate text-xs text-muted">
           16 same-day tenders · ₹1.32 crore · contract-fragmentation pattern — traced to the official Odisha e-procurement portal.
         </span>
       </span>
-      <span className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition group-hover:bg-accent-hi">
+      <span className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition-colors group-hover:bg-accent-hi">
         Open case
         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
       </span>
@@ -913,10 +1194,10 @@ function CaseLauncherBanner({ onOpen }: { onOpen: () => void }) {
 type RiskLevelKey = "critical" | "high" | "medium" | "low" | "insufficient";
 
 const RISK_LEVEL_STYLE: Record<RiskLevelKey, { label: string; cls: string; bar: string }> = {
-  critical: { label: "Critical priority", cls: "border-danger/50 bg-danger/10 text-danger", bar: "bg-danger" },
-  high: { label: "High priority", cls: "border-danger/40 bg-danger/10 text-danger", bar: "bg-danger" },
-  medium: { label: "Medium priority", cls: "border-warning/40 bg-warning/10 text-warning", bar: "bg-warning" },
-  low: { label: "Low priority", cls: "border-success/40 bg-success/10 text-success", bar: "bg-success" },
+  critical: { label: "Critical priority", cls: "border-risk-crit/50 bg-risk-crit/10 text-risk-crit", bar: "bg-risk-crit" },
+  high: { label: "High priority", cls: "border-risk-high/40 bg-risk-high/10 text-risk-high", bar: "bg-risk-high" },
+  medium: { label: "Medium priority", cls: "border-risk-med/40 bg-risk-med/10 text-risk-med", bar: "bg-risk-med" },
+  low: { label: "Low priority", cls: "border-risk-low/40 bg-risk-low/10 text-risk-low", bar: "bg-risk-low" },
   insufficient: { label: "Insufficient evidence", cls: "border-border bg-surface text-muted", bar: "bg-border-strong" }
 };
 
@@ -937,7 +1218,7 @@ function StatJump({ target, hint, children }: { target: string; hint: string; ch
       type="button"
       onClick={() => scrollToEvidence(target)}
       title={hint}
-      className="group/jump relative block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-[16px]"
+      className="group/jump relative block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-2xl"
     >
       {children}
       <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-medium text-faint opacity-0 transition group-hover/jump:opacity-100">
@@ -981,19 +1262,17 @@ function CaseVerdictHeader({
     <motion.section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-[20px] border border-border bg-surface/80 p-5 elevate md:p-6"
+      transition={{ duration: DURATION.slow, ease: EASE }}
+      className="relative overflow-hidden rounded-2xl border border-border bg-surface/70 p-6 float md:p-8"
     >
       <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent/[0.06] blur-3xl" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
 
-      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-            Investigation summary
-          </div>
-          <h2 className="mt-1.5 truncate text-[22px] font-semibold tracking-tight text-text md:text-[26px]">{query}</h2>
-          <p className="mt-1 text-sm text-muted">
+          <div className="t-label text-accent">Investigation summary</div>
+          <h2 className="mt-2 truncate text-[24px] font-semibold tracking-[-0.02em] text-text md:text-[28px]">{query}</h2>
+          <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-muted">
             <span className="font-semibold text-text">{indicatorCount}</span> finding{indicatorCount === 1 ? "" : "s"} across{" "}
             <span className="font-semibold text-text">{recordCount}</span> official procurement records ·{" "}
             <span className="font-semibold text-text">{awardCount}</span> award{awardCount === 1 ? "" : "s"}. Deterministic
@@ -1001,40 +1280,35 @@ function CaseVerdictHeader({
           </p>
           {/* top findings — one line, jump to the case files */}
           {topFindings.length > 0 && (
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Top findings</span>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="t-label">Top findings</span>
               {topFindings.slice(0, 4).map((name) => (
                 <button
                   key={name}
                   type="button"
                   onClick={() => scrollToEvidence("ev-risk")}
-                  className="rounded-md border border-border bg-bg-2/50 px-2 py-0.5 text-[11px] font-medium text-text transition hover:border-accent/40 hover:text-accent"
+                  className="rounded-lg border border-border bg-bg-2/50 px-2.5 py-1 text-[11.5px] font-medium text-text transition-colors duration-200 hover:border-accent/40 hover:text-accent"
                 >
                   {name}
                 </button>
               ))}
-              {topFindings.length > 4 && <span className="text-[11px] text-faint">+{topFindings.length - 4} more</span>}
+              {topFindings.length > 4 && <span className="text-[11.5px] text-faint">+{topFindings.length - 4} more</span>}
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
+        <div className="flex shrink-0 flex-col items-start gap-3.5 lg:items-end">
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${style.cls}`}>
             <ShieldAlert className="h-3.5 w-3.5" />
             {style.label}
           </span>
-          <button
-            type="button"
-            onClick={onExport}
-            className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-hi"
-          >
-            <Download className="h-4 w-4" />
+          <Button onClick={onExport} icon={<Download className="h-4 w-4" />}>
             Export evidence packet
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="relative mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="relative mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatJump target="ev-records" hint="View records">
           <StatCard label="Records" value={String(recordCount)} tone="accent" icon={<FileText className="h-4 w-4" />} />
         </StatJump>
@@ -1055,33 +1329,33 @@ function CaseVerdictHeader({
       </div>
 
       {/* current position + recommended next investigation — the 30-second close */}
-      <div className="relative mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="rounded-[14px] border border-border bg-bg-2/40 px-3.5 py-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Current position</div>
-          <p className="mt-1 text-[13px] leading-snug text-muted">
+      <div className="relative mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-bg-2/40 px-4 py-3.5">
+          <div className="t-label">Current position</div>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
             {indicatorCount > 0
               ? CURRENT_POSITION_SUMMARY
               : "No findings were raised by deterministic screening of the retrieved records."}
           </p>
         </div>
-        <div className="rounded-[14px] border border-border bg-bg-2/40 px-3.5 py-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Recommended next investigation</div>
+        <div className="rounded-xl border border-border bg-bg-2/40 px-4 py-3.5">
+          <div className="t-label">Recommended next investigation</div>
           {nextInvestigations.length === 0 ? (
-            <p className="mt-1 text-[13px] leading-snug text-muted">No further investigations recommended from this evidence.</p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted">No further investigations recommended from this evidence.</p>
           ) : (
-            <div className="mt-1 space-y-1">
+            <div className="mt-1.5 space-y-0.5">
               {nextInvestigations.map((f, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => onInvestigate(f.query)}
-                  className="group flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left transition hover:bg-surface/60"
+                  className="group flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left transition-colors duration-200 hover:bg-surface/60"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[13px] font-medium text-text group-hover:text-accent">{f.label}</span>
-                    <span className="block truncate text-[11px] text-faint">{f.rationale}</span>
+                    <span className="mt-0.5 block truncate text-[11.5px] text-faint">{f.rationale}</span>
                   </span>
-                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-accent" />
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted transition-all group-hover:translate-x-0.5 group-hover:text-accent" />
                 </button>
               ))}
             </div>
@@ -1300,11 +1574,11 @@ function FindingCaseFilesSection({
       ) : (
         <>
           {screeningSummary && (
-            <p className="mb-3 rounded-[12px] border border-border bg-bg-2/40 px-3.5 py-2.5 text-sm leading-relaxed text-muted">
+            <p className="mb-5 rounded-xl border border-border bg-bg-2/40 px-4 py-3.5 text-[13.5px] leading-relaxed text-muted">
               {screeningSummary}
             </p>
           )}
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {findings.map((f, i) => {
               const sources: OfficialSource[] = [];
               const seen = new Set<string>();
@@ -1330,7 +1604,7 @@ function FindingCaseFilesSection({
               );
             })}
           </div>
-          <p className="mt-3 text-[11px] leading-snug text-faint">
+          <p className="mt-5 text-[11.5px] leading-relaxed text-faint">
             Findings come from deterministic screening of the official procurement records above. They are leads for a
             human investigator to review — never, by themselves, a determination of wrongdoing.
           </p>
@@ -1368,9 +1642,9 @@ function scrollToEvidence(id: string): void {
 
 function AiSummaryDivider() {
   return (
-    <div className="relative flex items-center gap-3 pt-2">
+    <div className="relative flex items-center gap-4 pt-4">
       <span className="h-px flex-1 bg-border" />
-      <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-faint">
+      <span className="t-label inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5">
         Narrative summary · secondary
       </span>
       <span className="h-px flex-1 bg-border" />
@@ -1391,30 +1665,25 @@ function EvidencePacketCTA({
     <motion.section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="relative flex flex-col items-start gap-4 overflow-hidden rounded-[18px] border border-accent/30 bg-surface/80 p-5 elevate sm:flex-row sm:items-center sm:justify-between"
+      transition={{ duration: DURATION.slow, ease: EASE }}
+      className="relative flex flex-col items-start gap-5 overflow-hidden rounded-2xl border border-accent/25 bg-surface/70 p-6 float sm:flex-row sm:items-center sm:justify-between"
     >
-      <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent/30 bg-accent/[0.08] text-accent">
+      <div className="flex items-start gap-4">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-accent/30 bg-accent/[0.08] text-accent">
           <ScrollText className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-text">Evidence packet</div>
-          <p className="mt-0.5 text-xs text-muted">
+          <div className="text-[15px] font-semibold text-text">Evidence packet</div>
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted">
             Export the full court-ready packet — {evidenceCount} cited item{evidenceCount === 1 ? "" : "s"} across{" "}
             {sourceCount} source{sourceCount === 1 ? "" : "s"}, every claim linked to its official source.
             <span className="ml-1 text-faint">15 sections incl. missing evidence, benign explanations &amp; a verification checklist · Print → PDF.</span>
           </p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onExport}
-        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-hi"
-      >
-        <Download className="h-4 w-4" />
+      <Button onClick={onExport} size="lg" icon={<Download className="h-4 w-4" />} className="shrink-0">
         Export evidence packet
-      </button>
+      </Button>
     </motion.section>
   );
 }

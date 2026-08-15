@@ -2,7 +2,8 @@
 
 import type { EChartsCoreOption } from "echarts/core";
 import { useMemo } from "react";
-import { CHART, EChart, tooltipStyle } from "./echart";
+import { CHART, PALETTE, alpha as hexA, tooltipStyle } from "@/lib/theme";
+import { EChart } from "./echart";
 
 /* ============================================================ Donut */
 
@@ -47,7 +48,7 @@ export function DonutChart({
               type: "text",
               left: "center",
               top: "42%",
-              style: { text: centerValue, fill: "#e7ecf3", fontSize: 30, fontWeight: 700, textAlign: "center" }
+              style: { text: centerValue, fill: PALETTE.text, fontSize: 30, fontWeight: 700, textAlign: "center" }
             },
             {
               type: "text",
@@ -233,12 +234,4 @@ function compact(v: number): string {
   if (abs >= 1e5) return `${(v / 1e5).toFixed(1)}L`;
   if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
   return String(v);
-}
-
-function hexA(hex: string, alpha: number): string {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
 }

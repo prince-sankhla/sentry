@@ -2,9 +2,11 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useTransition } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { CompanyTenderSort } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { SearchInput, Select } from "@/components/ui/input";
 
 type Props = {
   limit: number;
@@ -56,21 +58,19 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
   }
 
   return (
-    <div className="rounded-[16px] border border-border bg-surface p-4">
+    <div className="rounded-2xl border border-border bg-surface/70 p-5">
       <form className="grid gap-3 lg:grid-cols-[1fr_190px_auto]" onSubmit={onSearch}>
         <label className="relative block">
           <span className="sr-only">Search procurement history</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
-          <input
-            className="h-11 w-full rounded-lg border border-border bg-bg-2 pl-9 pr-3 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/60"
+          <SearchInput
             defaultValue={query}
             name="q"
             placeholder="Search procurement history"
             type="search"
+            pending={isPending}
           />
         </label>
-        <select
-          className="h-11 rounded-lg border border-border bg-bg-2 px-3 text-sm text-text outline-none transition focus:border-accent/60"
+        <Select
           onChange={(event) => updateParams({ sort: event.target.value, offset: 0 })}
           value={sort}
         >
@@ -79,37 +79,33 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
               {option.label}
             </option>
           ))}
-        </select>
-        <button
-          className="h-11 rounded-lg bg-accent px-5 text-sm font-semibold text-bg transition hover:bg-accent-hi disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={isPending}
-          type="submit"
-        >
+        </Select>
+        <Button variant="primary" type="submit" disabled={isPending}>
           Search
-        </button>
+        </Button>
       </form>
 
-      <div className="mt-4 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-5 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
         <div aria-live="polite">{isPending ? "Loading procurement history..." : `Page ${page} of ${pages}`}</div>
         <div className="flex gap-2">
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 font-medium text-text transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45"
+          <Button
+            variant="subtle"
+            size="sm"
             disabled={!hasPrevious || isPending}
             onClick={() => updateParams({ offset: Math.max(0, offset - limit) })}
-            type="button"
+            icon={<ChevronLeft className="h-4 w-4" aria-hidden="true" />}
           >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             Previous
-          </button>
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 font-medium text-text transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45"
+          </Button>
+          <Button
+            variant="subtle"
+            size="sm"
             disabled={!hasNext || isPending}
             onClick={() => updateParams({ offset: offset + limit })}
-            type="button"
+            trailing={<ChevronRight className="h-4 w-4" aria-hidden="true" />}
           >
             Next
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

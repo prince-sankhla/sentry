@@ -25,6 +25,7 @@ import {
   type FindingChallenge,
   type ProcurementContextAnalysis
 } from "@/lib/api";
+import { DURATION, EASE } from "@/lib/motion";
 
 export type OfficialSource = { ref: string; url: string; source: string };
 
@@ -40,11 +41,13 @@ export type CaseFileFinding = {
   contextNotes: string[];
 };
 
+/* Severity reads off the ordinal risk lattice, never off the emerald accent —
+   emerald means "action available", not "low risk". */
 const PRIORITY_PILL: Record<CaseFileFinding["severity"], { label: string; cls: string }> = {
-  critical: { label: "Critical priority", cls: "border-danger/60 bg-danger/15 text-danger" },
-  high: { label: "High priority", cls: "border-danger/40 bg-danger/10 text-danger" },
-  medium: { label: "Medium priority", cls: "border-warning/40 bg-warning/10 text-warning" },
-  low: { label: "Low priority", cls: "border-success/40 bg-success/10 text-success" }
+  critical: { label: "Critical priority", cls: "border-risk-crit/60 bg-risk-crit/15 text-risk-crit" },
+  high: { label: "High priority", cls: "border-risk-high/40 bg-risk-high/10 text-risk-high" },
+  medium: { label: "Medium priority", cls: "border-risk-med/40 bg-risk-med/10 text-risk-med" },
+  low: { label: "Low priority", cls: "border-risk-low/40 bg-risk-low/10 text-risk-low" }
 };
 
 const CURRENT_POSITION_FALLBACK =
@@ -161,18 +164,18 @@ export function FindingCaseFile({
     <motion.article
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index, 6) * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="overflow-hidden rounded-[16px] border border-border bg-bg-2/40"
+      transition={{ delay: Math.min(index, 6) * 0.05, duration: DURATION.base, ease: EASE }}
+      className="overflow-hidden rounded-2xl border border-border bg-bg-2/40 transition-colors duration-200 hover:border-border-strong"
     >
       {/* ── finding header ── */}
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-surface/40 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-accent/30 bg-accent/[0.08] text-accent">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-surface/40 px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent/30 bg-accent/[0.08] text-accent">
             <ScanSearch className="h-4 w-4" />
           </span>
           <div className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold text-text">{finding.name}</h3>
-            <div className="text-[11px] text-faint">
+            <div className="mt-0.5 text-[11.5px] text-faint">
               {finding.recordRefs.length} supporting record{finding.recordRefs.length === 1 ? "" : "s"} · evidence{" "}
               {finding.evidenceStatus || "recorded"}
             </div>
@@ -184,16 +187,16 @@ export function FindingCaseFile({
         </span>
       </header>
 
-      <div className="space-y-4 p-4">
+      <div className="space-y-6 p-5">
         {/* 1 — what SENTRY detected */}
         <section>
           <StepLabel n={1} text="What SENTRY detected" />
-          <p className="mt-1 text-sm leading-relaxed text-text">{finding.reason}</p>
+          <p className="mt-2 text-[13.5px] leading-relaxed text-text">{finding.reason}</p>
           {finding.contextNotes.length > 0 && (
-            <ul className="mt-1.5 space-y-1">
+            <ul className="mt-2.5 space-y-1.5">
               {finding.contextNotes.map((note, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-[11px] leading-snug text-faint">
-                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-muted" />
+                <li key={i} className="flex items-start gap-2 text-[11.5px] leading-relaxed text-faint">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted" />
                   {note}
                 </li>
               ))}
@@ -202,12 +205,12 @@ export function FindingCaseFile({
 
           {/* why was this finding triggered? — deterministic fact chain only */}
           {triggerFacts.length > 0 && (
-            <details className="group mt-2 rounded-lg border border-border bg-surface/40 px-2.5 py-1.5">
-              <summary className="cursor-pointer list-none text-[11px] font-semibold text-muted transition hover:text-text">
-                <ChevronRight className="mr-1 inline h-3 w-3 transition group-open:rotate-90" />
+            <details className="group mt-3 rounded-lg border border-border bg-surface/40 px-3 py-2">
+              <summary className="cursor-pointer list-none text-[11.5px] font-semibold text-muted transition-colors hover:text-text">
+                <ChevronRight className="mr-1 inline h-3 w-3 transition-transform group-open:rotate-90" />
                 Why was this finding triggered?
               </summary>
-              <ol className="mt-2 space-y-0.5 pb-1">
+              <ol className="mt-2.5 space-y-1 pb-1.5">
                 {triggerFacts.map((fact, i) => (
                   <li key={i} className="flex items-center gap-1.5 text-[12px] text-muted">
                     {i > 0 && <span className="text-faint">↓</span>}
@@ -215,7 +218,7 @@ export function FindingCaseFile({
                   </li>
                 ))}
               </ol>
-              <p className="pb-1 text-[10px] leading-snug text-faint">
+              <p className="pb-1 text-[10px] leading-relaxed text-faint">
                 Deterministic facts from the official procurement records — no probabilities, no model reasoning.
               </p>
             </details>
@@ -225,9 +228,9 @@ export function FindingCaseFile({
         {/* 2 — evidence supporting investigation */}
         <section>
           <StepLabel n={2} text="Evidence supporting investigation" />
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
             {finding.recordRefs.slice(0, 6).map((ref) => (
-              <span key={ref} className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-0.5 font-mono text-[11px] text-muted">
+              <span key={ref} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 font-mono text-[11px] text-muted">
                 <FileText className="h-3 w-3" /> {ref}
               </span>
             ))}
@@ -239,7 +242,7 @@ export function FindingCaseFile({
                 href={primarySource.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/[0.08] px-2.5 py-1 text-[11px] font-semibold text-accent transition hover:bg-accent/15"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/[0.08] px-2.5 py-1 text-[11px] font-semibold text-accent transition-colors duration-200 hover:bg-accent/15"
               >
                 <ExternalLink className="h-3 w-3" />
                 Official record
@@ -253,16 +256,16 @@ export function FindingCaseFile({
         <section>
           <StepLabel n={3} text="Possible legitimate explanations" icon={<Scale className="h-3 w-3 text-success" />} />
           {challenge && challenge.explanations.length > 0 ? (
-            <ul className="mt-1.5 space-y-1.5">
+            <ul className="mt-2.5 space-y-2">
               {challenge.explanations.map((e, i) => (
-                <li key={i} className="rounded-lg border border-success/25 bg-success/[0.04] px-2.5 py-2">
-                  <div className="text-[13px] leading-snug text-text">{e.explanation}</div>
-                  <div className="mt-0.5 text-[11px] leading-snug text-muted">Evidence: {e.evidence}</div>
+                <li key={i} className="rounded-lg border border-success/25 bg-success/[0.04] px-3 py-2.5">
+                  <div className="text-[13px] leading-relaxed text-text">{e.explanation}</div>
+                  <div className="mt-1 text-[11.5px] leading-relaxed text-muted">Evidence: {e.evidence}</div>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-1 text-xs text-faint">
+            <p className="mt-2 text-xs leading-relaxed text-faint">
               No evidence-backed legitimate explanation was detected in the retrieved records.
             </p>
           )}
@@ -272,28 +275,28 @@ export function FindingCaseFile({
         <section>
           <StepLabel n={4} text="Evidence still required" icon={<CircleHelp className="h-3 w-3 text-accent" />} />
           {challenge && challenge.questions.length > 0 ? (
-            <ul className="mt-1.5 space-y-1">
+            <ul className="mt-2.5 space-y-2">
               {challenge.questions.map((q, i) => (
-                <li key={i} className="flex items-start gap-1.5">
+                <li key={i} className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                   <span className="min-w-0">
-                    <span className="block text-[13px] leading-snug text-text">{q.question}</span>
+                    <span className="block text-[13px] leading-relaxed text-text">{q.question}</span>
                     <span className="block truncate text-[10px] text-faint">tests: {q.eliminates}</span>
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-1 text-xs text-faint">Obtain the award and evaluation records for the flagged tenders.</p>
+            <p className="mt-2 text-xs leading-relaxed text-faint">Obtain the award and evaluation records for the flagged tenders.</p>
           )}
 
           {/* required documents — the procurement-file records that answer the
               questions above, specific to this finding type */}
-          <div className="mt-2.5 rounded-lg border border-border bg-surface/50 px-2.5 py-2">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-faint">Required documents</div>
-            <ul className="mt-1 flex flex-wrap gap-1.5">
+          <div className="mt-3.5 rounded-lg border border-border bg-surface/50 px-3 py-2.5">
+            <div className="t-label">Required documents</div>
+            <ul className="mt-2 flex flex-wrap gap-1.5">
               {(REQUIRED_DOCUMENTS[finding.id] ?? REQUIRED_DOCUMENTS_DEFAULT).map((doc) => (
-                <li key={doc} className="rounded-md border border-border bg-bg-2/50 px-1.5 py-0.5 text-[11px] text-muted">
+                <li key={doc} className="rounded-md border border-border bg-bg-2/50 px-2 py-0.5 text-[11px] text-muted">
                   {doc}
                 </li>
               ))}
@@ -310,19 +313,19 @@ export function FindingCaseFile({
         {nextSteps.length > 0 && (
           <section>
             <StepLabel n={5} text="Recommended next investigation" />
-            <div className="mt-1.5 flex flex-col gap-1.5">
+            <div className="mt-2.5 flex flex-col gap-2">
               {nextSteps.map((step, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => onInvestigate(step.query)}
-                  className="group flex items-center justify-between gap-3 rounded-[12px] border border-border bg-surface/50 px-3 py-2 text-left transition hover:border-accent/40"
+                  className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-surface/50 px-3.5 py-2.5 text-left transition-colors duration-200 hover:border-accent/40"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[13px] font-medium text-text group-hover:text-accent">{step.label}</span>
-                    <span className="block truncate text-[11px] text-faint">{step.reason}</span>
+                    <span className="mt-0.5 block truncate text-[11.5px] text-faint">{step.reason}</span>
                   </span>
-                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-accent" />
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted transition-all group-hover:translate-x-0.5 group-hover:text-accent" />
                 </button>
               ))}
             </div>
@@ -331,9 +334,9 @@ export function FindingCaseFile({
       </div>
 
       {/* ── current position (fixed decision boundary) ── */}
-      <footer className="border-t border-border/60 bg-surface/40 px-4 py-2.5">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Current position</div>
-        <p className="mt-0.5 text-[12px] leading-snug text-muted">{challenge?.position ?? CURRENT_POSITION_FALLBACK}</p>
+      <footer className="border-t border-border/60 bg-surface/40 px-5 py-3.5">
+        <div className="t-label">Current position</div>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-muted">{challenge?.position ?? CURRENT_POSITION_FALLBACK}</p>
       </footer>
     </motion.article>
   );
@@ -371,24 +374,24 @@ function ProcurementContextBlock({
   }, [analysis, loading, failed, findingId, findingName, facts]);
 
   return (
-    <section className="rounded-[12px] border border-border bg-surface/40">
+    <section className="rounded-xl border border-border bg-surface/40">
       <button
         type="button"
         onClick={toggle}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+        className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left"
       >
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
+        <span className="t-label flex items-center gap-1.5">
           <BookOpenCheck className="h-3 w-3 text-accent" /> Procurement context · trusted authorities
         </span>
         {loading ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-muted" />
         ) : (
-          <ChevronRight className={`h-3.5 w-3.5 text-muted transition ${open ? "rotate-90" : ""}`} />
+          <ChevronRight className={`h-3.5 w-3.5 text-muted transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
         )}
       </button>
 
       {open && (
-        <div className="space-y-2.5 border-t border-border/60 px-3 py-2.5">
+        <div className="space-y-3 border-t border-border/60 px-3.5 py-3">
           {failed ? (
             <p className="text-xs text-faint">Procurement context could not be retrieved.</p>
           ) : !analysis ? (
@@ -475,8 +478,10 @@ function ProcurementContextBlock({
 
 function StepLabel({ n, text, icon }: { n: number; text: string; icon?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
-      <span className="grid h-4 w-4 place-items-center rounded-full border border-border bg-surface text-[9px] text-muted">{n}</span>
+    <div className="t-label flex items-center gap-2">
+      <span className="grid h-[18px] w-[18px] place-items-center rounded-full border border-border bg-surface text-[9px] text-muted">
+        {n}
+      </span>
       {icon}
       {text}
     </div>

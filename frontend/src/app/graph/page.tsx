@@ -45,6 +45,11 @@ export default async function GraphPage({ searchParams }: PageProps) {
           <EmptyState
             title="No relationships yet"
             message="Import tenders and awards to populate the investigation graph."
+            suggestions={[
+              "Run an investigation from the Workspace to build a graph automatically",
+              "Import tenders — awards linking buyers to suppliers generate edges",
+              "Connect the CPPP or GeM source connector in Settings"
+            ]}
           />
         ) : (
           <RelationshipGraphExplorer graph={graph} />

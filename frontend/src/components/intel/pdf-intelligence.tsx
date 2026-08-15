@@ -53,7 +53,7 @@ export function PdfIntelligence({ extraction }: { extraction: TenderDocumentExtr
   return (
     <div>
       {/* header strip */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-accent/20 bg-accent/[0.05] px-4 py-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent/[0.05] px-4 py-3">
         <div className="flex items-center gap-2.5">
           <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
             <FileScan className="h-4 w-4" />
@@ -103,7 +103,7 @@ function FieldCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index, 8) * 0.05, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className="group overflow-hidden rounded-[14px] border border-border bg-surface/70 p-3.5 transition-colors hover:border-accent/40"
+      className="group overflow-hidden rounded-xl border border-border bg-surface/70 p-3.5 transition-colors hover:border-accent/40"
     >
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">

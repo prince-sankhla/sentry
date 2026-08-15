@@ -5,10 +5,9 @@ import { Section, StatCard } from "@/components/ui/card";
 import { ErrorState, EmptyState } from "@/components/ui/states";
 import { getAnalyticsOverview } from "@/lib/api";
 import { formatCompactMoney, formatNumber } from "@/lib/format";
+import { CHART_SERIES } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
-
-const REPORT_CHART_COLORS = ["#d29a4e", "#5f92c2", "#3ec08a", "#e0a63e", "#46b4c4", "#8a94a4"] as const;
 
 export default async function ReportsPage() {
   let data;
@@ -29,7 +28,7 @@ export default async function ReportsPage() {
   const distributionSlices = sources.slice(0, 6).map((s, index) => ({
     name: s.source_name,
     value: s.tenders,
-    color: REPORT_CHART_COLORS[index % REPORT_CHART_COLORS.length]
+    color: CHART_SERIES[index % CHART_SERIES.length]
   }));
   const controlChecks = [
     {

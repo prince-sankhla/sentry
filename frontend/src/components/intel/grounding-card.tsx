@@ -11,6 +11,7 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, FileCheck, ShieldCheck, ShieldAlert } from "lucide-react";
 import type { GroundingReport } from "@/lib/api";
+import { DURATION, EASE } from "@/lib/motion";
 
 export function GroundingCard({ grounding: g }: { grounding: GroundingReport }) {
   const grounded = g.fully_grounded && g.total_findings > 0;
@@ -20,26 +21,26 @@ export function GroundingCard({ grounding: g }: { grounding: GroundingReport }) 
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className={`overflow-hidden rounded-[16px] border p-4 ${
-        grounded ? "border-success/40 bg-success/[0.05]" : "border-warning/40 bg-warning/[0.05]"
+      transition={{ duration: DURATION.base, ease: EASE }}
+      className={`overflow-hidden rounded-2xl border p-5 ${
+        grounded ? "border-success/40 bg-success/[0.05]" : "border-risk-med/40 bg-risk-med/[0.05]"
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <span
-          className={`grid h-8 w-8 place-items-center rounded-lg border ${
-            grounded ? "border-success/40 bg-success/10 text-success" : "border-warning/40 bg-warning/10 text-warning"
+          className={`grid h-9 w-9 place-items-center rounded-lg border ${
+            grounded ? "border-success/40 bg-success/10 text-success" : "border-risk-med/40 bg-risk-med/10 text-risk-med"
           }`}
         >
           {grounded ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
         </span>
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-text">{grounded ? "Fully Grounded" : "Partially Grounded"}</div>
-          <div className="text-[11px] text-faint">Evidence-anchored verification audit</div>
+          <div className="text-[13.5px] font-semibold text-text">{grounded ? "Fully Grounded" : "Partially Grounded"}</div>
+          <div className="mt-0.5 text-[11px] text-faint">Evidence-anchored verification audit</div>
         </div>
       </div>
 
-      <div className="mt-4 space-y-2.5">
+      <div className="mt-5 space-y-3">
         <GroundingRow label="Evidence-backed findings" value={`${g.evidence_backed_findings} / ${g.total_findings}`} pct={coverage} />
         {/* Factual counts only — no confidence percentage. SENTRY reports what
             evidence exists, never a probability that a finding is true. */}
@@ -79,10 +80,10 @@ function GroundingRow({ label, value, pct }: { label: string; value: string; pct
 
 function Stat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border bg-surface/50 p-2 text-center">
-      <div className="flex items-center justify-center text-accent">{icon}</div>
-      <div className="mt-1 tabular text-sm font-semibold text-text">{value}</div>
-      <div className="text-[9px] uppercase tracking-wide text-faint">{label}</div>
-    </div>
+        <div className="rounded-lg border border-border bg-surface/50 p-2.5 text-center">
+          <div className="flex items-center justify-center text-accent">{icon}</div>
+          <div className="mt-1 tabular text-[13.5px] font-semibold text-text">{value}</div>
+          <div className="t-label mt-0.5">{label}</div>
+        </div>
   );
 }

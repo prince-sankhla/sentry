@@ -101,7 +101,12 @@ export default async function TendersPage({ searchParams }: PageProps) {
           empty={
             <EmptyState
               title="No tenders found"
-              message={query ? "Try a different search term or clear the search box." : "Imported tender records will appear here."}
+              message={query ? `No results for "${query}" - try a broader term or clear the filter.` : "No tender records have been imported yet."}
+              suggestions={query ? undefined : [
+                "Connect a procurement source in Settings -> Data Sources",
+                "Run the CPPP or GeM connector to pull recent tenders",
+                "Import a CSV of tender records to get started"
+              ]}
             />
           }
           getHref={(tender) => `/tenders/${tender.id}`}

@@ -18,7 +18,6 @@ from abc import ABC, abstractmethod
 
 from app.verified_context.schema import (
     CONTEXT_UNAVAILABLE,
-    ContextCard,
     ContextQuery,
     ContextResolution,
 )

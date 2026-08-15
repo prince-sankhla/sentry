@@ -11,7 +11,6 @@ from __future__ import annotations
 import html as H
 import logging
 import re
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urljoin

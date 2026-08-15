@@ -58,6 +58,13 @@ _ALTERNATIVE_EXPLANATIONS: dict[str, str] = {
     "gst_overlap": "A shared GSTIN across names can be a legitimate branch/division of one registered entity.",
     "director_overlap": "Shared directors are common across group companies and independent-director appointments and are not themselves improper.",
     "address_overlap": "A shared registered address can reflect a common business park, shared secretarial service, or group premises.",
+    "contract_fragmentation": (
+        "A same-day batch of works tenders is consistent with a sanctioned multi-package programme delivered "
+        "as separate execution lots — a single DPR and administrative sanction can legitimately produce "
+        "multiple NIT items published together. Ward-wise municipal works, corridor-wise road packages, "
+        "or phased irrigation works commonly take this form. The lot-splitting is adverse only when the "
+        "aggregate value was deliberately kept below a sanction threshold without corresponding approval."
+    ),
 }
 
 # Per-typology manual verification steps an investigator performs to confirm or
@@ -86,6 +93,28 @@ _VERIFICATION_STEPS: dict[str, list[str]] = {
     "duplicate_description": ["Compare the full specifications of the duplicated tenders for tailoring."],
     "award_value_exceeds_tender": ["Obtain the scope-change/variation record justifying the value increase."],
     "missing_documents": ["Request the tender/contract PDFs directly from the procuring entity."],
+    "high_value": [
+        "Confirm whether the estimated value reflects the full project scope rather than a single-lot value.",
+        "Compare against comparable procurements to assess whether the scale is unusual for the category.",
+    ],
+    "gst_overlap": [
+        "Obtain GSTIN registration certificates for each supplier and confirm whether they are distinct entities.",
+        "Check whether the overlap is a lawful branch or division filing.",
+    ],
+    "director_overlap": [
+        "Obtain DIN records for the shared director(s) and confirm their official capacity in each entity.",
+        "Determine whether the overlap is disclosed in any statutory filing.",
+    ],
+    "address_overlap": [
+        "Confirm whether the shared address is a registered office, a business park, or a secretarial service.",
+        "Cross-check the entities' operational addresses against their tender submissions.",
+    ],
+    "contract_fragmentation": [
+        "Obtain the administrative / financial sanction covering this batch and verify that it is taken at the level mandated for the aggregate value.",
+        "Confirm whether a single Detailed Project Report (DPR) and approved estimate cover all the lots.",
+        "Establish whether the lot-wise packaging is recorded with justification in the approving authority's file.",
+        "Check whether any individual lot value sits immediately below a delegation-of-powers threshold.",
+    ],
 }
 
 _GENERIC_VERIFICATION_STEPS: list[str] = [
@@ -93,6 +122,45 @@ _GENERIC_VERIFICATION_STEPS: list[str] = [
     "Corroborate each awarded supplier's identity (CIN on MCA21, GSTIN on the GST portal).",
     "Confirm every attached document opens and matches the record it is cited against.",
 ]
+
+# Evidence-state-driven checklist items — shown only when the corresponding
+# gap actually appears in the package (Task 4: dynamic, never static noise).
+def _dynamic_checklist(pkg: InvestigationPackage) -> list[str]:
+    items: list[str] = []
+    # Awards missing for closed tenders → award-retrieval steps.
+    closed_no_award = sum(
+        1 for r in pkg.records if r.tender.closing_date is not None and not r.awards
+    )
+    if closed_no_award:
+        items += [
+            f"[Awards missing — {closed_no_award} closed tender(s)] Retrieve the Award Notice from the portal's results section.",
+            f"[Awards missing — {closed_no_award} closed tender(s)] Verify publication once the expected award lifecycle window has elapsed.",
+        ]
+    # Awarded suppliers present → registry verification steps.
+    supplier_names = {a.company_name for r in pkg.records for a in r.awards if a.company_name}
+    if supplier_names:
+        items += [
+            "[Suppliers] Verify CIN/LLPIN on MCA21 for each awarded company.",
+            "[Suppliers] Verify GST registration on the GST portal.",
+        ]
+    # No canonical entities resolved → director identification steps.
+    if supplier_names and not pkg.canonical_companies:
+        items.append(
+            "[Entity resolution] No canonical entities resolved — verify Director Identification Numbers (DIN) for key supplier directors on MCA21."
+        )
+    # Primary documents missing → document acquisition steps.
+    primary_docs = sum(
+        1 for r in pkg.records for d in r.documents
+        if (d.document_type or "").casefold() not in ("source_notice", "source notice", "")
+    )
+    if pkg.records and primary_docs == 0:
+        items += [
+            "[Documents] Obtain the NIT (Notice Inviting Tender) for the flagged tenders from the official portal.",
+            "[Documents] Obtain the BoQ (Bill of Quantities) — confirms scope and estimate basis.",
+            "[Documents] Obtain any corrigendum / amendment notice.",
+            "[Documents] Request the Technical Sanction from the procuring entity if not published.",
+        ]
+    return items
 
 _SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 
@@ -244,6 +312,10 @@ class PacketTypology:
     evidence_status: str = ""
     context_notes: list[str] = field(default_factory=list)
     supporting_tenders: list[str] = field(default_factory=list)
+    # Task 1 — richer status block (never fabricated; projected from engine outputs)
+    evidence_strength: str = ""    # "Verified" | "Probable" | "Unknown"
+    evidence_level: str = ""       # human label for the display section
+    status_reason: str = ""        # plain-language derivation of why this status was reached
 
 
 @dataclass
@@ -293,6 +365,7 @@ class EvidencePacketDocument:
     confidence_level: str
     confidence_explanation: str
     confidence_dimensions: list[tuple[str, int, str]]
+    entity_resolution: dict  # Task 3: subject/buyer/supplier/company/director breakdown
     methodology: list[str]
     timeline: list[tuple[str, str, str, str]]           # (date, label, source, tender)
     typologies: list[PacketTypology]
@@ -401,12 +474,49 @@ def build_packet_document(
                 name=p.name, severity=p.severity, kind="pattern",
                 detail=p.reason or p.rule, evidence_status="",
                 supporting_tenders=sorted({t for i in risk_v2.indicators if i.id in p.indicators for t in i.supporting_records}),
+                evidence_strength="Verified" if all(i.evidence_status == "verified" for i in risk_v2.indicators if i.id in p.indicators) else "Probable",
+                evidence_level="Rule combination — multiple indicators fire together",
+                status_reason=(
+                    f"Triggered by the co-occurrence of: {', '.join(sorted(p.indicators))}. "
+                    "Pattern-level status is at least as strong as the weakest constituent indicator."
+                ),
             ))
         for i in risk_v2.indicators:
+            # Map engine evidence_status → human label + reason.
+            if i.evidence_status == "verified":
+                strength = "Verified"
+                level = "Directly Supported"
+                reason = (
+                    f"All required evidence fields ({', '.join(i.required_evidence)}) "
+                    f"are present and confirmed in {len(i.supporting_records)} supporting record(s)."
+                    if i.required_evidence
+                    else f"Supporting evidence present and confirmed in {len(i.supporting_records)} record(s)."
+                )
+            elif i.evidence_status == "probable":
+                strength = "Probable"
+                level = "Potentially Applicable"
+                reason = (
+                    f"Partial evidence available across {len(i.supporting_records)} record(s); "
+                    "final confirmation requires the primary source documents."
+                )
+            else:
+                strength = "Unknown"
+                level = "Not Yet Established"
+                reason = (
+                    "The required evidence fields could not be verified from the retrieved records. "
+                    "Severity is capped until primary source review."
+                )
+            # Append context-rule notes to the reason so the investigator sees
+            # exactly why the engine adjusted severity (e.g. emergency context).
+            if i.context_notes:
+                reason += " Context applied: " + "; ".join(i.context_notes)
             typologies.append(PacketTypology(
                 name=i.name, severity=i.severity, kind="indicator",
                 detail=i.reason, evidence_status=i.evidence_status,
                 context_notes=list(i.context_notes), supporting_tenders=list(i.supporting_records),
+                evidence_strength=strength,
+                evidence_level=level,
+                status_reason=reason,
             ))
 
     # 7 — every supporting tender.
@@ -500,6 +610,33 @@ def build_packet_document(
         for d in report.confidence_assessment.dimensions:
             dims.append((d.label, int(round(d.score * 100)), d.detail))
 
+    # Task 3 — entity resolution breakdown: subject / buyer / supplier / company / director.
+    # Derived entirely from fields the engine already produced; nothing fabricated.
+    # Subject resolution succeeded when precision retrieval returned records for it.
+    subject_resolved = len(pkg.records) > 0
+    # Buyers: distinct non-empty procuring_entity values.
+    buyers_found = sorted({r.tender.procuring_entity for r in pkg.records if r.tender.procuring_entity})
+    # Suppliers: companies from awards.
+    suppliers_found = sorted({a.company_name for r in pkg.records for a in r.awards if a.company_name})
+    # Resolved canonical companies (with confidence >= 0.6).
+    canonical_ok = [c for c in pkg.canonical_companies if c.confidence >= 0.6]
+    # Directors: no pipeline resolves directors in this package (future Phase).
+    entity_resolution = {
+        "subject": subject_resolved,
+        "buyer": bool(buyers_found),
+        "supplier": bool(suppliers_found),
+        "company": bool(canonical_ok),
+        "director": False,  # director resolution not yet implemented in the pipeline
+        "summary": {
+            "buyers_resolved": len(buyers_found),
+            "suppliers_found": len(suppliers_found),
+            "canonical_entities": len(canonical_ok),
+            "total_canonical": len(pkg.canonical_companies),
+        },
+    }
+    resolved_count = sum([subject_resolved, bool(buyers_found), bool(suppliers_found), bool(canonical_ok)])
+    entity_resolution["overall_pct"] = int(round(resolved_count / 5 * 100))  # /5 categories
+
     # 12 — alternative explanations, one per distinct triggered typology.
     alt: list[tuple[str, str]] = []
     seen_alt: set[str] = set()
@@ -509,7 +646,8 @@ def build_packet_document(
                 seen_alt.add(i.id)
                 alt.append((i.name, _ALTERNATIVE_EXPLANATIONS[i.id]))
 
-    # 13 — manual verification checklist (per-typology steps + generic steps).
+    # 13 — dynamic verification checklist: per-typology steps first, then generic,
+    # then evidence-state-driven items (Task 4 — shown only when actually relevant).
     checklist: list[str] = list(_GENERIC_VERIFICATION_STEPS)
     if risk_v2 is not None:
         for i in risk_v2.indicators:
@@ -517,6 +655,9 @@ def build_packet_document(
                 labelled = f"[{i.name}] {step}"
                 if labelled not in checklist:
                     checklist.append(labelled)
+    for item in _dynamic_checklist(pkg):
+        if item not in checklist:
+            checklist.append(item)
 
     # 15 — AI summary (optional) with honest provenance.
     if reasoning.generated_by == "llm":
@@ -542,6 +683,7 @@ def build_packet_document(
         confidence_level=conf_level,
         confidence_explanation=conf_expl,
         confidence_dimensions=dims,
+        entity_resolution=entity_resolution,
         methodology=_methodology(),
         timeline=[(_fmt_date(e.event_date), e.label, e.source_name, e.related_tender or "") for e in pkg.timeline],
         typologies=typologies,
@@ -636,17 +778,25 @@ def render_packet_html(doc: EvidencePacketDocument) -> str:
         body = "<p class='muted'>No dated events available.</p>"
     section(5, "Timeline", body)
 
-    # 6 — triggered typologies
+    # 6 — triggered typologies (Task 1: richer status block per typology).
     if doc.typologies:
         rows = "".join(
             f"<tr><td>{_sev_badge(t.severity)}</td><td><strong>{_e(t.name)}</strong>"
-            f"<span class='kind'>{_e(t.kind)}</span></td><td>{_e(t.detail)}"
+            f"<span class='kind'>{_e(t.kind)}</span>"
+            f"<div class='status-block'>"
+            f"<div class='status-label'>{_e(t.evidence_level or 'Status not assessed')}</div>"
+            f"<div class='status-detail'>"
+            f"<span class='small muted'>Evidence Strength:</span> {_e(t.evidence_strength or '—')}<br>"
+            f"<span class='small muted'>Evidence Status:</span> {_e(t.evidence_status or '—')}"
+            f"</div>"
+            + (f"<div class='status-reason'><span class='small muted'>Reason:</span> {_e(t.status_reason)}</div>" if t.status_reason else "")
+            + f"</div></td>"
+            f"<td>{_e(t.detail)}"
             + (f"<div class='ctx'>Context: {_e('; '.join(t.context_notes))}</div>" if t.context_notes else "")
-            + f"</td><td>{_e(t.evidence_status or '—')}</td>"
-            f"<td class='mono small'>{_e(', '.join(t.supporting_tenders[:8]))}</td></tr>"
+            + f"</td><td class='mono small'>{_e(', '.join(t.supporting_tenders[:8]))}</td></tr>"
             for t in doc.typologies
         )
-        body = f"<table><thead><tr><th>Severity</th><th>Typology</th><th>Basis</th><th>Evidence</th><th>Supporting tenders</th></tr></thead><tbody>{rows}</tbody></table>"
+        body = f"<table><thead><tr><th>Severity</th><th>Typology & Status</th><th>Basis</th><th>Supporting tenders</th></tr></thead><tbody>{rows}</tbody></table>"
     else:
         body = "<p class='muted'>No procurement-integrity typologies triggered.</p>"
     if doc.award_timing_note:
@@ -769,6 +919,41 @@ def render_packet_html(doc: EvidencePacketDocument) -> str:
                   f"evidence is — URLs and documents present, awards and dates complete, entities "
                   f"resolved. It is a data-completeness metric, <strong>not</strong> a probability that "
                   f"any finding is true, and is <strong>independent of the risk score</strong>.</p>")
+    # Task 3 — entity-resolution breakdown by category, with an explanation of WHY
+    # the overall figure is what it is (replaces the confusing bare percentage).
+    er = doc.entity_resolution or {}
+    if er:
+        def _tick(ok: bool) -> str:
+            return "<span class='ok'>&#10003;</span>" if ok else "<span class='muted'>&#10007;</span>"
+        summary = er.get("summary", {})
+        why_bits: list[str] = []
+        if er.get("subject"):
+            why_bits.append("the investigation subject resolved to records")
+        if er.get("buyer"):
+            why_bits.append(f"{summary.get('buyers_resolved', 0)} procuring entit(ies) identified from the records")
+        if er.get("supplier"):
+            why_bits.append(f"{summary.get('suppliers_found', 0)} awarded supplier(s) named in awards")
+        else:
+            why_bits.append("no awarded suppliers appear in the retrieved records (tender-stage data)")
+        if er.get("company"):
+            why_bits.append(f"{summary.get('canonical_entities', 0)} canonical company identit(ies) resolved with high confidence")
+        else:
+            why_bits.append("no canonical company identities were resolvable (no registration data in the records)")
+        if not er.get("director"):
+            why_bits.append("director resolution is not yet part of the pipeline")
+        er_rows = (
+            f"<tr><td>Subject Resolution</td><td>{_tick(bool(er.get('subject')))}</td></tr>"
+            f"<tr><td>Buyer Resolution</td><td>{_tick(bool(er.get('buyer')))}</td></tr>"
+            f"<tr><td>Supplier Resolution</td><td>{_tick(bool(er.get('supplier')))}</td></tr>"
+            f"<tr><td>Company Resolution</td><td>{_tick(bool(er.get('company')))}</td></tr>"
+            f"<tr><td>Director Resolution</td><td>{_tick(bool(er.get('director')))}</td></tr>"
+        )
+        conf_body += (
+            f"<h3 class='small' style='margin-top:14px'>Entity resolution by category</h3>"
+            f"<table><thead><tr><th>Category</th><th>Resolved</th></tr></thead><tbody>{er_rows}</tbody></table>"
+            f"<p class='small'><strong>Overall Entity Resolution: {er.get('overall_pct', 0)}%</strong></p>"
+            f"<p class='muted small'>Why: {_e('; '.join(why_bits))}.</p>"
+        )
     if doc.baseline_note:
         conf_body += f"<p class='muted small'><strong>Base rate:</strong> {_e(doc.baseline_note)}</p>"
     section(10, "Evidence completeness", conf_body)
@@ -807,7 +992,6 @@ def render_packet_html(doc: EvidencePacketDocument) -> str:
                 f"<p class='muted small'>{_e(doc.ai_summary_provenance)}</p>")
 
     body_html = "".join(sections)
-    verdict_class = _SEVERITY_CLASS.get(doc.risk_level, "sev-low")
 
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
@@ -878,6 +1062,10 @@ td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
 .small{font-size:11px}.num{white-space:nowrap}
 .estep{line-height:1.5;white-space:nowrap}
+.status-block{margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fafbfc}
+.status-label{font-weight:700;font-size:12px}
+.status-detail{margin-top:2px;font-size:11px;line-height:1.5}
+.status-reason{margin-top:3px;font-size:11px;line-height:1.45;color:#444}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 a{color:var(--accent);text-decoration:none;border-bottom:1px solid #d8c3ad}
 .muted{color:var(--muted)}.big{font-size:24px;font-weight:700;margin:2px 0}

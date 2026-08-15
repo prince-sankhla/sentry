@@ -29,6 +29,7 @@ import {
 import { useMemo, useState } from "react";
 import type { EvidenceQualityTier, ReasoningCitation } from "@/lib/api";
 import { bySourcePriority, isIndianSource, sourceMeta } from "@/lib/sources";
+import { DURATION, EASE } from "@/lib/motion";
 
 /* ---------------------------------------------------------------- tiers */
 
@@ -120,13 +121,13 @@ export function EvidenceLedger({ items }: { items: ReasoningCitation[] }) {
   return (
     <div>
       {/* toolbar */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="mr-auto inline-flex items-center gap-1.5 text-[11px] text-faint">
+      <div className="mb-5 flex flex-wrap items-center gap-2.5">
+        <span className="mr-auto inline-flex items-center gap-1.5 text-[11.5px] text-faint">
           <Filter className="h-3.5 w-3.5" /> {shown.length} of {items.length} evidence items
         </span>
 
         {/* source filter */}
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           <FilterChip active={source === "all"} onClick={() => setSource("all")} label="All sources" />
           {sources.map((s) => (
             <FilterChip
@@ -140,14 +141,14 @@ export function EvidenceLedger({ items }: { items: ReasoningCitation[] }) {
         </div>
 
         {/* sort */}
-        <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface p-0.5">
+        <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg-2/50 p-1">
           <ArrowUpDown className="ml-1.5 h-3 w-3 text-faint" />
           {(["quality", "confidence", "recent"] as SortKey[]).map((k) => (
             <button
               key={k}
               type="button"
               onClick={() => setSort(k)}
-              className={`rounded-md px-2 py-1 text-[11px] font-medium capitalize transition ${
+              className={`rounded-lg px-2.5 py-1 text-[11.5px] font-medium capitalize transition-colors duration-200 ${
                 sort === k ? "bg-accent/15 text-accent" : "text-muted hover:text-text"
               }`}
             >
@@ -158,7 +159,7 @@ export function EvidenceLedger({ items }: { items: ReasoningCitation[] }) {
       </div>
 
       {/* grid */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
         <AnimatePresence mode="popLayout">
           {shown.map((c, i) => (
             <LedgerCard key={`${c.source_name}:${c.source_record_id ?? c.label}:${i}`} citation={c} index={i} />
@@ -184,7 +185,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors duration-200 ${
         active
           ? "border-accent/50 bg-accent/[0.1] text-accent"
           : "border-border bg-surface text-muted hover:border-border-strong hover:text-text"
@@ -222,28 +223,28 @@ function LedgerCard({ citation: c, index }: { citation: ReasoningCitation; index
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ delay: Math.min(index, 10) * 0.03, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className={`group relative flex flex-col overflow-hidden rounded-[16px] border bg-surface/70 transition-colors hover:border-border-strong ${
+      transition={{ delay: Math.min(index, 10) * 0.03, duration: DURATION.base, ease: EASE }}
+      className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-surface/70 transition-colors duration-200 hover:border-border-strong ${
         indian ? "border-l-2 border-l-accent/60 border-y-border border-r-border" : "border-border"
       }`}
     >
       {/* header: source + tier */}
-      <div className="flex items-center gap-2 border-b border-border/60 bg-bg-2/30 px-3.5 py-2.5">
+      <div className="flex items-center gap-2 border-b border-border/60 bg-bg-2/30 px-4 py-3">
         <span
-          className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border ${
             indian ? "border-accent/30 bg-accent/[0.08] text-accent" : "border-border bg-bg-2 text-muted"
           }`}
         >
           <FileText className="h-3.5 w-3.5" />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-muted">{meta.label}</span>
+        <span className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-muted">{meta.label}</span>
         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${tier.cls}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${tier.dot}`} />
           {tier.label}
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col p-3.5">
+      <div className="flex flex-1 flex-col p-4">
         {/* quality stars + confidence */}
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-0.5" title={`Quality ${c.quality}/100`}>
@@ -296,9 +297,9 @@ function LedgerCard({ citation: c, index }: { citation: ReasoningCitation; index
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-2.5 inline-flex items-center gap-1 self-start text-[11px] font-medium text-accent transition hover:text-accent-hi"
+          className="mt-3 inline-flex items-center gap-1 self-start text-[11px] font-medium text-accent transition-colors duration-200 hover:text-accent-hi"
         >
-          <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
           {open ? "Hide" : "Why trusted"}
         </button>
         <AnimatePresence initial={false}>
@@ -307,10 +308,10 @@ function LedgerCard({ citation: c, index }: { citation: ReasoningCitation; index
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: DURATION.fast, ease: EASE }}
               className="overflow-hidden"
             >
-              <ul className="mt-2 space-y-1.5 rounded-lg border border-border bg-bg-2/40 p-2.5">
+              <ul className="mt-2.5 space-y-1.5 rounded-lg border border-border bg-bg-2/40 p-3">
                 {whyTrusted(c).map((r, i) => (
                   <li key={i} className="flex items-start gap-1.5 text-[11px] text-muted">
                     <Info className="mt-0.5 h-3 w-3 shrink-0 text-accent" />
@@ -327,13 +328,13 @@ function LedgerCard({ citation: c, index }: { citation: ReasoningCitation; index
         </AnimatePresence>
 
         {/* actions */}
-        <div className="mt-3 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
+        <div className="mt-3.5 flex items-center gap-2 border-t border-border/60 pt-3">
           {c.source_url ? (
             <a
               href={c.source_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-2/60 px-2.5 py-1.5 text-[11px] font-medium text-muted transition-colors duration-200 hover:border-accent/40 hover:text-accent"
             >
               <ExternalLink className="h-3 w-3" /> Original
             </a>
@@ -343,20 +344,20 @@ function LedgerCard({ citation: c, index }: { citation: ReasoningCitation; index
               href={c.document_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-2/60 px-2.5 py-1.5 text-[11px] font-medium text-muted transition-colors duration-200 hover:border-accent/40 hover:text-accent"
             >
               <FileText className="h-3 w-3" /> PDF
             </a>
           ) : null}
           {!c.source_url && !c.document_url && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/40 px-2 py-1 font-mono text-[10px] text-faint">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-bg-2/40 px-2.5 py-1.5 font-mono text-[10px] text-faint">
               {c.source_record_id ?? "No public URL"}
             </span>
           )}
           <button
             type="button"
             onClick={copyCitation}
-            className="ml-auto inline-flex items-center gap-1 rounded-md border border-border bg-bg-2/60 px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-2/60 px-2.5 py-1.5 text-[11px] font-medium text-muted transition-colors duration-200 hover:border-accent/40 hover:text-accent"
             aria-label="Copy citation"
           >
             {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
