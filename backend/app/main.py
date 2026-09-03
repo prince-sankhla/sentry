@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     analytics,
+    buyer_kundali,
     companies,
     dashboard,
     entities,
@@ -59,6 +60,7 @@ app.include_router(tenders.router)
 app.include_router(tender_kundali.router)
 app.include_router(companies.router)
 app.include_router(supplier_kundali.router)
+app.include_router(buyer_kundali.router)
 app.include_router(analytics.router)
 app.include_router(entities.router)
 app.include_router(dashboard.router)
