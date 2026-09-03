@@ -8,7 +8,9 @@ import { SettingsPreferences } from "./settings-preferences";
 
 export const dynamic = "force-dynamic";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+  (process.env.VERCEL ? "same-origin /api" : "http://127.0.0.1:8000");
 
 export default async function SettingsPage() {
   let overview;
@@ -72,9 +74,9 @@ export default async function SettingsPage() {
         <Section eyebrow="Platform" title="System status">
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <Field label="API endpoint" value={BACKEND_URL} mono />
-            <Field label="Environment" value="Production data" />
+            <Field label="Environment" value={process.env.VERCEL ? "Production data" : "Development data"} />
             <Field label="Total tender value" value={`${formatNumber(Number(totals.total_tender_value))}`} mono />
-            <Field label="Single-bidder flags" value={formatNumber(totals.single_bidder_tenders)} />
+            <Field label="Recorded single-supplier tenders" value="Unavailable without bid-level data" />
           </dl>
           <div className="mt-4 flex items-center gap-2">
             <Badge tone="success">
