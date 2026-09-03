@@ -4,6 +4,7 @@ import { FileText, GitBranch } from "lucide-react";
 import { PageHeader, PageShell } from "@/components/ui/page";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/states";
+import { InvestigateAction } from "@/components/intel/investigate-action";
 import { getTenders, type TenderSort, type TenderSummary } from "@/lib/api";
 import { formatDate, formatMoney } from "@/lib/format";
 import { TenderSearchControls } from "../tender-search-controls";
@@ -111,12 +112,13 @@ export default async function TendersPage({ searchParams }: PageProps) {
           }
           getHref={(tender) => `/tenders/${tender.id}`}
           items={tenders.items}
+          rowAction={(tender) => <InvestigateAction query={tender.reference_number} variant="subtle" />}
         />
 
         {tenders.items.length > 0 ? (
           <div className="flex items-center gap-2 text-xs text-faint">
             <FileText className="h-4 w-4 text-accent" aria-hidden="true" />
-            Showing {tenders.items.length} records from offset {offset}.
+            Showing {tenders.items.length} records from offset {offset}. Every tender can be investigated directly.
           </div>
         ) : null}
       </div>
@@ -126,17 +128,13 @@ export default async function TendersPage({ searchParams }: PageProps) {
 
 function parsePositiveInt(value: string | undefined, fallback: number, max: number): number {
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
+  if (!Number.isInteger(parsed) || parsed < 1) return fallback;
   return Math.min(parsed, max);
 }
 
 function parseNonNegativeInt(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    return fallback;
-  }
+  if (!Number.isInteger(parsed) || parsed < 0) return fallback;
   return parsed;
 }
 
