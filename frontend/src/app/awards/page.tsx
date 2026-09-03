@@ -119,20 +119,20 @@ export default async function AwardsPage({
         getHref={(a) => `/companies/${a.company.id}`}
         empty={
           <EmptyState
-            icon={<AwardIcon className=”h-5 w-5” />}
-            title=”No awards found”
+            icon={<AwardIcon className="h-5 w-5" />}
+            title="No awards found"
             message={
               q
                 ? `No awards match “${q}”.`
-                : “No contract awards have been imported yet.”
+                : "No contract awards have been imported yet."
             }
             suggestions={
               q
                 ? undefined
                 : [
-                    “Run an investigation - awarded tenders are captured automatically”,
-                    “Import a tender dataset that includes award information”,
-                    “Connect a source with award data in Settings -> Data Sources”
+                    "Run an investigation - awarded tenders are captured automatically",
+                    "Import a tender dataset that includes award information",
+                    "Connect a source with award data in Settings -> Data Sources"
                   ]
             }
           />
