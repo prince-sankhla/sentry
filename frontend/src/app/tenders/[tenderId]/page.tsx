@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/states";
 import { Timeline } from "@/components/ui/timeline";
 import { PdfIntelligence } from "@/components/intel/pdf-intelligence";
 import { InvestigateAction } from "@/components/intel/investigate-action";
+import { TenderBenchmark } from "@/components/intel/tender-benchmark";
 import { TenderKundali, type TenderKundaliData } from "@/components/intel/tender-kundali";
 import { getTender, type ProcurementIntelligenceSignal } from "@/lib/api";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -80,6 +81,8 @@ export default async function TenderDetailPage({ params }: PageProps) {
           </Section>
 
           <Section eyebrow="Kundali" title="Tender Intelligence"><TenderKundali data={kundali} /></Section>
+
+          <Section eyebrow="Benchmark" title="Comparable Market Context"><TenderBenchmark tenderId={tenderId} /></Section>
 
           <Section eyebrow="Outcome" title="Awards">
             {tender.awards.length === 0 ? <EmptyState message="No awards recorded for this tender." /> : (
