@@ -46,17 +46,17 @@ export default async function CompaniesPage({
 
       {data.items.length === 0 ? (
         <EmptyState
-          icon={<Building2 className=”h-5 w-5” />}
-          title=”No companies found”
+          icon={<Building2 className="h-5 w-5" />}
+          title="No companies found"
           message={
             q
-              ? `”${q}” is not available among imported companies.`
-              : “No companies have been imported yet.”
+              ? `“${q}” is not available among imported companies.`
+              : "No companies have been imported yet."
           }
           suggestions={q ? undefined : [
-            “Run an investigation - entities are resolved and cataloged automatically”,
-            “Import tenders or awards - companies are extracted from procurement records”,
-            “Connect a procurement source in Settings -> Data Sources”
+            "Run an investigation - entities are resolved and cataloged automatically",
+            "Import tenders or awards - companies are extracted from procurement records",
+            "Connect a procurement source in Settings -> Data Sources"
           ]}
         />
       ) : (
