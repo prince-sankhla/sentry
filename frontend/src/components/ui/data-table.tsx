@@ -3,15 +3,11 @@ import { ChevronsUpDown } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 
 /**
- * Enterprise data table.
+ * Enterprise data table with optional row-level actions.
  *
- * Density note: rows sit at ~52px with 16px cells — noticeably airier than
- * before, but deliberately short of the editorial tier so investigators keep
- * the same number of rows per viewport. Whitespace was bought from the
- * chrome (header rail, gutters), not from the data.
- *
- * Below `md` each row reflows into a stacked card with the column header
- * shown as a micro-label, so a 7-column table stays readable on a phone.
+ * Row actions live in a dedicated final cell rather than inside the record link,
+ * so users can open the source record or launch an investigation without nested
+ * interactive elements.
  */
 
 export type Column<T> = {
@@ -28,12 +24,14 @@ export function DataTable<T extends { id: string }>({
   columns,
   empty,
   getHref,
-  items
+  items,
+  rowAction
 }: {
   columns: Column<T>[];
   empty: ReactNode;
   getHref?: (item: T) => string;
   items: T[];
+  rowAction?: (item: T) => ReactNode;
 }) {
   if (items.length === 0) {
     return <>{empty}</>;
@@ -70,6 +68,14 @@ export function DataTable<T extends { id: string }>({
                   )}
                 </th>
               ))}
+              {rowAction ? (
+                <th
+                  className="w-[150px] border-b border-border px-4 py-3.5 text-right text-[10.5px] font-semibold uppercase tracking-[0.15em] text-faint"
+                  scope="col"
+                >
+                  Action
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -102,9 +108,7 @@ export function DataTable<T extends { id: string }>({
                           className="block outline-none focus-visible:outline-2 focus-visible:outline-accent/75"
                           href={getHref(item)}
                         >
-                          {index === 0 && (
-                            <span className="sr-only">Open record</span>
-                          )}
+                          {index === 0 && <span className="sr-only">Open record</span>}
                           {content}
                         </Link>
                       ) : (
@@ -113,6 +117,11 @@ export function DataTable<T extends { id: string }>({
                     </td>
                   );
                 })}
+                {rowAction ? (
+                  <td className="px-4 py-3.5 text-right align-middle" onClick={(event) => event.stopPropagation()}>
+                    {rowAction(item)}
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
