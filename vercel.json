@@ -2,5 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "installCommand": "npm install && cd frontend && npm ci"
+  "installCommand": "npm install && cd frontend && npm ci",
+  "env": {
+    "NEXT_PUBLIC_BACKEND_URL": "https://sentry-platform-evaluation.vercel.app"
+  }
 }
