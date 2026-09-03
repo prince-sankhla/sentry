@@ -3,14 +3,6 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install && cd frontend && npm ci",
-  "env": {
-    "NEXT_PUBLIC_BACKEND_URL": "https://sentry-platform-evaluation.vercel.app"
-  },
-  "functions": {
-    "api/[...path].py": {
-      "maxDuration": 300
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",
