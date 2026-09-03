@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlparse
@@ -12,7 +11,6 @@ from sqlalchemy import select
 
 from app.connectors.common.envelope import build_envelope, write_envelope
 from app.connectors.common.http import BaseHttpDownloader
-from app.connectors.gem.connector import GeMSourceConnector
 from app.importers.generic import GenericConnectorImporter
 from app.models import Tender
 
@@ -43,24 +41,22 @@ class LiveGeMIngestion:
 
     @staticmethod
     def _clean(value: str) -> str:
+        value = re.sub(r"<script[\s\S]*?</script>", " ", value, flags=re.I)
+        value = re.sub(r"<style[\s\S]*?</style>", " ", value, flags=re.I)
         return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", value)).strip()
 
     @staticmethod
-    def _parse_money(value: str | None) -> Decimal | None:
+    def _parse_money(value: str | None) -> str | None:
         if not value:
             return None
         normalized = re.sub(r"[^0-9.]", "", value)
-        if not normalized:
-            return None
-        try:
-            return Decimal(normalized)
-        except (InvalidOperation, ValueError):
-            return None
+        return normalized or None
 
     @staticmethod
     def _parse_datetime(value: str | None) -> str | None:
         if not value:
             return None
+        value = value.strip()
         for fmt in (
             "%d-%m-%Y %H:%M:%S",
             "%d-%m-%Y %H:%M",
@@ -69,7 +65,7 @@ class LiveGeMIngestion:
             "%d-%m-%Y",
         ):
             try:
-                return datetime.strptime(value.strip(), fmt).replace(tzinfo=UTC).isoformat()
+                return datetime.strptime(value, fmt).replace(tzinfo=UTC).isoformat()
             except ValueError:
                 continue
         return None
@@ -82,7 +78,7 @@ class LiveGeMIngestion:
                 pairs.setdefault(cells[0].casefold().rstrip(":"), cells[1])
         return pairs
 
-    def _build_flat_record(self, url: str, html: str, retrieved_at: datetime, bid_number: str) -> dict:
+    def _build_flat_record(self, html: str, bid_number: str) -> dict[str, object | None]:
         pairs = self._extract_pairs(html)
 
         def pick(*labels: str) -> str | None:
@@ -102,7 +98,7 @@ class LiveGeMIngestion:
         value = pick("estimated bid value", "total value", "bid value")
         location = pick("delivery location", "consignee location", "state name", "ministry/state name")
 
-        flat = {
+        return {
             "bid_number": bid_number,
             "bid_title": title or f"GeM bid {bid_number}",
             "buyer_name": buyer,
@@ -114,9 +110,7 @@ class LiveGeMIngestion:
             "location": location,
             "description": title,
             "amount": self._parse_money(value),
-            "page_html": html,
         }
-        return flat
 
     def ingest(self, db, url: str) -> dict:
         source_url = self._validate_url(url)
@@ -139,7 +133,7 @@ class LiveGeMIngestion:
                 "No GeM Bid Number was found. Use an official public GeM BidPlus detail/document URL."
             )
         bid_number = match.group(0).upper()
-        record = self._build_flat_record(source_url, html, retrieved_at, bid_number)
+        flat = self._build_flat_record(html, bid_number)
 
         with TemporaryDirectory(prefix="sentry-gem-") as tmp:
             out = Path(tmp)
@@ -147,7 +141,8 @@ class LiveGeMIngestion:
                 source_name=self.source_name,
                 source_record_id=bid_number,
                 source_url=source_url,
-                data=record,
+                data=flat,
+                documents=[],
                 retrieved_at=retrieved_at,
                 content_type=response.headers.get("content-type"),
                 etag=response.headers.get("etag"),
