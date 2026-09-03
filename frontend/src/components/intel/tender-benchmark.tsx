@@ -1,21 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BarChart3, Database, Info, Loader2, TrendingUp } from "lucide-react";
 
-import type { TenderBenchmarkComparison } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 
+type BenchmarkData = {
+  tender_id: string;
+  reference_number: string;
+  metric: string;
+  observed_value: string | number | null;
+  currency: string | null;
+  benchmark_available: boolean;
+  population: { level: string; dimensions: Record<string, string>; sample_size: number; sufficient_sample: boolean };
+  statistics: { minimum: string | number | null; p25: string | number | null; median: string | number | null; mean: string | number | null; p75: string | number | null; maximum: string | number | null; iqr: string | number | null; percentile: number | null; deviation_iqr: string | number | null };
+  interpretation: string;
+};
+
 export function TenderBenchmark({ tenderId }: { tenderId: string }) {
-  const [data, setData] = useState<TenderBenchmarkComparison | null>(null);
+  const [data, setData] = useState<BenchmarkData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
     fetch(`${backendUrl}/api/benchmarks/tender/${tenderId}`, { cache: "no-store", headers: { Accept: "application/json" } })
-      .then((response) => response.json())
-      .then((next) => { if (active) setData(next as TenderBenchmarkComparison); })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("benchmark_unavailable");
+        return response.json();
+      })
+      .then((next) => { if (active) setData(next as BenchmarkData); })
       .catch(() => { if (active) setData(null); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -24,9 +38,7 @@ export function TenderBenchmark({ tenderId }: { tenderId: string }) {
   if (loading) {
     return <div className="flex items-center gap-2 rounded-2xl border border-border bg-bg-2/40 p-4 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin text-accent" /> Building comparable-market baseline…</div>;
   }
-  if (!data) {
-    return <div className="rounded-2xl border border-border bg-bg-2/40 p-4 text-sm text-faint">Benchmark comparison is unavailable for this tender.</div>;
-  }
+  if (!data) return <div className="rounded-2xl border border-border bg-bg-2/40 p-4 text-sm text-faint">Benchmark comparison is unavailable for this tender.</div>;
 
   const s = data.statistics;
   return (
@@ -63,7 +75,7 @@ export function TenderBenchmark({ tenderId }: { tenderId: string }) {
   );
 }
 
-function Stat({ label, value, currency, emphasized, plain, icon }: { label: string; value: string | number | null | undefined; currency?: string | null; emphasized?: boolean; plain?: boolean; icon?: React.ReactNode }) {
-  return <div className={`rounded-2xl border p-4 ${emphasized ? "border-accent/30 bg-accent/[0.06]" : "border-border bg-surface"}`}><div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{icon}{label}</div><div className="mt-2 text-lg font-semibold tabular-nums text-text">{value == null ? "—" : plain ? value : `${formatMoney(value as any, currency ?? "INR")} ${currency ?? ""}`}</div></div>;
+function Stat({ label, value, currency, emphasized, plain, icon }: { label: string; value: string | number | null | undefined; currency?: string | null; emphasized?: boolean; plain?: boolean; icon?: ReactNode }) {
+  return <div className={`rounded-2xl border p-4 ${emphasized ? "border-accent/30 bg-accent/[0.06]" : "border-border bg-surface"}`}><div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{icon}{label}</div><div className="mt-2 text-lg font-semibold tabular-nums text-text">{value == null ? "—" : plain ? value : `${formatMoney(value, currency ?? "INR")} ${currency ?? ""}`}</div></div>;
 }
 function Row({ label, value }: { label: string; value: string }) { return <div className="flex items-center justify-between gap-3"><span>{label}</span><span className="font-semibold tabular-nums text-text">{value}</span></div>; }
