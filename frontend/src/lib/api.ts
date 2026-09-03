@@ -516,6 +516,9 @@ export type InvestigationGraphSeed = {
 export type InvestigationPackage = {
   plan: InvestigationPlan;
   records: InvestigationProcurementRecord[];
+  // Canonical entity resolution of the investigation subject (companies AND
+  // government buyers), computed before retrieval. Present from the backend
+  // /execute + /stream report package.
   resolved_entities: EntityResolutionResult | null;
   records_from_resolved_entity: boolean;
   canonical_companies: InvestigationCanonicalCompany[];
@@ -523,11 +526,19 @@ export type InvestigationPackage = {
   evidence: unknown[];
   timeline: InvestigationTimelineEvent[];
   graph_seeds: InvestigationGraphSeed[];
+  // Complete typed graph of the whole package. The backend node/edge shape is
+  // structurally identical to RelationshipGraph, so it renders directly.
   graph: RelationshipGraph;
   indicators: InvestigationProcurementIndicator[];
+  // Deterministic Risk Engine V2 assessment — the single source of truth for
+  // risk. The reasoning layer projects this into `reasoning.risk_level`,
+  // `reasoning.confidence`, and `reasoning.risk_rationale`, which the UI renders;
+  // the raw structure is exposed here for pattern/explainability drill-down.
   risk_assessment_v2: RiskAssessmentV2 | null;
   step_results: InvestigationStepResult[];
 };
+
+/* -------------------------------------------------- Risk Engine V2 */
 
 export type RiskEvidenceStatus = "verified" | "probable" | "unknown";
 
@@ -598,6 +609,8 @@ export type RiskAssessmentV2 = {
   disclaimer: string;
 };
 
+/* -------------------------------------------------- canonical entity resolution */
+
 export type EntityCandidate = {
   entity_id: string;
   canonical_name: string;
@@ -622,6 +635,13 @@ export type EntityResolutionResult = {
   reason: string;
 };
 
+/**
+ * Resolve free text to ranked canonical procurement entities.
+ *
+ * Backs the entity-search experience: investigations must start from a verified
+ * entity, never arbitrary text, so the UI resolves suggestions against this
+ * endpoint and only enables "Investigate" once one candidate is selected.
+ */
 export function resolveEntity(query: string, signal?: AbortSignal): Promise<EntityResolutionResult> {
   return apiPost<EntityResolutionResult>("/api/investigations/resolve-entity", { query }, signal);
 }
@@ -642,6 +662,8 @@ export type InvestigationExecutionRequest = {
   limit_per_connector: number;
   package: InvestigationPackage | null;
 };
+
+/* -------------------------------------------------- AI reasoning layer */
 
 export type EvidenceQualityTier = "primary" | "corroborating" | "weak" | "unverified";
 
@@ -678,6 +700,7 @@ export type FollowUpSuggestion = {
   rationale: string;
 };
 
+/** One step of the grounded multi-step analyst trace. */
 export type AnalystStep = {
   order: number;
   tool: string;
@@ -686,6 +709,7 @@ export type AnalystStep = {
   citations: ReasoningCitation[];
 };
 
+/** Audit proving the narrative is anchored to verifiable evidence. */
 export type GroundingReport = {
   total_findings: number;
   evidence_backed_findings: number;
@@ -695,6 +719,7 @@ export type GroundingReport = {
   fully_grounded: boolean;
 };
 
+/** A prior related investigation recalled from cross-investigation memory. */
 export type MemoryHit = {
   subject: string;
   investigation_type: string;
@@ -734,12 +759,16 @@ export type InvestigationReasoning = {
   insufficient_evidence: boolean;
 };
 
+/* --------------------------------------------------------- evidence challenge */
+
+/** A benign reading of a finding, listed ONLY when backed by in-package evidence. */
 export type LegitimateExplanation = {
   explanation: string;
   evidence: string;
   records: string[];
 };
 
+/** A question that eliminates (or confirms) exactly one legitimate explanation. */
 export type VerificationQuestion = {
   question: string;
   eliminates: string;
@@ -754,23 +783,34 @@ export type FindingChallenge = {
   position: string;
 };
 
+/** Per-finding falsification: "what evidence would prove this finding wrong?" */
 export type EvidenceChallenge = {
   challenges: FindingChallenge[];
   principle: string;
 };
 
+/* ------------------------------------------------------- investigator review */
+
+/** One evidence-driven statement, with the deterministic source it came from. */
 export type InvestigatorReviewItem = {
   statement: string;
   basis: string;
   records: string[];
 };
 
+/**
+ * The three questions a senior investigator asks — evidence supporting the
+ * finding, evidence supporting routine procurement, evidence still required.
+ * Organizational and deterministic; no probabilities, no verdicts.
+ */
 export type InvestigatorReview = {
   supporting: InvestigatorReviewItem[];
   routine: InvestigatorReviewItem[];
   required: InvestigatorReviewItem[];
   principle: string;
 };
+
+/* -------------------------------------------------- structured analyst report */
 
 export type ConfidenceDimension = {
   key: string;
@@ -858,6 +898,7 @@ export type InvestigationReport = {
   reasoning: InvestigationReasoning;
 };
 
+/** Live status of the multi-provider LLM chain. */
 export type LLMProviderStatus = {
   mode: "llm" | "deterministic";
   providers: string[];
@@ -868,6 +909,7 @@ export function getLLMProviders(): Promise<LLMProviderStatus> {
   return apiGet<LLMProviderStatus>("/api/investigations/providers");
 }
 
+/* SSE frames emitted by POST /api/investigations/stream */
 export type InvestigationStreamStep = {
   key: string;
   status: "running" | "complete" | "error";
@@ -878,18 +920,13 @@ export type InvestigationStreamStep = {
 export type InvestigationStreamHandlers = {
   onStep?: (step: InvestigationStreamStep) => void;
   onPlan?: (plan: InvestigationPlan) => void;
+  // Canonical entity candidates resolved before retrieval (SSE "candidates" frame).
   onCandidates?: (resolution: EntityResolutionResult) => void;
   onReport?: (report: InvestigationReport) => void;
   onError?: (message: string) => void;
 };
 
-// Browser calls must always stay same-origin in production. Do not depend on an
-// injected NEXT_PUBLIC_BACKEND_URL, because an omitted/empty public env value can
-// otherwise make the client silently fall back to localhost in a deployed build.
-// Server-side callers may still use NEXT_PUBLIC_BACKEND_URL when explicitly set.
-const backendUrl = typeof window !== "undefined"
-  ? ""
-  : (process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000");
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${backendUrl}${path}`, {
@@ -940,7 +977,10 @@ export function getTenders({
     offset: String(offset),
     sort
   });
-  if (q) params.set("q", q);
+  if (q) {
+    params.set("q", q);
+  }
+
   return apiGet<TenderListResponse>(`/api/tenders?${params.toString()}`);
 }
 
@@ -949,8 +989,14 @@ export function getTender(tenderId: string): Promise<TenderDetail> {
 }
 
 export function getCompanies({ limit = 25, offset = 0, q }: { limit?: number; offset?: number; q?: string } = {}): Promise<CompanyListResponse> {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  if (q) params.set("q", q);
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+  if (q) {
+    params.set("q", q);
+  }
+
   return apiGet<CompanyListResponse>(`/api/companies?${params.toString()}`);
 }
 
@@ -959,8 +1005,11 @@ export function getDashboardSummary(): Promise<DashboardSummary> {
 }
 
 export function getDashboardRecent(limit = 5): Promise<DashboardRecent> {
-  return apiGet<DashboardRecent>(`/api/dashboard/recent?${new URLSearchParams({ limit: String(limit) }).toString()}`);
+  const params = new URLSearchParams({ limit: String(limit) });
+  return apiGet<DashboardRecent>(`/api/dashboard/recent?${params.toString()}`);
 }
+
+/* ---------------------------------------------- priority investigation queue */
 
 export type PriorityQueueItem = {
   subject: string;
@@ -972,18 +1021,74 @@ export type PriorityQueueItem = {
   evidence_strength: "high" | "moderate" | "limited";
   evidence_completeness: number;
   primary_pattern: string;
+  // Plain-language, deterministic reasons this entity is recommended today.
   reasons: string[];
 };
 
-export type PriorityQueueResponse = { items: PriorityQueueItem[]; total: number };
+export type PriorityQueueResponse = {
+  items: PriorityQueueItem[];
+  total: number;
+};
 
 export function getPriorityQueue(limit = 8): Promise<PriorityQueueResponse> {
-  return apiGet<PriorityQueueResponse>(`/api/investigations/priority-queue?${new URLSearchParams({ limit: String(limit) }).toString()}`);
+  const params = new URLSearchParams({ limit: String(limit) });
+  return apiGet<PriorityQueueResponse>(`/api/investigations/priority-queue?${params.toString()}`);
 }
 
-export type ProcurementContextAnalysis = unknown;
+/* ------------------------------------------------ procurement context analyzer */
 
-export function getContextAnalysis(findingId: string, findingName: string, facts?: unknown): Promise<ProcurementContextAnalysis> {
+/** One piece of trusted procurement guidance, organized for presentation.
+ * All authority/reference/citation fields pass through verbatim from source. */
+export type ContextGuidanceItem = {
+  supporting_guidance: string;
+  supporting_sources: string[];
+  source_type: string;
+  authority: string;
+  reference: string;
+  source_urls: string[];
+  applicability: string;
+  card_status: "draft" | "verified" | "retired";
+  /** Deterministic applicability classification against the retrieved facts. */
+  applicability_status: string;
+  applicability_evidence: string;
+};
+
+/** Read-only analysis: trusted procurement context relevant to one finding. */
+export type ProcurementContextAnalysis = {
+  finding_id: string;
+  finding_name: string;
+  guidance_available: boolean;
+  potential_context: string;
+  guidance: ContextGuidanceItem[];
+  current_assessment: string;
+  additional_evidence_required: string[];
+  resolved_by: string;
+  /** Neutral notes for guidance retrieved but withheld (applicability not established). */
+  applicability_notes: string[];
+};
+
+/** Minimal read-only facts of one record, for applicability evaluation. */
+export type ContextFactRecord = {
+  reference_number: string;
+  title: string;
+  description?: string;
+  procuring_entity?: string;
+  suppliers?: string[];
+  published_date?: string | null;
+  closing_date?: string | null;
+  award_dates?: string[];
+};
+
+export type ContextFactsPayload = {
+  records: ContextFactRecord[];
+  as_of?: string | null;
+};
+
+export function getContextAnalysis(
+  findingId: string,
+  findingName: string,
+  facts?: ContextFactsPayload
+): Promise<ProcurementContextAnalysis> {
   if (facts) {
     return apiPost<ProcurementContextAnalysis>("/api/investigations/context-analysis", {
       finding_id: findingId,
@@ -999,28 +1104,79 @@ export function getCompanyOverview(companyId: string): Promise<CompanyOverview> 
   return apiGet<CompanyOverview>(`/api/companies/${companyId}/overview`);
 }
 
-export type SearchHit = { type: "tender" | "company" | "buyer"; id: string; label: string; sublabel: string | null };
-export type SearchResponse = { query: string; tenders: SearchHit[]; companies: SearchHit[]; buyers: SearchHit[]; total: number };
-export type AutocompleteResponse = { query: string; suggestions: SearchHit[] };
+export function getCompanyTenders(
+  companyId: string,
+  { limit = 25, offset = 0, q, sort = "latest" }: CompanyTendersParams = {}
+): Promise<CompanyTenderHistoryResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+    sort
+  });
+  if (q) {
+    params.set("q", q);
+  }
 
-export function globalSearch(query: string, limit = 10): Promise<SearchResponse> {
-  return apiGet<SearchResponse>(`/api/search?${new URLSearchParams({ q: query, limit: String(limit) }).toString()}`);
+  return apiGet<CompanyTenderHistoryResponse>(`/api/companies/${companyId}/tenders?${params.toString()}`);
 }
 
-export function autocomplete(query: string, limit = 10): Promise<AutocompleteResponse> {
-  return apiGet<AutocompleteResponse>(`/api/search/autocomplete?${new URLSearchParams({ q: query, limit: String(limit) }).toString()}`);
+export function getCompanyAwards(
+  companyId: string,
+  limit = 25,
+  offset = 0
+): Promise<CompanyAwardHistoryResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+  return apiGet<CompanyAwardHistoryResponse>(`/api/companies/${companyId}/awards?${params.toString()}`);
 }
 
-export function getTenderProfile(tenderId: string): Promise<unknown> {
-  return apiGet<unknown>(`/api/profiles/tender/${tenderId}`);
+export function getRelationshipGraph({ companyId, tenderId, depth = 2 }: GraphParams = {}): Promise<RelationshipGraph> {
+  const params = new URLSearchParams({ depth: String(depth) });
+  if (companyId) {
+    params.set("company_id", companyId);
+  }
+  if (tenderId) {
+    params.set("tender_id", tenderId);
+  }
+
+  return apiGet<RelationshipGraph>(`/api/graph?${params.toString()}`);
 }
 
-export function getCompanyProfile(companyId: string): Promise<unknown> {
-  return apiGet<unknown>(`/api/profiles/company/${companyId}`);
+export function planInvestigation(request: InvestigationPlanRequest): Promise<InvestigationPlan> {
+  return apiPost<InvestigationPlan>("/api/investigations/plan", request);
 }
 
-export function getBuyerProfile(name: string): Promise<unknown> {
-  return apiGet<unknown>(`/api/profiles/buyer?${new URLSearchParams({ name }).toString()}`);
+export function executeInvestigation(plan: InvestigationPlan, limitPerConnector = 25): Promise<InvestigationExecutionRequest> {
+  return apiPost<InvestigationExecutionRequest>("/api/investigations/execute", {
+    plan,
+    limit_per_connector: limitPerConnector,
+    package: null
+  });
+}
+
+/**
+ * Run a full AI investigation from a single prompt, streaming live progress.
+ *
+ * Uses a POST + ReadableStream reader (EventSource only supports GET) to parse
+ * Server-Sent Event frames from /api/investigations/stream. Returns an abort
+ * function so callers can cancel an in-flight investigation.
+ */
+/**
+ * URL of the authoritative, print-ready Evidence Packet for a subject.
+ *
+ * Server-rendered (single source of truth): the backend re-runs the deterministic
+ * pipeline and returns a self-contained HTML document with all 15 packet sections,
+ * every figure traceable to an official source URL. Open it in a new tab; the
+ * document has a "Print / Save as PDF" control (HTML · PDF · Print in one export).
+ */
+export function evidencePacketUrl(query: string, limitPerConnector = 25): string {
+  const params = new URLSearchParams({
+    query,
+    limit_per_connector: String(limitPerConnector)
+  });
+  return `${backendUrl}/api/investigations/evidence-packet.html?${params.toString()}`;
 }
 
 export function streamInvestigation(
@@ -1033,7 +1189,7 @@ export function streamInvestigation(
   (async () => {
     let response: Response;
     try {
-      response = await fetch("/api/investigations/stream", {
+      response = await fetch(`${backendUrl}/api/investigations/stream`, {
         method: "POST",
         signal: controller.signal,
         cache: "no-store",
@@ -1076,12 +1232,23 @@ export function streamInvestigation(
         return;
       }
       switch (event) {
-        case "step": handlers.onStep?.(payload as InvestigationStreamStep); break;
-        case "plan": handlers.onPlan?.(payload as InvestigationPlan); break;
-        case "candidates": handlers.onCandidates?.(payload as EntityResolutionResult); break;
-        case "report": handlers.onReport?.(payload as InvestigationReport); break;
-        case "error": handlers.onError?.((payload as { message?: string }).message ?? "Investigation failed"); break;
-        default: break;
+        case "step":
+          handlers.onStep?.(payload as InvestigationStreamStep);
+          break;
+        case "plan":
+          handlers.onPlan?.(payload as InvestigationPlan);
+          break;
+        case "candidates":
+          handlers.onCandidates?.(payload as EntityResolutionResult);
+          break;
+        case "report":
+          handlers.onReport?.(payload as InvestigationReport);
+          break;
+        case "error":
+          handlers.onError?.((payload as { message?: string }).message ?? "Investigation failed");
+          break;
+        default:
+          break;
       }
     };
 
@@ -1090,6 +1257,7 @@ export function streamInvestigation(
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
+        // SSE frames are separated by a blank line.
         let sep: number;
         while ((sep = buffer.indexOf("\n\n")) !== -1) {
           const frame = buffer.slice(0, sep);
@@ -1107,25 +1275,112 @@ export function streamInvestigation(
   return () => controller.abort();
 }
 
-export function evidencePacketUrl(query: string, limitPerConnector = 25): string {
-  const params = new URLSearchParams({ query, limit_per_connector: String(limitPerConnector) });
-  return `${backendUrl}/api/investigations/evidence-packet.html?${params.toString()}`;
-}
-
 export function searchWebEvidence(query: string): Promise<WebSearchResponse> {
   return apiPost<WebSearchResponse>("/api/web/search", { query });
 }
 
 export function getProcurementEvidence(query: string, limit = 25): Promise<ProcurementEvidenceResponse> {
-  return apiGet<ProcurementEvidenceResponse>(`/api/web/procurement-evidence?${new URLSearchParams({ q: query, limit: String(limit) }).toString()}`);
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiGet<ProcurementEvidenceResponse>(`/api/web/procurement-evidence?${params.toString()}`);
 }
 
 export function getCanonicalCompany(companyId: string): Promise<CanonicalCompany> {
   return apiGet<CanonicalCompany>(`/api/entities/company/${companyId}`);
 }
 
-export type LLMProviderStatusCompat = LLMProviderStatus;
-export type ProcurementEvidenceResponseCompat = ProcurementEvidenceResponse;
+// ---- Phase 3: search, autocomplete, and profile endpoints ----
+
+export type SearchHit = {
+  type: "tender" | "company" | "buyer";
+  id: string;
+  label: string;
+  sublabel: string | null;
+};
+
+export type SearchResponse = {
+  query: string;
+  tenders: SearchHit[];
+  companies: SearchHit[];
+  buyers: SearchHit[];
+  total: number;
+};
+
+export type AutocompleteResponse = {
+  query: string;
+  suggestions: SearchHit[];
+};
+
+export type ProfileOverview = {
+  kind: "tender" | "company" | "buyer";
+  id: string;
+  title: string;
+  subtitle: string | null;
+  stats: Record<string, unknown>;
+};
+
+export type RelatedTender = {
+  reference_number: string;
+  title: string;
+  procuring_entity: string | null;
+  published_date: string | null;
+  estimated_value: string | null;
+  currency: string;
+  source_name: string | null;
+};
+
+export type RelatedAward = {
+  tender_reference_number: string;
+  company_name: string;
+  award_value: string | null;
+  currency: string;
+  award_date: string | null;
+};
+
+export type RelatedDocument = {
+  title: string;
+  url: string | null;
+  document_type: string;
+  related_tender: string | null;
+};
+
+export type ProfileResponse = {
+  overview: ProfileOverview;
+  indicators: InvestigationProcurementIndicator[];
+  timeline: InvestigationTimelineEvent[];
+  evidence: unknown[];
+  relationships: InvestigationGraphSeed[];
+  related_tenders: RelatedTender[];
+  related_awards: RelatedAward[];
+  related_documents: RelatedDocument[];
+  graph: RelationshipGraph;
+  canonical_companies: InvestigationCanonicalCompany[];
+  entities: unknown[];
+};
+
+export function globalSearch(query: string, limit = 10): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiGet<SearchResponse>(`/api/search?${params.toString()}`);
+}
+
+export function autocomplete(query: string, limit = 10): Promise<AutocompleteResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiGet<AutocompleteResponse>(`/api/search/autocomplete?${params.toString()}`);
+}
+
+export function getTenderProfile(tenderId: string): Promise<ProfileResponse> {
+  return apiGet<ProfileResponse>(`/api/profiles/tender/${tenderId}`);
+}
+
+export function getCompanyProfile(companyId: string): Promise<ProfileResponse> {
+  return apiGet<ProfileResponse>(`/api/profiles/company/${companyId}`);
+}
+
+export function getBuyerProfile(name: string): Promise<ProfileResponse> {
+  const params = new URLSearchParams({ name });
+  return apiGet<ProfileResponse>(`/api/profiles/buyer?${params.toString()}`);
+}
+
+// ---- Analytics: awards, portfolio overview, risk, timeline, geography ----
 
 export type AwardListItem = {
   id: string;
@@ -1133,7 +1388,12 @@ export type AwardListItem = {
   currency: string;
   award_date: string | null;
   company: CompanySummary;
-  tender: { id: string; reference_number: string; title: string; procuring_entity: string | null };
+  tender: {
+    id: string;
+    reference_number: string;
+    title: string;
+    procuring_entity: string | null;
+  };
 };
 
 export type AwardListStats = {
@@ -1145,32 +1405,105 @@ export type AwardListStats = {
 };
 
 export type AwardSort = "newest" | "amount" | "award_date" | "buyer";
-export type AwardListResponse = { items: AwardListItem[]; pagination: Pagination; stats: AwardListStats };
 
-export function getAwards({ limit = 25, offset = 0, q, sort = "newest" }: { limit?: number; offset?: number; q?: string; sort?: AwardSort } = {}): Promise<AwardListResponse> {
+export type AwardListResponse = {
+  items: AwardListItem[];
+  pagination: Pagination;
+  stats: AwardListStats;
+};
+
+export function getAwards({
+  limit = 25,
+  offset = 0,
+  q,
+  sort = "newest"
+}: { limit?: number; offset?: number; q?: string; sort?: AwardSort } = {}): Promise<AwardListResponse> {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset), sort });
   if (q) params.set("q", q);
   return apiGet<AwardListResponse>(`/api/analytics/awards?${params.toString()}`);
 }
 
 export type AnalyticsOverview = {
-  totals: { tenders: number; companies: number; awards: number; total_tender_value: string; total_awarded_value: string; average_tender_value: string; single_bidder_tenders: number; buyers: number };
+  totals: {
+    tenders: number;
+    companies: number;
+    awards: number;
+    total_tender_value: string;
+    total_awarded_value: string;
+    average_tender_value: string;
+    single_bidder_tenders: number;
+    buyers: number;
+  };
   top_buyers: { buyer: string; tenders: number; awards: number; total_value: string }[];
   top_suppliers: { company_id: string; name: string; awards: number; total_value: string }[];
   monthly: { month: string; tenders: number; value: string }[];
   sources: { source_name: string; tenders: number }[];
 };
 
-export function getAnalyticsOverview(): Promise<AnalyticsOverview> { return apiGet<AnalyticsOverview>("/api/analytics/overview"); }
+export function getAnalyticsOverview(): Promise<AnalyticsOverview> {
+  return apiGet<AnalyticsOverview>("/api/analytics/overview");
+}
 
-export type RiskSignal = { type: string; severity: "low" | "medium" | "high"; title: string; summary: string; score: number; buyer: string | null; supplier_name: string | null; supplier_id: string | null; tender_id: string | null; tender_reference: string | null; evidence: string[] };
-export type RiskResponse = { summary: { total: number; high: number; medium: number; low: number; single_bidder_tenders: number; flagged_relationships: number }; signals: RiskSignal[] };
-export function getRisk(): Promise<RiskResponse> { return apiGet<RiskResponse>("/api/analytics/risk"); }
+export type RiskSignal = {
+  type: string;
+  severity: "low" | "medium" | "high";
+  title: string;
+  summary: string;
+  score: number;
+  buyer: string | null;
+  supplier_name: string | null;
+  supplier_id: string | null;
+  tender_id: string | null;
+  tender_reference: string | null;
+  evidence: string[];
+};
 
-export type TimelineEvent = { date: string; kind: "tender_published" | "tender_closing" | "award"; title: string; subtitle: string | null; reference: string | null; entity_type: "tender" | "company"; entity_id: string | null };
+export type RiskResponse = {
+  summary: {
+    total: number;
+    high: number;
+    medium: number;
+    low: number;
+    single_bidder_tenders: number;
+    flagged_relationships: number;
+  };
+  signals: RiskSignal[];
+};
+
+export function getRisk(): Promise<RiskResponse> {
+  return apiGet<RiskResponse>("/api/analytics/risk");
+}
+
+export type TimelineEvent = {
+  date: string;
+  kind: "tender_published" | "tender_closing" | "award";
+  title: string;
+  subtitle: string | null;
+  reference: string | null;
+  entity_type: "tender" | "company";
+  entity_id: string | null;
+};
+
 export type TimelineResponse = { events: TimelineEvent[] };
-export function getAnalyticsTimeline(limit = 60): Promise<TimelineResponse> { return apiGet<TimelineResponse>(`/api/analytics/timeline?limit=${limit}`); }
 
-export type GeographyRegion = { region: string; tenders: number; value: string; awards: number };
-export type GeographyResponse = { regions: GeographyRegion[]; matched: number; unmatched: number; total: number };
-export function getGeography(): Promise<GeographyResponse> { return apiGet<GeographyResponse>("/api/analytics/geography"); }
+export function getAnalyticsTimeline(limit = 60): Promise<TimelineResponse> {
+  return apiGet<TimelineResponse>(`/api/analytics/timeline?limit=${limit}`);
+}
+
+export type GeographyRegion = {
+  region: string;
+  tenders: number;
+  value: string;
+  awards: number;
+};
+
+export type GeographyResponse = {
+  regions: GeographyRegion[];
+  matched: number;
+  unmatched: number;
+  total: number;
+};
+
+export function getGeography(): Promise<GeographyResponse> {
+  return apiGet<GeographyResponse>("/api/analytics/geography");
+}
