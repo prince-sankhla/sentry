@@ -1,25 +1,27 @@
-"""Verified Context Engine — SENTRY's curated procurement-context subsystem.
+"""Verified Context + Official Procurement Context subsystem.
 
-SENTRY detects procurement anomalies deterministically. This subsystem answers
-the follow-up question: *is there a legitimate procurement context that could
-explain the finding?* — without thousands of hardcoded rules and without AI
-inventing procurement knowledge.
+SENTRY detects procurement anomalies deterministically. This subsystem provides
+an evidence-safe follow-up layer for legitimate procurement context: curated
+procurement guidance, trusted-source retrieval, and deterministic applicability
+analysis. It never invents procurement knowledge and never adjudicates wrongdoing.
 
-It does so through a gradually-built **Verified Context Library**:
+Current runtime flow:
 
-  Phase 1 (this code)  — foundation: schema, store, provider interface, engine.
-                         The engine checks the local Context Store first; when
-                         nothing is found it honestly reports the context as
-                         unavailable. Nothing more.
-  Phase 2 (future)     — trusted retrieval: when local context is unavailable,
-                         retrieve guidance ONLY from trusted sources and return
-                         it as a Draft Context Card. (A provider plugin; the
-                         engine does not change.)
-  Phase 3 (future)     — verification: approved Draft cards become permanent,
-                         reusable knowledge in the library.
+  Local Context Store
+        |
+        +-- hit --> verified / reusable context card
+        |
+        +-- miss --> trusted allowlisted guidance as Draft Context Card
+        |
+        v
+  Fact-gated applicability analysis
+        |
+        v
+  Investigator-facing context only
 
-The subsystem is standalone: it does not modify the investigation engine and no
-existing pipeline calls it yet.
+The subsystem is integrated through the investigation context-analysis API and
+the FindingCaseFile UI. It is read-only over findings and does not modify the
+risk engine, risk severity, or evidence-verification verdicts.
 """
 
 from app.verified_context.engine import VerifiedContextEngine
