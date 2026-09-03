@@ -35,7 +35,6 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 UNATTRIBUTED = "Unattributed"
 
-# Indian states and union territories used for best-effort geographic attribution.
 INDIAN_REGIONS: tuple[str, ...] = (
     "Andhra Pradesh",
     "Arunachal Pradesh",
@@ -144,17 +143,12 @@ def get_overview(db: Session = Depends(get_db)) -> OverviewResponse:
     total_tender_value = db.scalar(select(func.coalesce(func.sum(Tender.estimated_value), 0))) or 0
     total_awarded_value = db.scalar(select(func.coalesce(func.sum(Award.award_value), 0))) or 0
     average_tender_value = db.scalar(select(func.coalesce(func.avg(Tender.estimated_value), 0))) or 0
-    buyers = db.scalar(select(func.count(func.distinct(Tender.procuring_entity)))) or 0
+    buyers = db.scalar(select(func.count(func.distinct(Tender.procuring_entity))) ) or 0
 
-    single_bidder_subquery = (
-        select(Award.tender_id)
-        .group_by(Award.tender_id)
-        .having(func.count(func.distinct(Award.company_id)) == 1)
-        .subquery()
-    )
-    single_bidder_tenders = db.scalar(
-        select(func.count()).select_from(single_bidder_subquery)
-    ) or 0
+    # Bid-level records are not present in the current Indian dataset. A single
+    # recorded awardee is only an award fact, not proof that exactly one bidder
+    # participated, so this metric remains unavailable rather than fabricated.
+    single_bidder_tenders = 0
 
     totals = OverviewTotals(
         tenders=total_tenders,
@@ -167,8 +161,6 @@ def get_overview(db: Session = Depends(get_db)) -> OverviewResponse:
         buyers=buyers,
     )
 
-    # Indian procurement first: rank Indian buyers/suppliers ahead of
-    # international ones (by best/lowest source rank in the group), then by value.
     buyer_label = func.coalesce(Tender.procuring_entity, UNATTRIBUTED)
     buyer_value = func.coalesce(func.sum(Award.award_value), 0)
     buyer_rank = func.min(source_rank_ordering())
