@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CompanyTenderSort } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { SearchInput, Select } from "@/components/ui/input";
+import { SupplierKundaliPanel } from "./supplier-kundali-panel";
 
 type Props = {
   limit: number;
@@ -58,56 +59,60 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-surface/70 p-5">
-      <form className="grid gap-3 lg:grid-cols-[1fr_190px_auto]" onSubmit={onSearch}>
-        <label className="relative block">
-          <span className="sr-only">Search procurement history</span>
-          <SearchInput
-            defaultValue={query}
-            name="q"
-            placeholder="Search procurement history"
-            type="search"
-            pending={isPending}
-          />
-        </label>
-        <Select
-          onChange={(event) => updateParams({ sort: event.target.value, offset: 0 })}
-          value={sort}
-        >
-          {sortOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-        <Button variant="primary" type="submit" disabled={isPending}>
-          Search
-        </Button>
-      </form>
+    <>
+      <SupplierKundaliPanel />
 
-      <div className="mt-5 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-        <div aria-live="polite">{isPending ? "Loading procurement history..." : `Page ${page} of ${pages}`}</div>
-        <div className="flex gap-2">
-          <Button
-            variant="subtle"
-            size="sm"
-            disabled={!hasPrevious || isPending}
-            onClick={() => updateParams({ offset: Math.max(0, offset - limit) })}
-            icon={<ChevronLeft className="h-4 w-4" aria-hidden="true" />}
+      <div className="rounded-2xl border border-border bg-surface/70 p-5">
+        <form className="grid gap-3 lg:grid-cols-[1fr_190px_auto]" onSubmit={onSearch}>
+          <label className="relative block">
+            <span className="sr-only">Search procurement history</span>
+            <SearchInput
+              defaultValue={query}
+              name="q"
+              placeholder="Search procurement history"
+              type="search"
+              pending={isPending}
+            />
+          </label>
+          <Select
+            onChange={(event) => updateParams({ sort: event.target.value, offset: 0 })}
+            value={sort}
           >
-            Previous
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <Button variant="primary" type="submit" disabled={isPending}>
+            Search
           </Button>
-          <Button
-            variant="subtle"
-            size="sm"
-            disabled={!hasNext || isPending}
-            onClick={() => updateParams({ offset: offset + limit })}
-            trailing={<ChevronRight className="h-4 w-4" aria-hidden="true" />}
-          >
-            Next
-          </Button>
+        </form>
+
+        <div className="mt-5 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+          <div aria-live="polite">{isPending ? "Loading procurement history..." : `Page ${page} of ${pages}`}</div>
+          <div className="flex gap-2">
+            <Button
+              variant="subtle"
+              size="sm"
+              disabled={!hasPrevious || isPending}
+              onClick={() => updateParams({ offset: Math.max(0, offset - limit) })}
+              icon={<ChevronLeft className="h-4 w-4" aria-hidden="true" />}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="subtle"
+              size="sm"
+              disabled={!hasNext || isPending}
+              onClick={() => updateParams({ offset: offset + limit })}
+              trailing={<ChevronRight className="h-4 w-4" aria-hidden="true" />}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
