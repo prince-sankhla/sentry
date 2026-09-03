@@ -17,7 +17,6 @@ import {
 import {
   streamInvestigation,
   type InvestigationReport,
-  type RiskAssessmentV2,
   type RiskIndicatorV2,
   type RiskPattern
 } from "@/lib/api";
@@ -42,6 +41,13 @@ function evidenceTone(status: string) {
   if (status === "probable") return "accent" as const;
   return "neutral" as const;
 }
+
+const ENGINE_CARDS = [
+  { icon: AlertTriangle, title: "Indicators", body: "Evidence-backed anomaly signals with explicit severity and confidence." },
+  { icon: GitBranch, title: "Patterns", body: "Named rule combinations rather than arithmetic risk sums." },
+  { icon: CheckCircle2, title: "Evidence state", body: "Verified, probable, or unknown — missing evidence never becomes a positive signal." },
+  { icon: Sparkles, title: "Context", body: "Emergency, disaster, correction, and other deterministic context adjustments." },
+] as const;
 
 export default function RedFlagsPage() {
   const [query, setQuery] = useState("");
@@ -81,21 +87,14 @@ export default function RedFlagsPage() {
   return (
     <PageShell>
       <div className="mx-auto max-w-7xl pb-16 pt-8">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
             <ShieldCheck className="h-3.5 w-3.5" />
             Phase 5 · Anomaly & Red-Flag Engine
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-text sm:text-4xl">
-            Procurement integrity signals
-          </h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-text sm:text-4xl">Procurement integrity signals</h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
-            Deterministic indicators, named multi-signal patterns, evidence status, and context notes.
-            This surface prioritizes review leads; it does not make findings of misconduct.
+            Deterministic indicators, named multi-signal patterns, evidence status, and context notes. This surface prioritizes review leads; it does not make findings of misconduct.
           </p>
         </motion.div>
 
@@ -106,19 +105,12 @@ export default function RedFlagsPage() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") investigate();
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter") investigate(); }}
                 placeholder="Search a buyer, supplier, tender, or procurement entity…"
                 className="h-11 w-full rounded-xl border border-border bg-bg px-10 text-sm text-text outline-none transition focus:border-accent/60"
               />
             </div>
-            <Button
-              onClick={investigate}
-              disabled={!query.trim() || running}
-              loading={running}
-              icon={running ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
-            >
+            <Button onClick={investigate} disabled={!query.trim() || running} loading={running} icon={running ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}>
               {running ? "Screening…" : "Screen for red flags"}
             </Button>
           </div>
@@ -127,15 +119,10 @@ export default function RedFlagsPage() {
         {error && <ErrorState message={error} title="Red-flag screening failed" />}
 
         {!report && !running && !error && (
-          <Section eyebrow="Engine contract" title="What this phase now exposes">
+          <Section eyebrow="Engine contract" title="What this phase exposes">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                [AlertTriangle, "Indicators", "Evidence-backed anomaly signals with explicit severity and confidence."],
-                [GitBranch, "Patterns", "Named rule combinations rather than arithmetic risk sums."],
-                [CheckCircle2, "Evidence state", "Verified, probable, or unknown — missing evidence never becomes a positive signal."],
-                [Sparkles, "Context", "Emergency, disaster, correction, and other deterministic context adjustments."],
-              ].map(([Icon, title, body]) => (
-                <div key={String(title)} className="rounded-xl border border-border bg-bg-2/30 p-4">
+              {ENGINE_CARDS.map(({ icon: Icon, title, body }) => (
+                <div key={title} className="rounded-xl border border-border bg-bg-2/30 p-4">
                   <Icon className="h-4 w-4 text-accent" />
                   <div className="mt-3 text-sm font-semibold text-text">{title}</div>
                   <div className="mt-1 text-xs leading-relaxed text-faint">{body}</div>
@@ -146,12 +133,10 @@ export default function RedFlagsPage() {
         )}
 
         {running && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="rounded-xl border border-accent/20 bg-accent/[0.05] p-4">
               <div className="flex items-center gap-3">
-                <span className="relative grid h-8 w-8 place-items-center rounded-full border border-accent/30 bg-accent/10 text-accent">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </span>
+                <span className="relative grid h-8 w-8 place-items-center rounded-full border border-accent/30 bg-accent/10 text-accent"><Loader2 className="h-4 w-4 animate-spin" /></span>
                 <div>
                   <div className="text-sm font-semibold text-text">Deterministic screening in progress</div>
                   <div className="mt-0.5 text-xs text-faint">Retrieving records → resolving entities → evaluating anomaly rules → classifying patterns</div>
@@ -171,17 +156,10 @@ export default function RedFlagsPage() {
                       <div className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-80">Deterministic V2</div>
                       <div className="mt-2 text-3xl font-semibold capitalize">{risk.overall_severity}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase tracking-[0.14em] opacity-70">Score</div>
-                      <div className="mt-1 text-3xl font-semibold tabular">{risk.overall_score}</div>
-                    </div>
+                    <div className="text-right"><div className="text-[10px] uppercase tracking-[0.14em] opacity-70">Score</div><div className="mt-1 text-3xl font-semibold tabular">{risk.overall_score}</div></div>
                   </div>
                   <p className="mt-4 max-w-3xl text-sm leading-relaxed opacity-85">{risk.summary}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Chip tone="neutral">{risk.indicators.length} indicators</Chip>
-                    <Chip tone="neutral">{patterns.length} patterns</Chip>
-                    <Chip tone="neutral">{Math.round((risk.confidence?.score ?? 0) * 100)}% evidence completeness</Chip>
-                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2"><Chip tone="neutral">{risk.indicators.length} indicators</Chip><Chip tone="neutral">{patterns.length} patterns</Chip><Chip tone="neutral">{Math.round((risk.confidence?.score ?? 0) * 100)}% evidence completeness</Chip></div>
                 </div>
 
                 <div className="rounded-2xl border border-border bg-bg-2/30 p-5">
@@ -190,45 +168,26 @@ export default function RedFlagsPage() {
                     <div><span className="text-faint">Method:</span> {risk.method}</div>
                     <div><span className="text-faint">Confidence:</span> {risk.confidence?.level ?? "very_low"}</div>
                     <div><span className="text-faint">Records:</span> {report.package.records.length}</div>
-                    <div><span className="text-faint">Last source retrieval:</span> {formatDate(report.package.timeline.at(-1)?.event_date ?? null)}</div>
                   </div>
-                  <div className="mt-4 rounded-lg border border-border bg-bg px-3 py-2 text-[11px] leading-relaxed text-faint">
-                    {risk.disclaimer}
-                  </div>
+                  <div className="mt-4 rounded-lg border border-border bg-bg px-3 py-2 text-[11px] leading-relaxed text-faint">{risk.disclaimer}</div>
                 </div>
               </div>
             </Section>
 
-            <AnimatePresence>
-              {patterns.length > 0 && (
-                <Section eyebrow="Pattern intelligence" title="Named multi-signal patterns">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {patterns.map((pattern: RiskPattern, index) => (
-                      <motion.div
-                        key={pattern.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.04 }}
-                        className={`rounded-xl border p-4 ${severityTone(pattern.severity)}`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">{pattern.severity}</div>
-                            <div className="mt-1 text-sm font-semibold">{pattern.name}</div>
-                          </div>
-                          <GitBranch className="h-4 w-4 opacity-70" />
-                        </div>
-                        <div className="mt-3 rounded-lg border border-current/10 bg-black/[0.04] px-3 py-2 font-mono text-[10.5px] opacity-80">{pattern.rule}</div>
-                        <p className="mt-3 text-xs leading-relaxed opacity-80">{pattern.reason}</p>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {pattern.indicators.map((indicator) => <Chip key={indicator} tone="neutral">{indicator}</Chip>)}
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </Section>
-              )}
-            </AnimatePresence>
+            {patterns.length > 0 && (
+              <Section eyebrow="Pattern intelligence" title="Named multi-signal patterns">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {patterns.map((pattern: RiskPattern, index) => (
+                    <motion.div key={pattern.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className={`rounded-xl border p-4 ${severityTone(pattern.severity)}`}>
+                      <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">{pattern.severity}</div><div className="mt-1 text-sm font-semibold">{pattern.name}</div></div><GitBranch className="h-4 w-4 opacity-70" /></div>
+                      <div className="mt-3 rounded-lg border border-current/10 bg-black/[0.04] px-3 py-2 font-mono text-[10.5px] opacity-80">{pattern.rule}</div>
+                      <p className="mt-3 text-xs leading-relaxed opacity-80">{pattern.reason}</p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">{pattern.indicators.map((indicator) => <Chip key={indicator} tone="neutral">{indicator}</Chip>)}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             <Section eyebrow="Indicators" title={`Triggered signals (${rankedIndicators.length})`}>
               {rankedIndicators.length === 0 ? (
@@ -239,18 +198,9 @@ export default function RedFlagsPage() {
                     const open = openId === indicator.id;
                     return (
                       <motion.div key={indicator.id} layout className="overflow-hidden rounded-xl border border-border bg-surface/60">
-                        <button
-                          type="button"
-                          onClick={() => setOpenId(open ? null : indicator.id)}
-                          className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
-                        >
-                          <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${severityTone(indicator.severity)}`}>
-                            {indicator.severity}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-text">{indicator.name}</div>
-                            <div className="mt-0.5 truncate text-xs text-faint">{indicator.reason}</div>
-                          </div>
+                        <button type="button" onClick={() => setOpenId(open ? null : indicator.id)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left">
+                          <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${severityTone(indicator.severity)}`}>{indicator.severity}</span>
+                          <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-text">{indicator.name}</div><div className="mt-0.5 truncate text-xs text-faint">{indicator.reason}</div></div>
                           <Chip tone={evidenceTone(indicator.evidence_status)}>{indicator.evidence_status}</Chip>
                           <span className="tabular text-xs font-semibold text-text">{indicator.score}</span>
                           <ChevronDown className={`h-4 w-4 text-faint transition-transform ${open ? "rotate-180" : ""}`} />
@@ -259,35 +209,12 @@ export default function RedFlagsPage() {
                           {open && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-border">
                               <div className="grid gap-4 px-4 py-4 lg:grid-cols-2">
-                                <div>
-                                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Evidence & reasoning</div>
-                                  <p className="mt-2 text-xs leading-relaxed text-muted">{indicator.reason}</p>
-                                  <div className="mt-3 flex flex-wrap gap-1.5">
-                                    <Chip tone="neutral">base {indicator.base_severity}</Chip>
-                                    <Chip tone="neutral">confidence {Math.round(indicator.confidence * 100)}%</Chip>
-                                    {indicator.review_required && <Chip tone="neutral">{indicator.review_note}</Chip>}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Supporting records</div>
-                                  <div className="mt-2 max-h-32 overflow-auto text-xs text-muted">
-                                    {indicator.supporting_records.length === 0 ? "No supporting record reference returned." : indicator.supporting_records.map((ref) => <div key={ref} className="py-1 font-mono">{ref}</div>)}
-                                  </div>
-                                </div>
+                                <div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Evidence & reasoning</div><p className="mt-2 text-xs leading-relaxed text-muted">{indicator.reason}</p><div className="mt-3 flex flex-wrap gap-1.5"><Chip tone="neutral">base {indicator.base_severity}</Chip><Chip tone="neutral">confidence {Math.round(indicator.confidence * 100)}%</Chip>{indicator.review_required && <Chip tone="neutral">{indicator.review_note}</Chip>}</div></div>
+                                <div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Supporting records</div><div className="mt-2 max-h-32 overflow-auto text-xs text-muted">{indicator.supporting_records.length === 0 ? "No supporting record reference returned." : indicator.supporting_records.map((ref) => <div key={ref} className="py-1 font-mono">{ref}</div>)}</div></div>
                                 {(indicator.context_notes.length > 0 || indicator.required_evidence.length > 0) && (
-                                  <div className="lg:col-span-2 grid gap-3 md:grid-cols-2">
-                                    <div className="rounded-lg border border-border bg-bg-2/30 p-3">
-                                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Context applied</div>
-                                      <ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted">
-                                        {indicator.context_notes.length ? indicator.context_notes.map((note) => <li key={note}>· {note}</li>) : <li>· None</li>}
-                                      </ul>
-                                    </div>
-                                    <div className="rounded-lg border border-border bg-bg-2/30 p-3">
-                                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">To confirm, obtain</div>
-                                      <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {indicator.required_evidence.map((item) => <Chip key={item} tone="neutral">{item}</Chip>)}
-                                      </div>
-                                    </div>
+                                  <div className="grid gap-3 md:grid-cols-2 lg:col-span-2">
+                                    <div className="rounded-lg border border-border bg-bg-2/30 p-3"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Context applied</div><ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted">{indicator.context_notes.length ? indicator.context_notes.map((note) => <li key={note}>· {note}</li>) : <li>· None</li>}</ul></div>
+                                    <div className="rounded-lg border border-border bg-bg-2/30 p-3"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">To confirm, obtain</div><div className="mt-2 flex flex-wrap gap-1.5">{indicator.required_evidence.map((item) => <Chip key={item} tone="neutral">{item}</Chip>)}</div></div>
                                   </div>
                                 )}
                               </div>
@@ -302,26 +229,13 @@ export default function RedFlagsPage() {
             </Section>
 
             <Section eyebrow="Audit trail" title="Explainability tree">
-              {risk.explainability.length === 0 ? (
-                <EmptyState message="No explainability nodes returned." />
-              ) : (
-                <div className="space-y-2">
-                  {risk.explainability.map((node) => (
-                    <div key={node.indicator_id} className="rounded-xl border border-border bg-bg-2/30 p-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-sm font-semibold text-text">{node.name}</div>
-                        <Chip tone="neutral">base {node.base_severity} · {node.base_score}</Chip>
-                        <Chip tone={evidenceTone(node.evidence_status)}>{node.evidence_status}</Chip>
-                        <Chip tone="neutral">final {node.final_severity} · {node.score_contribution}</Chip>
-                      </div>
-                      <div className="mt-3 grid gap-3 text-xs md:grid-cols-3">
-                        <div><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Rule</div><div className="mt-1 text-muted">{node.rule_triggered}</div></div>
-                        <div><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Reason</div><div className="mt-1 text-muted">{node.reason}</div></div>
-                        <div><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Evidence refs</div><div className="mt-1 text-muted">{node.evidence.length} linked</div></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {risk.explainability.length === 0 ? <EmptyState message="No explainability nodes returned." /> : (
+                <div className="space-y-2">{risk.explainability.map((node) => (
+                  <div key={node.indicator_id} className="rounded-xl border border-border bg-bg-2/30 p-4">
+                    <div className="flex flex-wrap items-center gap-2"><div className="text-sm font-semibold text-text">{node.name}</div><Chip tone="neutral">base {node.base_severity} · {node.base_score}</Chip><Chip tone={evidenceTone(node.evidence_status)}>{node.evidence_status}</Chip><Chip tone="neutral">final {node.final_severity} · {node.score_contribution}</Chip></div>
+                    <div className="mt-3 grid gap-3 text-xs md:grid-cols-3"><div><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Rule</div><div className="mt-1 text-muted">{node.rule_triggered}</div></div><div><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Reason</div><div className="mt-1 text-muted">{node.reason}</div></div><div><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Evidence refs</div><div className="mt-1 text-muted">{node.evidence.length} linked</div></div></div>
+                  </div>
+                ))}</div>
               )}
             </Section>
           </div>
