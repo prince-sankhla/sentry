@@ -14,11 +14,12 @@ export function register() {
   }
 
   const originalFetch = globalThis.fetch.bind(globalThis);
+  const configuredOrigin = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
   const productionOrigin = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : null;
   const localOrigin = "http://127.0.0.1:8000";
-  const origin = productionOrigin ?? localOrigin;
+  const origin = configuredOrigin || productionOrigin || localOrigin;
 
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     if (typeof input === "string" && input.startsWith("/")) {
