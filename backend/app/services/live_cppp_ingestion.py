@@ -6,11 +6,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
+from sqlalchemy import select
 
 from app.connectors.common.http import BaseHttpDownloader
 from app.connectors.common.parse import now_utc
 from app.connectors.cppp.connector import CPPPSourceConnector
 from app.importers.generic import GenericConnectorImporter
+from app.models import Tender
 
 _CPPP_HOSTS = {"eprocure.gov.in", "www.eprocure.gov.in"}
 _TENDER_ID_RE = re.compile(r"\b\d{4}_[A-Z0-9]+_\d+_\d+\b", re.I)
@@ -34,10 +36,15 @@ class LiveCPPPIngestion:
         match = _TENDER_ID_RE.search(text or "")
         return match.group(0) if match else None
 
-    def fetch(self, url: str) -> dict:
+    def ingest(self, db, url: str) -> dict:
         source_url = self._validate_url(url)
+        retrieved_at = now_utc()
         try:
-            with httpx.Client(timeout=httpx.Timeout(30.0), follow_redirects=True, headers={"User-Agent": BaseHttpDownloader.user_agent}) as client:
+            with httpx.Client(
+                timeout=httpx.Timeout(30.0),
+                follow_redirects=True,
+                headers={"User-Agent": BaseHttpDownloader.user_agent},
+            ) as client:
                 response = client.get(source_url)
                 response.raise_for_status()
         except httpx.HTTPError as exc:
@@ -48,16 +55,8 @@ class LiveCPPPIngestion:
         if not tender_id:
             raise LiveCPPPIngestionError("No CPPP Tender ID was found on the supplied page.")
 
-        documents = CPPPSourceConnector().normalize({
-            "source_name": self.source_name,
-            "source_record_id": tender_id,
-            "source_url": source_url,
-            "retrieved_at": now_utc().isoformat(),
-            "data": {"detail_html": html},
-        })
-        # Rebuild the raw envelope from the live HTML so the existing generic importer
-        # preserves documents, content hash, version history and provenance exactly as
-        # it does for file-backed imports.
+        # Reuse the production importer so live ingestion gets the same normalization,
+        # idempotency, document preservation, version snapshots and provenance as bulk imports.
         with tempfile.TemporaryDirectory(prefix="sentry-cppp-") as tmp:
             out = Path(tmp)
             downloader = BaseHttpDownloader(out)
@@ -65,19 +64,29 @@ class LiveCPPPIngestion:
                 record_id=tender_id,
                 source_url=source_url,
                 data={"detail_html": html},
-                retrieved_at=now_utc(),
+                retrieved_at=retrieved_at,
                 content_type=response.headers.get("content-type"),
                 etag=response.headers.get("etag"),
                 last_modified=response.headers.get("last-modified"),
             )
-            importer = GenericConnectorImporter(self._db_session, self.source_name, batch_size=1)
-            stats = importer.import_directory(out)
+            stats = GenericConnectorImporter(db, self.source_name, batch_size=1).import_directory(out)
+
+        tender = db.scalar(
+            select(Tender).where(
+                Tender.source_name == self.source_name,
+                Tender.source_record_id == tender_id,
+            )
+        )
+        if tender is None:
+            raise LiveCPPPIngestionError("CPPP page was fetched but no normalized tender row was produced.")
 
         return {
             "status": "imported" if stats.imported_tenders or stats.updated_tenders else "unchanged",
             "tender_id": tender_id,
+            "tender_pk": str(tender.id),
+            "reference_number": tender.reference_number,
             "source_url": source_url,
-            "retrieved_at": now_utc().isoformat(),
+            "retrieved_at": retrieved_at.isoformat(),
             "imported_tenders": stats.imported_tenders,
             "updated_tenders": stats.updated_tenders,
             "imported_companies": stats.imported_companies,
@@ -87,10 +96,3 @@ class LiveCPPPIngestion:
             "failed": stats.failed,
             "message": "Live CPPP tender normalized and stored with provenance." if not stats.failed else "Live CPPP tender fetched but import reported failures.",
         }
-
-    def ingest(self, db, url: str) -> dict:
-        self._db_session = db
-        try:
-            return self.fetch(url)
-        finally:
-            self._db_session = None
