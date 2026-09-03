@@ -11,6 +11,7 @@ from app.api.routes import (
     companies,
     dashboard,
     entities,
+    ecosystem_graph,
     graph,
     investigations,
     live_ingestion,
@@ -67,6 +68,7 @@ app.include_router(analytics.router)
 app.include_router(entities.router)
 app.include_router(dashboard.router)
 app.include_router(graph.router)
+app.include_router(ecosystem_graph.router)
 app.include_router(investigations.router)
 app.include_router(live_ingestion.router)
 app.include_router(search.router)
