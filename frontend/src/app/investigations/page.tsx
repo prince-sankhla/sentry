@@ -6,6 +6,7 @@ import { Section } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { formatDate, formatMoneyFull } from "@/lib/format";
 import { InvestigationLauncher } from "./investigation-launcher";
+import { LiveTenderIngestion } from "./live-tender-ingestion";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function InvestigationsPage() {
         subtitle="Launch a new intelligence workflow or resume from a recent entity."
       />
 
+      <LiveTenderIngestion />
       <InvestigationLauncher suggestions={suggestions} />
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
