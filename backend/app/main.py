@@ -15,6 +15,7 @@ from app.api.routes import (
     profiles,
     search,
     statistics,
+    supplier_kundali,
     tender_kundali,
     tenders,
     web,
@@ -57,6 +58,7 @@ def health() -> dict[str, str]:
 app.include_router(tenders.router)
 app.include_router(tender_kundali.router)
 app.include_router(companies.router)
+app.include_router(supplier_kundali.router)
 app.include_router(analytics.router)
 app.include_router(entities.router)
 app.include_router(dashboard.router)
