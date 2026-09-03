@@ -26,26 +26,6 @@ def build_tender_intelligence(db: Session, tender: Tender) -> ProcurementIntelli
     buyer = _buyer_key(tender.procuring_entity)
 
     signals: list[ProcurementIntelligenceSignal] = []
-    if len({award.company_id for award in tender_awards}) == 1 and tender_awards:
-        company = tender_awards[0].company
-        if company is not None:
-            signals.append(
-                ProcurementIntelligenceSignal(
-                    type="single_bidder",
-                    severity="high",
-                    title="Single Bidder Detection",
-                    summary=f"Only one supplier is recorded against tender {tender.reference_number}.",
-                    score=80,
-                    evidence=[
-                        f"Recorded suppliers: 1",
-                        f"Supplier: {company.name}",
-                        f"Buyer: {tender.procuring_entity or 'Unknown buyer'}",
-                    ],
-                    tender_id=tender.id,
-                    company_id=company.id,
-                    buyer=tender.procuring_entity,
-                )
-            )
 
     relationship_scores = [
         _relationship_score(buyer_awards=buyer_awards, supplier_awards=supplier_awards)
@@ -86,40 +66,11 @@ def build_portfolio_risk(db: Session) -> PortfolioRisk:
 
     signals: list[RiskSignal] = []
 
-    # Single-bidder detection: tenders with exactly one distinct awarded company.
-    awards_by_tender: dict[UUID, list[Award]] = defaultdict(list)
-    for award in valid_awards:
-        awards_by_tender[award.tender_id].append(award)
-
+    # The imported Indian dataset is award/winner-centric and has no individual
+    # bid records. A single recorded awardee is therefore NOT a single-bidder
+    # observation and must never be emitted as a competition finding.
     single_bidder_tenders = 0
-    for tender_awards in awards_by_tender.values():
-        if len({award.company_id for award in tender_awards}) != 1:
-            continue
-        single_bidder_tenders += 1
-        anchor = tender_awards[0]
-        tender = anchor.tender
-        company = anchor.company
-        signals.append(
-            RiskSignal(
-                type="single_bidder",
-                severity="high",
-                title="Single Bidder Detection",
-                summary=f"Only one supplier is recorded against tender {tender.reference_number}.",
-                score=80,
-                buyer=tender.procuring_entity,
-                supplier_name=company.name,
-                supplier_id=company.id,
-                tender_id=tender.id,
-                tender_reference=tender.reference_number,
-                evidence=[
-                    "Recorded suppliers: 1",
-                    f"Supplier: {company.name}",
-                    f"Buyer: {tender.procuring_entity or 'Unknown buyer'}",
-                ],
-            )
-        )
 
-    # Repeat-supplier / buyer-supplier relationship scoring.
     buyer_awards = _awards_by_buyer(awards)
     flagged_relationships = 0
     for (buyer, _company_id), supplier_awards in _awards_by_buyer_supplier(awards).items():
