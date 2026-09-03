@@ -17,6 +17,8 @@ class LiveTenderIngestRequest(BaseModel):
 class LiveTenderIngestResponse(BaseModel):
     status: str
     tender_id: str
+    tender_pk: str
+    reference_number: str
     source_url: str
     retrieved_at: str
     imported_tenders: int
