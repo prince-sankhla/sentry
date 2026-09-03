@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from app.connectors.base import NormalizedProcurementRecord
 from app.connectors.common.envelope import content_hash
 from app.connectors.common.parse import now_utc
+from app.connectors.enrichment import enrich_tender
 from app.connectors.registry import discover_connectors
 from app.models import (
     Award,
@@ -224,16 +225,21 @@ class GenericConnectorImporter:
         return found
 
     def _insert_tender(self, record: NormalizedProcurementRecord, reference: str) -> Tender:
-        meta = record.tender.metadata
+        # Enrich tender with taxonomy-derived dimensions
+        enriched_tender = enrich_tender(record.tender)
+        meta = enriched_tender.metadata
         tender = Tender(
             reference_number=reference,
-            title=record.tender.title,
-            description=record.tender.description,
-            procuring_entity=normalize_org_name(record.tender.procuring_entity),
-            published_date=record.tender.published_date,
-            closing_date=record.tender.closing_date,
-            estimated_value=record.tender.estimated_value,
-            currency=normalize_currency(record.tender.currency),
+            title=enriched_tender.title,
+            description=enriched_tender.description,
+            procuring_entity=normalize_org_name(enriched_tender.procuring_entity),
+            published_date=enriched_tender.published_date,
+            closing_date=enriched_tender.closing_date,
+            estimated_value=enriched_tender.estimated_value,
+            currency=normalize_currency(enriched_tender.currency),
+            procurement_method=enriched_tender.procurement_method,
+            geography=enriched_tender.geography,
+            category=enriched_tender.category,
             source_name=meta.source_name,
             source_record_id=meta.source_record_id,
             source_url=meta.source_url,
@@ -244,15 +250,20 @@ class GenericConnectorImporter:
 
     def _update_tender(self, tender: Tender, record: NormalizedProcurementRecord) -> bool:
         """Update an existing tender in place; return True if any field changed."""
-        meta = record.tender.metadata
+        # Enrich tender with taxonomy-derived dimensions
+        enriched_tender = enrich_tender(record.tender)
+        meta = enriched_tender.metadata
         updates = {
-            "title": record.tender.title,
-            "description": record.tender.description,
-            "procuring_entity": normalize_org_name(record.tender.procuring_entity),
-            "published_date": record.tender.published_date,
-            "closing_date": record.tender.closing_date,
-            "estimated_value": record.tender.estimated_value,
-            "currency": normalize_currency(record.tender.currency),
+            "title": enriched_tender.title,
+            "description": enriched_tender.description,
+            "procuring_entity": normalize_org_name(enriched_tender.procuring_entity),
+            "published_date": enriched_tender.published_date,
+            "closing_date": enriched_tender.closing_date,
+            "estimated_value": enriched_tender.estimated_value,
+            "currency": normalize_currency(enriched_tender.currency),
+            "procurement_method": enriched_tender.procurement_method,
+            "geography": enriched_tender.geography,
+            "category": enriched_tender.category,
             "source_url": meta.source_url,
             "retrieved_at": meta.retrieved_at,
         }

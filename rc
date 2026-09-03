@@ -1,0 +1,5 @@
+[33m4ab9336[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdata-platform/recover-state-tenders[m[33m)[m Polish investigation workspace and repository
+[33mb7b9efd[m[33m ([m[1;33mtag: [m[1;33msprint2-phase1[m[33m, [m[1;33mtag: [m[1;33mbackup/pre-secret-scrub[m[33m, [m[1;31morigin/data-platform/recover-state-tenders[m[33m)[m Sprint 2 Phase 1: Honest evidence references and official portal verification
+[33m4fae4e8[m fix(case-001): C3 missing-award time gate + C5 base-rate caveat
+[33m5ba1959[m fix(case-001): P0 auditor remediation — honest evidence, terminology, language
+[33m5bc3c26[m feat(integration): surface hidden risk-engine fields on the finding

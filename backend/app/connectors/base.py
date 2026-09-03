@@ -52,6 +52,10 @@ class NormalizedTender:
     estimated_value: Decimal | None
     currency: str
     metadata: NormalizedSourceMetadata
+    # Enrichment fields (P0-2)
+    procurement_method: str | None = None
+    geography: str | None = None
+    category: str | None = None
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,7 @@
 from app.models.base import Base
 from app.models.award import Award
+from app.models.benchmark import Benchmark
+from app.models.bid import Bid
 from app.models.company import Company
 from app.models.document import Document
 from app.models.import_state import ImportCheckpoint, ImportRun, SourceRecordVersion
@@ -10,6 +12,8 @@ from app.webintel.models import WebEvidence, WebProcurementEvidence
 __all__ = [
     "Award",
     "Base",
+    "Benchmark",
+    "Bid",
     "CanonicalCompany",
     "CanonicalCompanyLink",
     "Company",
