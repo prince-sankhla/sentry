@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from statistics import median
-from typing import Iterable
 from uuid import UUID
 
 from sqlalchemy import select
@@ -51,40 +50,9 @@ def build_supplier_kundali(db: Session, company_id: UUID) -> SupplierKundaliResp
     geography_concentration = _concentration(records, lambda a: a.tender.geography if a.tender else None, "Geography")
     method_concentration = _concentration(records, lambda a: a.tender.procurement_method if a.tender else None, "Method")
 
-    relationships = [
-        {
-            "buyer": item.name,
-            "awards": item.count,
-            "share": float(item.share),
-            "award_value": str(item.value),
-            "repeat": item.count >= 2,
-        }
-        for item in buyer_concentration[:10]
-    ]
-
     repeat_buyer_count = sum(1 for item in buyer_concentration if item.count >= 2)
     max_buyer_share = max((item.share for item in buyer_concentration), default=Decimal("0"))
     max_buyer = buyer_concentration[0].name if buyer_concentration else None
-    latest_award_date = max((a.award_date for a in records if a.award_date), default=None)
-    first_award_date = min((a.award_date for a in records if a.award_date), default=None)
-
-    value_benchmark = _value_benchmark(values, currency)
-    timeline = _timeline(records)
-    signals = _build_signals(
-        records=records,
-        buyer_concentration=buyer_concentration,
-        category_concentration=category_concentration,
-        geography_concentration=geography_concentration,
-        method_concentration=method_concentration,
-    )
-
-    sourced_records = sum(1 for award in records if award.tender.source_name)
-    source_url_records = sum(1 for award in records if award.tender.source_url or award.source_url)
-    retrieved_records = sum(
-        1
-        for award in records
-        if award.tender.retrieved_at is not None or award.retrieved_at is not None
-    )
 
     metrics = [
         SupplierKundaliMetric(label="Awards indexed", value=str(len(records))),
@@ -112,7 +80,7 @@ def build_supplier_kundali(db: Session, company_id: UUID) -> SupplierKundaliResp
         SupplierKundaliMetric(
             label="Participation rate",
             value="Unknown",
-            detail="Indian sources currently expose award/winner records, not complete bidder participation.",
+            detail="Current Indian sources expose award/winner records, not complete bidder participation.",
             availability="insufficient_data",
         ),
         SupplierKundaliMetric(
@@ -123,37 +91,42 @@ def build_supplier_kundali(db: Session, company_id: UUID) -> SupplierKundaliResp
         ),
     ]
 
-    notes = [
-        "Tender history is derived from Indian procurement award records linked to this company.",
-        "A recorded award is treated as a win, but absence from the dataset is not treated as a loss.",
-        "Bidder participation and bid-price behaviour remain unavailable unless an Indian source exposes bidder-level records.",
-    ]
     data_quality = SupplierDataQuality(
         award_records=len(records),
         tender_records=len(distinct_tenders),
-        sourced_records=sourced_records,
-        records_with_source_url=source_url_records,
-        records_with_retrieval_timestamp=retrieved_records,
+        sourced_records=sum(1 for award in records if award.tender.source_name),
+        records_with_source_url=sum(1 for award in records if award.tender.source_url or award.source_url),
+        records_with_retrieval_timestamp=sum(
+            1 for award in records if award.tender.retrieved_at is not None or award.retrieved_at is not None
+        ),
         participation_status="insufficient_data",
         bidder_level_status="insufficient_data",
         debarment_status="not_indexed",
-        notes=notes,
+        notes=[
+            "Tender history is derived from Indian procurement award records linked to this company.",
+            "A recorded award is treated as a win, but absence from the dataset is not treated as a loss.",
+            "Bidder participation and bid-price behaviour remain unavailable unless an Indian source exposes bidder-level records.",
+        ],
     )
 
-    repeat_winner = {
-        "repeat_buyer_relationships": repeat_buyer_count,
-        "highest_buyer_share": max_buyer_share,
-        "highest_buyer": max_buyer,
-        "max_consecutive_awards_at_buyer": _max_consecutive_awards(records),
-        "interpretation": "Repeat awards are a review lead and require contextual comparison; they are not proof of misconduct.",
-    }
-
-    limitations = [
-        "The current Indian procurement corpus is award-centric; complete supplier participation history is not available.",
-        "Bid-price similarity, withdrawal, ranking, and competitor-conditioned participation cannot be asserted without bidder-level Indian records.",
-        "Debarment/eligibility status is shown as not indexed unless linked to an authoritative source.",
-        "Concentration metrics are descriptive context and should be compared with an appropriate market population before drawing conclusions.",
+    relationships = [
+        {
+            "buyer": item.name,
+            "awards": item.count,
+            "share": float(item.share),
+            "award_value": str(item.value),
+            "repeat": item.count >= 2,
+        }
+        for item in buyer_concentration
     ]
+
+    signals = _build_signals(
+        records=records,
+        buyer_concentration=buyer_concentration,
+        category_concentration=category_concentration,
+        geography_concentration=geography_concentration,
+        method_concentration=method_concentration,
+    )
 
     return SupplierKundaliResponse(
         profile=SupplierKundaliProfile(
@@ -170,58 +143,52 @@ def build_supplier_kundali(db: Session, company_id: UUID) -> SupplierKundaliResp
         category_concentration=category_concentration,
         geography_concentration=geography_concentration,
         method_concentration=method_concentration,
-        value_benchmark=value_benchmark,
-        timeline=timeline,
+        value_benchmark=_value_benchmark(values, currency),
+        timeline=_timeline(records),
         buyer_relationships=relationships,
-        repeat_winner=repeat_winner,
+        repeat_winner={
+            "repeat_buyer_relationships": repeat_buyer_count,
+            "highest_buyer_share": max_buyer_share,
+            "highest_buyer": max_buyer,
+            "max_awards_at_buyer": max((item.count for item in buyer_concentration), default=0),
+            "interpretation": "Repeat awards are a review lead and require contextual comparison; they are not proof of misconduct.",
+        },
         signals=signals,
         data_quality=data_quality,
-        limitations=limitations,
-        generated_at=datetime.utcnow(),
+        limitations=[
+            "The current Indian procurement corpus is award-centric; complete supplier participation history is not available.",
+            "Bid-price similarity, withdrawal, ranking, and competitor-conditioned participation cannot be asserted without bidder-level Indian records.",
+            "Debarment/eligibility status is shown as not indexed unless linked to an authoritative source.",
+            "Concentration metrics are descriptive context and should be compared with an appropriate market population before drawing conclusions.",
+        ],
+        generated_at=datetime.now(timezone.utc),
     )
 
 
-def _concentration(
-    awards: list[Award],
-    key_fn,
-    dimension: str,
-) -> list[SupplierConcentration]:
-    grouped: dict[str, list[Award]] = defaultdict(list)
-    unknown_count = 0
-    unknown_value = Decimal("0")
-    for award in awards:
-        key = key_fn(award)
-        if not key or not key.strip():
-            unknown_count += 1
-            unknown_value += award.award_value or Decimal("0")
-            continue
-        grouped[key.strip()].append(award)
-
-    if unknown_count:
-        grouped["Unknown / not stored"] += [None] * unknown_count  # type: ignore[list-item]
-
+def _concentration(awards: list[Award], key_fn, dimension: str) -> list[SupplierConcentration]:
+    counts: dict[str, int] = defaultdict(int)
+    values: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
     total_count = len(awards)
-    result: list[SupplierConcentration] = []
-    for name, items in grouped.items():
-        concrete = [item for item in items if item is not None]
-        count = len(concrete)
-        if name == "Unknown / not stored":
-            value = unknown_value
-        else:
-            value = sum((a.award_value for a in concrete if a.award_value is not None), Decimal("0"))
-        result.append(
-            SupplierConcentration(
-                dimension=dimension,
-                name=name,
-                count=count,
-                share=Decimal(count) / Decimal(total_count) if total_count else Decimal("0"),
-                value=value,
-                rank=0,
-                population_count=total_count,
-            )
-        )
 
-    result.sort(key=lambda row: (row.count, row.value), reverse=True)
+    for award in awards:
+        raw_key = key_fn(award)
+        key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else "Unknown / not stored"
+        counts[key] += 1
+        values[key] += award.award_value or Decimal("0")
+
+    result = [
+        SupplierConcentration(
+            dimension=dimension,
+            name=name,
+            count=count,
+            share=Decimal(count) / Decimal(total_count) if total_count else Decimal("0"),
+            value=values[name],
+            rank=0,
+            population_count=total_count,
+        )
+        for name, count in counts.items()
+    ]
+    result.sort(key=lambda row: (row.count, row.value, row.name), reverse=True)
     for index, row in enumerate(result, start=1):
         row.rank = index
     return result[:10]
@@ -249,7 +216,7 @@ def _value_benchmark(values: list[Decimal], currency: str | None) -> SupplierVal
         p75=_quantile(ordered, 0.75),
         maximum=ordered[-1],
         currency=currency,
-        method="Nearest-rank interpolation over recorded award values",
+        method="Linear interpolation quantile over recorded award values",
     )
 
 
@@ -278,19 +245,6 @@ def _timeline(awards: list[Award]) -> list[SupplierTimelinePoint]:
         )
         for period, items in sorted(grouped.items())
     ]
-
-
-def _max_consecutive_awards(awards: list[Award]) -> int:
-    by_buyer: dict[str, list[Award]] = defaultdict(list)
-    for award in awards:
-        buyer = (award.tender.procuring_entity if award.tender else None) or "unknown buyer"
-        by_buyer[buyer].append(award)
-
-    best = 0
-    for items in by_buyer.values():
-        items.sort(key=lambda a: (a.award_date is None, a.award_date, a.created_at, a.id))
-        best = max(best, len(items))
-    return best
 
 
 def _build_signals(
@@ -322,10 +276,7 @@ def _build_signals(
                 type="buyer_concentration",
                 severity="medium",
                 title="Buyer concentration review lead",
-                summary=(
-                    f"{buyer_concentration[0].share:.0%} of recorded awards are associated with "
-                    f"{buyer_concentration[0].name}."
-                ),
+                summary=f"{buyer_concentration[0].share:.0%} of recorded awards are associated with {buyer_concentration[0].name}.",
                 evidence=[
                     f"Awards with top buyer: {buyer_concentration[0].count}",
                     f"Supplier award share: {buyer_concentration[0].share:.0%}",
@@ -335,16 +286,13 @@ def _build_signals(
             )
         )
 
-    if category_concentration and category_concentration[0].share >= Decimal("0.75") and len(records) >= 3:
+    if category_concentration and category_concentration[0].name != "Unknown / not stored" and category_concentration[0].share >= Decimal("0.75") and len(records) >= 3:
         signals.append(
             SupplierSignal(
                 type="category_concentration",
                 severity="low",
                 title="Category concentration",
-                summary=(
-                    f"{category_concentration[0].share:.0%} of recorded awards fall in "
-                    f"{category_concentration[0].name}."
-                ),
+                summary=f"{category_concentration[0].share:.0%} of recorded awards fall in {category_concentration[0].name}.",
                 evidence=[
                     f"Category award share: {category_concentration[0].share:.0%}",
                     f"Category awards: {category_concentration[0].count}",
@@ -354,16 +302,13 @@ def _build_signals(
             )
         )
 
-    if geography_concentration and geography_concentration[0].share >= Decimal("0.75") and len(records) >= 3:
+    if geography_concentration and geography_concentration[0].name != "Unknown / not stored" and geography_concentration[0].share >= Decimal("0.75") and len(records) >= 3:
         signals.append(
             SupplierSignal(
                 type="geographic_concentration",
                 severity="low",
                 title="Geographic concentration",
-                summary=(
-                    f"{geography_concentration[0].share:.0%} of recorded awards map to "
-                    f"{geography_concentration[0].name}."
-                ),
+                summary=f"{geography_concentration[0].share:.0%} of recorded awards map to {geography_concentration[0].name}.",
                 evidence=[
                     f"Geographic award share: {geography_concentration[0].share:.0%}",
                     f"Geographic awards: {geography_concentration[0].count}",
@@ -373,16 +318,13 @@ def _build_signals(
             )
         )
 
-    if method_concentration and method_concentration[0].share >= Decimal("0.75") and len(records) >= 3:
+    if method_concentration and method_concentration[0].name != "Unknown / not stored" and method_concentration[0].share >= Decimal("0.75") and len(records) >= 3:
         signals.append(
             SupplierSignal(
                 type="method_concentration",
                 severity="informational",
                 title="Procurement-method concentration",
-                summary=(
-                    f"{method_concentration[0].share:.0%} of recorded awards use "
-                    f"{method_concentration[0].name}."
-                ),
+                summary=f"{method_concentration[0].share:.0%} of recorded awards use {method_concentration[0].name}.",
                 evidence=[
                     f"Method award share: {method_concentration[0].share:.0%}",
                     f"Method awards: {method_concentration[0].count}",
