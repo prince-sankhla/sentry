@@ -50,6 +50,7 @@ from app.services.investigation_indicators import build_indicators
 _SEVERITY_SCORE = {"low": 25, "medium": 50, "high": 72, "critical": 92}
 _SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 _ORDER_SEVERITY = {v: k for k, v in _SEVERITY_ORDER.items()}
+_UNSUPPORTED_INDICATORS = {"single_bidder"}
 
 # Minimum tenders in one buyer's same-day batch to flag contract fragmentation.
 # Conservative by design: municipal ward-works batches are common, so a handful of
@@ -82,7 +83,7 @@ class IndicatorDef:
 # is present (never fabricated).
 INDICATOR_REGISTRY: dict[str, IndicatorDef] = {
     "single_bidder": IndicatorDef("single_bidder", "Single Bidder", "competition", "high",
-        ("tender_reference", "recorded_bidders"), "Only one recorded supplier on a tender."),
+        ("tender_reference", "recorded_bidders"), "Requires actual bid-level participation data."),
     "high_value_direct_award": IndicatorDef("high_value_direct_award", "High-Value Direct Award", "competition", "high",
         ("tender_reference", "estimated_value", "awarded_supplier"), "Single-supplier award above the high-value band."),
     "high_value": IndicatorDef("high_value", "High-Value Tender", "value", "medium",
@@ -106,7 +107,6 @@ INDICATOR_REGISTRY: dict[str, IndicatorDef] = {
         "Closed tender with no award notice on record — a transparency/coverage gap "
         "(often the connector not ingesting award-results pages), not a peer-severity "
         "integrity red flag. Rated LOW to match the legacy builder and stay defensible."),
-    # --- new deterministic detectors (this engine) ---
     "award_value_exceeds_tender": IndicatorDef("award_value_exceeds_tender", "Award Value Exceeds Tender Value", "value", "high",
         ("tender_reference", "estimated_value", "award_value"), "Awarded value materially exceeds the tender estimate."),
     "buyer_equals_supplier": IndicatorDef("buyer_equals_supplier", "Buyer Equals Supplier", "relationship", "critical",
@@ -117,7 +117,6 @@ INDICATOR_REGISTRY: dict[str, IndicatorDef] = {
         ("buyer", "tender_reference", "estimated_value"),
         "One buyer issues many tenders as a single same-day batch — a potential "
         "requirement-splitting / threshold-avoidance pattern (tender-stage; requires review)."),
-    # --- related-party overlaps (declared; trigger only with entity data) ---
     "gst_overlap": IndicatorDef("gst_overlap", "GST Overlap", "relationship", "critical",
         ("supplier_gst",), "Two ostensibly distinct suppliers share a GSTIN."),
     "director_overlap": IndicatorDef("director_overlap", "Director Overlap", "relationship", "high",
@@ -126,8 +125,6 @@ INDICATOR_REGISTRY: dict[str, IndicatorDef] = {
         ("supplier_address",), "Suppliers share a registered address."),
 }
 
-
-# --------------------------------------------------------------------------- helpers
 
 def _band_up(severity: str, steps: int = 1) -> str:
     return _ORDER_SEVERITY[min(4, _SEVERITY_ORDER[severity] + steps)]
@@ -151,15 +148,7 @@ def _text_blob(pkg: InvestigationPackage) -> str:
     return " ".join(parts).casefold()
 
 
-# --------------------------------------------------------------------------- L1: new detectors
-
 def _master_tender_id(reference_number: str) -> str:
-    """Parent tender ID for a NIC lot reference (``…_<n>`` → ``…``).
-
-    NIC issues a split procurement as one master tender with numbered lots keyed
-    ``<master>_<lot>``. Returns the master stem (stripping any ``PREFIX:`` and the
-    trailing ``_<n>``); empty string if the reference does not look like a lot.
-    """
     core = (reference_number or "").split(":")[-1].strip()
     match = re.match(r"^(.*?)_(\d+)$", core)
     return match.group(1) if match else ""
@@ -172,10 +161,7 @@ def _lot_number(reference_number: str) -> int | None:
 
 
 def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
-    """Deterministic detectors added by V2, package-supported. Returns raw hits."""
     hits: list[dict] = []
-
-    # Award value exceeds tender estimate (>2x).
     for r in pkg.records:
         est = r.tender.estimated_value
         if est and est > 0:
@@ -185,11 +171,8 @@ def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
                         "type": "award_value_exceeds_tender",
                         "reason": (f"Awarded value {a.award_value:,.0f} exceeds the tender estimate "
                                    f"{est:,.0f} ({a.award_value / est:.1f}×) on {r.tender.reference_number}."),
-                        "records": [r.tender.reference_number],
-                        "entities": [a.company_name],
+                        "records": [r.tender.reference_number], "entities": [a.company_name],
                     })
-
-    # Buyer == Supplier (awarded supplier is the procuring entity).
     for r in pkg.records:
         buyer = (r.tender.procuring_entity or "").split("||")[0].strip().casefold()
         for a in r.awards:
@@ -197,26 +180,15 @@ def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
                 hits.append({
                     "type": "buyer_equals_supplier",
                     "reason": f"The procuring entity and the awarded supplier are the same on {r.tender.reference_number}.",
-                    "records": [r.tender.reference_number],
-                    "entities": [a.company_name],
+                    "records": [r.tender.reference_number], "entities": [a.company_name],
                 })
-
-    # Missing documents on a tender.
     missing_doc_refs = [r.tender.reference_number for r in pkg.records if not r.documents]
-    if missing_doc_refs and len(missing_doc_refs) < len(pkg.records) or (missing_doc_refs and len(pkg.records) == len(missing_doc_refs)):
+    if missing_doc_refs:
         hits.append({
             "type": "missing_documents",
             "reason": f"{len(missing_doc_refs)} of {len(pkg.records)} tenders have no attached procurement documents.",
-            "records": missing_doc_refs[:20],
-            "entities": [],
+            "records": missing_doc_refs[:20], "entities": [],
         })
-
-    # Contract fragmentation: one procuring entity issuing many tenders as a single
-    # same-day batch (identical publish + closing dates) — a possible requirement-
-    # splitting / threshold-avoidance signature. Deterministic and package-only:
-    # group records by procuring entity, then by their (published, closing) date
-    # pair, and flag any batch at or above the fragmentation threshold. Tender-stage
-    # signal (needs no award data); severity is MEDIUM — a lead, never a conclusion.
     by_buyer: dict[str, list] = {}
     for r in pkg.records:
         buyer = (r.tender.procuring_entity or "").strip()
@@ -233,51 +205,29 @@ def _detect_extra(pkg: InvestigationPackage) -> list[dict]:
                 continue
             values = [r.tender.estimated_value for r in batch if r.tender.estimated_value is not None]
             total = sum(values) if values else None
-            # Value collisions: tenders whose estimate exactly matches another in the
-            # batch. Report the number of colliding TENDERS and the number of distinct
-            # colliding values (e.g. Dharmagarh: 4 tenders across 2 identical-value
-            # pairs), not `len - set` which understates paired collisions.
             value_counts = Counter(values)
             collision_values = [v for v, c in value_counts.items() if c > 1]
             collision_tenders = sum(c for c in value_counts.values() if c > 1)
-            reason = (
-                f"{len(batch)} tenders from '{buyer}' share a single publication date "
-                f"({published}) and closing date ({closing})"
-            )
-            # Strongest in-record corroboration: when every tender in the batch is a
-            # numbered lot of ONE parent master tender (NIC keys lots as
-            # ``<master>_<n>``), the batch is a single split procurement, not merely
-            # a same-day coincidence. Cite the shared master ID and lot span verbatim
-            # so an auditor can confirm it directly from the Tender IDs — no inference.
+            reason = f"{len(batch)} tenders from '{buyer}' share a single publication date ({published}) and closing date ({closing})"
             stems = {_master_tender_id(r.tender.reference_number) for r in batch}
             shared_master = next(iter(stems)) if len(stems) == 1 and next(iter(stems)) else None
             if shared_master:
-                lots = sorted(
-                    (n for r in batch if (n := _lot_number(r.tender.reference_number)) is not None)
-                )
+                lots = sorted((n for r in batch if (n := _lot_number(r.tender.reference_number)) is not None))
                 span = f" (lots {lots[0]}–{lots[-1]})" if len(lots) == len(batch) and lots else ""
-                reason += (
-                    f"; all {len(batch)} are lots of one master tender {shared_master}{span}"
-                )
+                reason += f"; all {len(batch)} are lots of one master tender {shared_master}{span}"
             if total is not None:
                 reason += f", together totalling {total:,.0f}"
             if collision_values:
                 grp = "group" if len(collision_values) == 1 else "groups"
-                reason += (
-                    f"; {collision_tenders} tenders fall into {len(collision_values)} "
-                    f"identical-value {grp}"
-                )
+                reason += f"; {collision_tenders} tenders fall into {len(collision_values)} identical-value {grp}"
             reason += " — a potential requirement-splitting pattern. Requires Investigator Review."
             hits.append({
                 "type": "contract_fragmentation",
                 "reason": reason,
-                "records": [r.tender.reference_number for r in batch],
-                "entities": [buyer],
+                "records": [r.tender.reference_number for r in batch], "entities": [buyer],
             })
     return hits
 
-
-# --------------------------------------------------------------------------- L2: context
 
 @dataclass
 class _Context:
@@ -298,125 +248,78 @@ def _detect_context(pkg: InvestigationPackage) -> _Context:
     blob = _text_blob(pkg)
     ctx = _Context()
     if any(t in blob for t in _EMERGENCY_TERMS):
-        ctx.emergency = True
-        ctx.signals.append("emergency procurement language detected")
+        ctx.emergency = True; ctx.signals.append("emergency procurement language detected")
     if any(t in blob for t in _DISASTER_TERMS):
-        ctx.disaster = True
-        ctx.signals.append("disaster/relief context detected")
+        ctx.disaster = True; ctx.signals.append("disaster/relief context detected")
     if any(t in blob for t in _CORRECTION_TERMS):
-        ctx.correction_notice = True
-        ctx.signals.append("correction/corrigendum notice present")
+        ctx.correction_notice = True; ctx.signals.append("correction/corrigendum notice present")
     for r in pkg.records:
         buyer = (r.tender.procuring_entity or "").casefold()
         if any(t in buyer for t in _PSU_TERMS):
-            ctx.psu_present = True
-            break
+            ctx.psu_present = True; break
     return ctx
 
 
 def _apply_context(indicator_type: str, base_severity: str, ctx: _Context) -> tuple[str, list[str]]:
-    """Deterministic context rules. Returns (adjusted_severity, notes)."""
     notes: list[str] = []
     severity = base_severity
-
-    if indicator_type in ("single_bidder", "high_value_direct_award") and ctx.emergency:
-        severity = _band_down(severity)
-        notes.append("Single-bidder/direct award is expected under emergency procurement — severity suppressed.")
-
+    if indicator_type in ("high_value_direct_award",) and ctx.emergency:
+        severity = _band_down(severity); notes.append("Direct award is expected under emergency procurement — severity suppressed.")
     if indicator_type in ("suspicious_timing", "short_tender_window") and ctx.disaster:
-        severity = _band_down(severity)
-        notes.append("Compressed timeline is expected in disaster/relief response — severity suppressed.")
-
+        severity = _band_down(severity); notes.append("Compressed timeline is expected in disaster/relief response — severity suppressed.")
     if indicator_type == "suspicious_timing":
-        # Award-timing anomalies are always critical UNLESS a correction notice
-        # explains the compressed process.
         if ctx.correction_notice:
-            severity = _band_down(severity)
-            notes.append("A correction/corrigendum notice is present — timing anomaly partially explained.")
+            severity = _band_down(severity); notes.append("A correction/corrigendum notice is present — timing anomaly partially explained.")
         else:
-            severity = "critical"
-            notes.append("Award-timing anomaly with no correction notice — held at critical.")
-
+            severity = "critical"; notes.append("Award-timing anomaly with no correction notice — held at critical.")
     if indicator_type == "buyer_equals_supplier" and ctx.psu_present:
-        severity = "medium"
-        notes.append("Buyer equals a PSU supplier — possible internal procurement; needs review, not presumed adverse.")
-
+        severity = "medium"; notes.append("Buyer equals a PSU supplier — possible internal procurement; needs review, not presumed adverse.")
     return severity, notes
 
-
-# --------------------------------------------------------------------------- L3: evidence validator
 
 def _record_by_ref(pkg: InvestigationPackage) -> dict[str, InvestigationProcurementRecord]:
     return {r.tender.reference_number: r for r in pkg.records}
 
 
 def _validate_evidence(refs: list[str], by_ref: dict, required: tuple[str, ...]) -> tuple[str, list[RiskEvidenceRef]]:
-    """Verified/Probable/Unknown from actual package evidence — never assumed."""
     evidence: list[RiskEvidenceRef] = []
     has_document = False
     has_url = False
     resolved = 0
     for ref in refs:
         record = by_ref.get(ref)
-        if record is None:
-            continue
+        if record is None: continue
         resolved += 1
         meta = record.tender.metadata
-        evidence.append(RiskEvidenceRef(
-            kind="tender", reference=ref, source=meta.source_name,
-            detail=record.tender.title or "",
-        ))
-        if meta.source_url:
-            has_url = True
+        evidence.append(RiskEvidenceRef(kind="tender", reference=ref, source=meta.source_name, detail=record.tender.title or ""))
+        if meta.source_url: has_url = True
         for doc in record.documents:
             has_document = True
-            evidence.append(RiskEvidenceRef(
-                kind="document", reference=doc.title or "document", source=meta.source_name,
-                detail=doc.url or "",
-            ))
-    if resolved == 0:
-        return "unknown", evidence
-    if has_document:
-        return "verified", evidence
-    if has_url:
-        return "probable", evidence
+            evidence.append(RiskEvidenceRef(kind="document", reference=doc.title or "document", source=meta.source_name, detail=doc.url or ""))
+    if resolved == 0: return "unknown", evidence
+    if has_document: return "verified", evidence
     return "probable", evidence
 
-
-# --------------------------------------------------------------------------- L4: rule combinations
 
 @dataclass(frozen=True)
 class _PatternRule:
     id: str
     name: str
     severity: str
-    requires: tuple[str, ...]      # indicator ids that must ALL be present
+    requires: tuple[str, ...]
     rule_text: str
 
 
-# Deterministic rule combinations. Ordered strongest-first; evaluation applies
-# every rule whose indicators are all present. Named patterns — NOT sums.
 _PATTERN_RULES: tuple[_PatternRule, ...] = (
-    _PatternRule("related_party_critical", "Very High Related-Party Pattern", "critical",
-        ("director_overlap", "address_overlap", "gst_overlap"),
-        "director_overlap + address_overlap + gst_overlap"),
-    _PatternRule("single_bidder_gst", "Critical Related-Party Pattern", "critical",
-        ("single_bidder", "gst_overlap"), "single_bidder + gst_overlap"),
-    _PatternRule("systemic_suppression", "Systemic Competition-Suppression Pattern", "critical",
-        ("single_bidder", "repeat_supplier", "buyer_concentration"),
-        "single_bidder + repeat_supplier + buyer_concentration"),
-    _PatternRule("award_timing", "Award-Timing Critical Pattern", "critical",
-        ("suspicious_timing",), "award-timing anomaly (award before/at close)"),
-    _PatternRule("buyer_supplier_identity", "Buyer-Supplier Identity Pattern", "critical",
-        ("buyer_equals_supplier",), "buyer == supplier"),
-    _PatternRule("vendor_lockin", "Vendor Lock-in Pattern", "high",
-        ("repeat_supplier", "supplier_concentration"), "repeat_supplier + supplier_concentration"),
-    _PatternRule("rapid_repeat", "Rapid Repeat Procurement Pattern", "high",
-        ("award_clustering", "repeat_supplier"), "award_clustering + repeat_supplier"),
-    _PatternRule("value_anomaly", "Value Anomaly Pattern", "high",
-        ("abnormal_value", "award_value_exceeds_tender"), "abnormal_value + award_value_exceeds_tender"),
-    _PatternRule("concentration", "Concentration Pattern", "medium",
-        ("single_bidder", "buyer_concentration"), "single_bidder + buyer_concentration"),
+    _PatternRule("related_party_critical", "Very High Related-Party Pattern", "critical", ("director_overlap", "address_overlap", "gst_overlap"), "director_overlap + address_overlap + gst_overlap"),
+    _PatternRule("single_bidder_gst", "Critical Related-Party Pattern", "critical", ("single_bidder", "gst_overlap"), "single_bidder + gst_overlap"),
+    _PatternRule("systemic_suppression", "Systemic Competition-Suppression Pattern", "critical", ("single_bidder", "repeat_supplier", "buyer_concentration"), "single_bidder + repeat_supplier + buyer_concentration"),
+    _PatternRule("award_timing", "Award-Timing Critical Pattern", "critical", ("suspicious_timing",), "award-timing anomaly (award before/at close)"),
+    _PatternRule("buyer_supplier_identity", "Buyer-Supplier Identity Pattern", "critical", ("buyer_equals_supplier",), "buyer == supplier"),
+    _PatternRule("vendor_lockin", "Vendor Lock-in Pattern", "high", ("repeat_supplier", "supplier_concentration"), "repeat_supplier + supplier_concentration"),
+    _PatternRule("rapid_repeat", "Rapid Repeat Procurement Pattern", "high", ("award_clustering", "repeat_supplier"), "award_clustering + repeat_supplier"),
+    _PatternRule("value_anomaly", "Value Anomaly Pattern", "high", ("abnormal_value", "award_value_exceeds_tender"), "abnormal_value + award_value_exceeds_tender"),
+    _PatternRule("concentration", "Concentration Pattern", "medium", ("single_bidder", "buyer_concentration"), "single_bidder + buyer_concentration"),
 )
 
 
@@ -424,75 +327,53 @@ def _classify(present: set[str]) -> list[RiskPattern]:
     patterns: list[RiskPattern] = []
     for rule in _PATTERN_RULES:
         if all(ind in present for ind in rule.requires):
-            patterns.append(RiskPattern(
-                id=rule.id, name=rule.name, severity=rule.severity, rule=rule.rule_text,
-                indicators=list(rule.requires),
-                reason=f"Deterministic rule matched: {rule.rule_text}.",
-            ))
+            patterns.append(RiskPattern(id=rule.id, name=rule.name, severity=rule.severity, rule=rule.rule_text, indicators=list(rule.requires), reason=f"Deterministic rule matched: {rule.rule_text}."))
     return patterns
 
-
-# --------------------------------------------------------------------------- L5: confidence
 
 def _confidence(pkg: InvestigationPackage) -> RiskConfidence:
     n = len(pkg.records)
     if n == 0:
         return RiskConfidence(score=0.0, level="very_low", explanation="No records retrieved.")
     from app.services.investigation_indicators import record_has_primary_document
-
     with_url = sum(1 for r in pkg.records if r.tender.metadata.source_url)
-    # Only PRIMARY procurement documents count toward document availability — portal
-    # source notices (the listing entry) are not documents and must not inflate this.
     with_docs = sum(1 for r in pkg.records if record_has_primary_document(r))
     with_awards = sum(1 for r in pkg.records if r.awards)
     dated = sum(1 for r in pkg.records if r.tender.published_date or r.tender.closing_date)
     resolved_ok = [c for c in pkg.canonical_companies if c.confidence >= 0.6]
-    dims = [with_url / n, with_docs / n, with_awards / n, dated / n,
-            (len(resolved_ok) / len(pkg.canonical_companies)) if pkg.canonical_companies else 0.0]
+    dims = [with_url / n, with_docs / n, with_awards / n, dated / n, (len(resolved_ok) / len(pkg.canonical_companies)) if pkg.canonical_companies else 0.0]
     score = round(sum(dims) / len(dims), 2)
     level = "high" if score >= 0.7 else "moderate" if score >= 0.45 else "low" if score >= 0.25 else "very_low"
-    # This metric measures how *checkable* the evidence is (data completeness), not
-    # the probability that a finding is true — so it is named "Evidence completeness".
-    expl = (
-        f"Evidence completeness {int(score * 100)}% ({level}) from evidence coverage "
-        f"(URLs {with_url}/{n}, primary documents {with_docs}/{n}), award completeness ({with_awards}/{n}), "
-        f"timeline completeness ({dated}/{n}), and entity-resolution quality — independent of the risk score."
-    )
+    expl = (f"Evidence completeness {int(score * 100)}% ({level}) from evidence coverage "
+            f"(URLs {with_url}/{n}, primary documents {with_docs}/{n}), award completeness ({with_awards}/{n}), "
+            f"timeline completeness ({dated}/{n}), and entity-resolution quality — independent of the risk score.")
     return RiskConfidence(score=score, level=level, explanation=expl)
 
 
-# --------------------------------------------------------------------------- orchestrator
-
 def assess_risk_v2(pkg: InvestigationPackage) -> RiskAssessmentV2:
-    """Run the full deterministic Risk Engine V2 over a finalized package."""
     if not pkg.records:
-        return RiskAssessmentV2(
-            overall_severity="insufficient", overall_score=0,
+        return RiskAssessmentV2(overall_severity="insufficient", overall_score=0,
             confidence=RiskConfidence(score=0.0, level="very_low", explanation="No records retrieved."),
-            summary="Insufficient evidence to assess procurement integrity — no records retrieved.",
-        )
+            summary="Insufficient evidence to assess procurement integrity — no records retrieved.")
 
     by_ref = _record_by_ref(pkg)
     ctx = _detect_context(pkg)
-
-    # L1: gather deterministic hits — existing detectors + V2 detectors.
     raw: list[dict] = []
     for ind in build_indicators(pkg):
-        raw.append({
-            "type": ind.type, "reason": ind.reason or ind.summary,
-            "records": list(ind.related_tenders), "entities": list(ind.related_entities),
-        })
+        # Current imported Indian records are award/winner-centric. Do not expose
+        # the legacy winner-count proxy as a real bidder/competition indicator.
+        if ind.type in _UNSUPPORTED_INDICATORS:
+            continue
+        raw.append({"type": ind.type, "reason": ind.reason or ind.summary,
+                    "records": list(ind.related_tenders), "entities": list(ind.related_entities)})
     raw.extend(_detect_extra(pkg))
 
-    # Collapse to one indicator per type (grouped supporting records), like the report.
     grouped: dict[str, dict] = {}
     for hit in raw:
         itype = hit["type"]
-        if itype not in INDICATOR_REGISTRY:
-            continue
+        if itype not in INDICATOR_REGISTRY: continue
         g = grouped.setdefault(itype, {"records": [], "entities": [], "reason": hit["reason"]})
-        g["records"].extend(hit["records"])
-        g["entities"].extend(hit["entities"])
+        g["records"].extend(hit["records"]); g["entities"].extend(hit["entities"])
 
     indicators: list[RiskIndicatorV2] = []
     explain: list[RiskExplainabilityNode] = []
@@ -500,62 +381,41 @@ def assess_risk_v2(pkg: InvestigationPackage) -> RiskAssessmentV2:
         d = INDICATOR_REGISTRY[itype]
         refs = sorted(set(g["records"]))
         base_sev = d.base_severity
-        # L2 context adjustment.
         final_sev, notes = _apply_context(itype, base_sev, ctx)
-        # L3 evidence validation.
         ev_status, ev_refs = _validate_evidence(refs, by_ref, d.required_evidence)
-        # Unknown evidence caps severity — an unverifiable indicator cannot be critical.
         if ev_status == "unknown" and _SEVERITY_ORDER[final_sev] > 2:
             notes.append("Required evidence not verifiable in package — severity capped pending review.")
             final_sev = "medium"
         score = _SEVERITY_SCORE[final_sev]
-        indicators.append(RiskIndicatorV2(
-            id=itype, name=d.name, category=d.category, severity=final_sev, base_severity=base_sev,
-            score=score, evidence_status=ev_status,
+        indicators.append(RiskIndicatorV2(id=itype, name=d.name, category=d.category, severity=final_sev,
+            base_severity=base_sev, score=score, evidence_status=ev_status,
             confidence=0.8 if ev_status == "verified" else 0.6 if ev_status == "probable" else 0.3,
             reason=g["reason"], required_evidence=list(d.required_evidence),
-            supporting_records=refs, context_notes=notes,
-        ))
-        explain.append(RiskExplainabilityNode(
-            indicator_id=itype, name=d.name, base_severity=base_sev, base_score=_SEVERITY_SCORE[base_sev],
-            rule_triggered=d.description, evidence=ev_refs[:8], evidence_status=ev_status,
-            context_applied=notes, score_contribution=score, final_severity=final_sev,
-            reason=g["reason"],
-        ))
+            supporting_records=refs, context_notes=notes))
+        explain.append(RiskExplainabilityNode(indicator_id=itype, name=d.name, base_severity=base_sev,
+            base_score=_SEVERITY_SCORE[base_sev], rule_triggered=d.description, evidence=ev_refs[:8],
+            evidence_status=ev_status, context_applied=notes, score_contribution=score,
+            final_severity=final_sev, reason=g["reason"]))
 
     indicators.sort(key=lambda i: (_SEVERITY_ORDER[i.severity], i.score), reverse=True)
-
-    # L4 classification: deterministic rule combinations.
     present = {i.id for i in indicators}
     patterns = _classify(present)
-
-    # Overall severity: strongest pattern, else strongest indicator. Never a sum.
-    if patterns:
-        overall_sev = _max_severity([p.severity for p in patterns])
-    elif indicators:
-        overall_sev = indicators[0].severity
-    else:
-        overall_sev = "low"
+    if patterns: overall_sev = _max_severity([p.severity for p in patterns])
+    elif indicators: overall_sev = indicators[0].severity
+    else: overall_sev = "low"
     overall_score = _SEVERITY_SCORE.get(overall_sev, 0)
-
     confidence = _confidence(pkg)
     summary = _summary(overall_sev, patterns, indicators, ctx)
-
-    return RiskAssessmentV2(
-        overall_severity=overall_sev, overall_score=overall_score,
+    return RiskAssessmentV2(overall_severity=overall_sev, overall_score=overall_score,
         indicators=indicators, patterns=patterns, explainability=explain,
-        confidence=confidence, summary=summary,
-    )
+        confidence=confidence, summary=summary)
 
 
 def _summary(overall_sev: str, patterns: list[RiskPattern], indicators: list[RiskIndicatorV2], ctx: _Context) -> str:
     if not indicators:
         return "No procurement integrity indicators triggered on the recorded activity. Requires Investigator Review."
     lead = f"Overall integrity severity: {overall_sev.upper()} (deterministic)."
-    if patterns:
-        lead += " Patterns: " + ", ".join(p.name for p in patterns[:4]) + "."
-    else:
-        lead += " Indicators: " + ", ".join(i.name for i in indicators[:4]) + "."
-    if ctx.signals:
-        lead += " Context applied: " + "; ".join(ctx.signals) + "."
+    if patterns: lead += " Patterns: " + ", ".join(p.name for p in patterns[:4]) + "."
+    else: lead += " Indicators: " + ", ".join(i.name for i in indicators[:4]) + "."
+    if ctx.signals: lead += " Context applied: " + "; ".join(ctx.signals) + "."
     return lead + " Every indicator requires investigator review; this is an oversight signal, not a determination."
