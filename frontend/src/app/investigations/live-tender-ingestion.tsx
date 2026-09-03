@@ -7,6 +7,22 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+function sourceForUrl(value: string): "cppp" | "gem" | null {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    if (host === "eprocure.gov.in" || host === "www.eprocure.gov.in") return "cppp";
+    if (
+      host === "gem.gov.in" ||
+      host === "www.gem.gov.in" ||
+      host === "bidplus.gem.gov.in" ||
+      host === "bidplus-global.gem.gov.in"
+    ) return "gem";
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function LiveTenderIngestion() {
   const router = useRouter();
   const [url, setUrl] = useState("");
@@ -15,17 +31,21 @@ export function LiveTenderIngestion() {
 
   async function ingest() {
     const value = url.trim();
-    if (!value) return;
+    const source = sourceForUrl(value);
+    if (!value || !source) {
+      setError("Paste an official CPPP or GeM tender/bid URL.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/live-ingestion/cppp", {
+      const response = await fetch(`/api/live-ingestion/${source}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: value }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.detail || "Could not fetch the CPPP tender.");
+      if (!response.ok) throw new Error(payload.detail || `Could not fetch the ${source.toUpperCase()} tender.`);
       router.push(`/tenders/${payload.tender_pk}`);
       router.refresh();
     } catch (err) {
@@ -43,8 +63,11 @@ export function LiveTenderIngestion() {
         </div>
         <div className="min-w-0">
           <div className="text-xs font-medium uppercase tracking-[0.14em] text-accent">Live Indian ingestion</div>
-          <h2 className="mt-1 text-base font-semibold text-text">Investigate a live CPPP tender</h2>
-          <p className="mt-1 text-sm text-muted">Paste the official eProcurement detail URL. SENTRY fetches the current page, preserves provenance, extracts documents, normalizes the tender, and opens its investigation surface.</p>
+          <h2 className="mt-1 text-base font-semibold text-text">Investigate a live government tender</h2>
+          <p className="mt-1 text-sm text-muted">
+            Paste an official CPPP or GeM tender/bid URL. SENTRY fetches the current public page, preserves provenance,
+            normalizes the procurement record, and opens the tender investigation surface.
+          </p>
         </div>
       </div>
 
@@ -53,7 +76,7 @@ export function LiveTenderIngestion() {
           fieldSize="lg"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://eprocure.gov.in/eprocure/app?...FrontEndTender..."
+          placeholder="https://eprocure.gov.in/... or https://bidplus.gem.gov.in/..."
           className="flex-1"
           disabled={loading}
         />
