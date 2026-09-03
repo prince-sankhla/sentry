@@ -6,6 +6,7 @@ import { ListControls } from "@/components/ui/list-controls";
 import { StatCard } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState, ErrorState } from "@/components/ui/states";
+import { InvestigateAction } from "@/components/intel/investigate-action";
 import { formatCompactMoney, formatDate, formatMoneyFull } from "@/lib/format";
 import type { AwardListItem, AwardSort } from "@/lib/api";
 
@@ -48,9 +49,7 @@ export default async function AwardsPage({
       render: (a) => (
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-text">{a.company.name}</div>
-          <div className="truncate font-mono text-[11px] text-faint">
-            {a.company.registration_number ?? "—"}
-          </div>
+          <div className="truncate font-mono text-[11px] text-faint">{a.company.registration_number ?? "—"}</div>
         </div>
       )
     },
@@ -60,18 +59,14 @@ export default async function AwardsPage({
       render: (a) => (
         <div className="min-w-0">
           <div className="truncate text-sm text-text">{a.tender.title}</div>
-          <div className="truncate font-mono text-[11px] text-faint">
-            {a.tender.reference_number}
-          </div>
+          <div className="truncate font-mono text-[11px] text-faint">{a.tender.reference_number}</div>
         </div>
       )
     },
     {
       key: "buyer",
       header: "Buyer",
-      render: (a) => (
-        <span className="text-sm text-muted">{a.tender.procuring_entity ?? "—"}</span>
-      )
+      render: (a) => <span className="text-sm text-muted">{a.tender.procuring_entity ?? "—"}</span>
     },
     {
       key: "date",
@@ -83,9 +78,7 @@ export default async function AwardsPage({
       header: "Value",
       align: "right",
       render: (a) => (
-        <span className="tabular text-sm font-semibold text-text">
-          {formatMoneyFull(a.award_value, a.currency)}
-        </span>
+        <span className="tabular text-sm font-semibold text-text">{formatMoneyFull(a.award_value, a.currency)}</span>
       )
     }
   ];
@@ -117,15 +110,14 @@ export default async function AwardsPage({
         columns={columns}
         items={data.items}
         getHref={(a) => `/companies/${a.company.id}`}
+        rowAction={(award) => (
+          <InvestigateAction query={award.company.name} label="Investigate supplier" variant="subtle" />
+        )}
         empty={
           <EmptyState
             icon={<AwardIcon className="h-5 w-5" />}
             title="No awards found"
-            message={
-              q
-                ? `No awards match “${q}”.`
-                : "No contract awards have been imported yet."
-            }
+            message={q ? `No awards match “${q}”.` : "No contract awards have been imported yet."}
             suggestions={
               q
                 ? undefined
@@ -140,11 +132,8 @@ export default async function AwardsPage({
       />
 
       <p className="mt-4 text-center text-xs text-faint">
-        Rows link to the supplier profile. Explore relationships in the{" "}
-        <Link href="/graph" className="text-accent hover:underline">
-          Graph Explorer
-        </Link>
-        .
+        Every award exposes a direct supplier investigation. Explore relationships in the{" "}
+        <Link href="/graph" className="text-accent hover:underline">Graph Explorer</Link>.
       </p>
     </PageShell>
   );
