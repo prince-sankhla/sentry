@@ -20,6 +20,7 @@ from app.schemas.companies import (
     RelatedTender,
 )
 from app.services.procurement_intelligence import build_company_intelligence
+from app.services.procurement_scope import INTERNATIONAL_PROCUREMENT_SOURCES
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -31,20 +32,22 @@ def list_companies(
     q: str | None = Query(default=None, min_length=1, max_length=200, description="Search company name and registration number."),
     db: Session = Depends(get_db),
 ) -> CompanyListResponse:
-    filters = []
+    indian_award_exists = select(Award.id).join(Tender, Award.tender_id == Tender.id).where(
+        Award.company_id == Company.id,
+        Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES),
+    ).exists()
+    filters = [indian_award_exists]
     if q:
         search_term = f"%{q.strip()}%"
         filters.append(or_(Company.name.ilike(search_term), Company.registration_number.ilike(search_term)))
 
-    total_statement = select(func.count()).select_from(Company)
-    company_statement = select(Company)
-    if filters:
-        total_statement = total_statement.where(*filters)
-        company_statement = company_statement.where(*filters)
-
-    total = db.scalar(total_statement) or 0
+    total = db.scalar(select(func.count()).select_from(Company).where(*filters)) or 0
     companies = db.scalars(
-        company_statement.order_by(Company.created_at.desc(), Company.name.asc()).limit(limit).offset(offset)
+        select(Company)
+        .where(*filters)
+        .order_by(Company.created_at.desc(), Company.name.asc())
+        .limit(limit)
+        .offset(offset)
     ).all()
 
     return CompanyListResponse(
@@ -61,21 +64,19 @@ def get_company(company_id: UUID, db: Session = Depends(get_db)) -> CompanyDetai
         .options(joinedload(Company.awards).joinedload(Award.tender))
     ).unique().scalar_one_or_none()
     if company is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Company {company_id} was not found.",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Company {company_id} was not found.")
 
     tenders = sorted(
-        {award.tender for award in company.awards if award.tender is not None},
+        {award.tender for award in company.awards if award.tender is not None and award.tender.source_name not in INTERNATIONAL_PROCUREMENT_SOURCES},
         key=lambda tender: (tender.published_date is None, tender.published_date),
         reverse=True,
     )
+    indian_awards = [award for award in company.awards if award.tender is not None and award.tender.source_name not in INTERNATIONAL_PROCUREMENT_SOURCES]
 
     return CompanyDetail(
         **CompanySummary.model_validate(company).model_dump(),
         related_tenders=[RelatedTender.model_validate(tender) for tender in tenders],
-        awards_won=company.awards,
+        awards_won=indian_awards,
     )
 
 
@@ -84,7 +85,8 @@ def get_company_overview(company_id: UUID, db: Session = Depends(get_db)) -> Com
     company = _get_company_or_404(company_id, db)
     awards = db.execute(
         select(Award)
-        .where(Award.company_id == company_id)
+        .join(Tender, Award.tender_id == Tender.id)
+        .where(Award.company_id == company_id, Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES))
         .options(joinedload(Award.tender))
     ).unique().scalars().all()
 
@@ -123,28 +125,16 @@ def get_company_tenders(
     db: Session = Depends(get_db),
 ) -> CompanyTenderHistoryResponse:
     _get_company_or_404(company_id, db)
-
-    filters = [Award.company_id == company_id]
+    filters = [Award.company_id == company_id, Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES)]
     if q:
         search_term = f"%{q.strip()}%"
         filters.append(or_(Tender.title.ilike(search_term), Tender.procuring_entity.ilike(search_term)))
 
     total = db.scalar(
-        select(func.count())
-        .select_from(Award)
-        .join(Tender, Award.tender_id == Tender.id)
-        .where(*filters)
+        select(func.count()).select_from(Award).join(Tender, Award.tender_id == Tender.id).where(*filters)
     ) or 0
-
-    statement = (
-        select(Award)
-        .join(Tender, Award.tender_id == Tender.id)
-        .where(*filters)
-        .options(joinedload(Award.tender))
-    )
-    awards = db.execute(
-        _apply_company_tender_sort(statement, sort).limit(limit).offset(offset)
-    ).unique().scalars().all()
+    statement = select(Award).join(Tender, Award.tender_id == Tender.id).where(*filters).options(joinedload(Award.tender))
+    awards = db.execute(_apply_company_tender_sort(statement, sort).limit(limit).offset(offset)).unique().scalars().all()
 
     return CompanyTenderHistoryResponse(
         items=[
@@ -160,8 +150,7 @@ def get_company_tenders(
                 award_amount=award.award_value,
                 award_date=award.award_date,
             )
-            for award in awards
-            if award.tender is not None
+            for award in awards if award.tender is not None
         ],
         pagination=Pagination(limit=limit, offset=offset, total=total),
     )
@@ -176,16 +165,10 @@ def get_company_awards(
     db: Session = Depends(get_db),
 ) -> CompanyAwardHistoryResponse:
     _get_company_or_404(company_id, db)
-    total = db.scalar(select(func.count()).select_from(Award).where(Award.company_id == company_id)) or 0
-    statement = (
-        select(Award)
-        .join(Tender, Award.tender_id == Tender.id)
-        .where(Award.company_id == company_id)
-        .options(joinedload(Award.tender))
-    )
-    awards = db.execute(
-        _apply_company_award_sort(statement, sort).limit(limit).offset(offset)
-    ).unique().scalars().all()
+    filters = [Award.company_id == company_id, Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES)]
+    total = db.scalar(select(func.count()).select_from(Award).join(Tender, Award.tender_id == Tender.id).where(*filters)) or 0
+    statement = select(Award).join(Tender, Award.tender_id == Tender.id).where(*filters).options(joinedload(Award.tender))
+    awards = db.execute(_apply_company_award_sort(statement, sort).limit(limit).offset(offset)).unique().scalars().all()
 
     return CompanyAwardHistoryResponse(
         items=[
@@ -198,8 +181,7 @@ def get_company_awards(
                 tender_title=award.tender.title,
                 tender_reference_number=award.tender.reference_number,
             )
-            for award in awards
-            if award.tender is not None
+            for award in awards if award.tender is not None
         ],
         pagination=Pagination(limit=limit, offset=offset, total=total),
     )
@@ -208,10 +190,7 @@ def get_company_awards(
 def _get_company_or_404(company_id: UUID, db: Session) -> Company:
     company = db.get(Company, company_id)
     if company is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Company {company_id} was not found.",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Company {company_id} was not found.")
     return company
 
 
