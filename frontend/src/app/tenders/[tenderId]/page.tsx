@@ -7,6 +7,7 @@ import { Section, SurfaceCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { Timeline } from "@/components/ui/timeline";
 import { PdfIntelligence } from "@/components/intel/pdf-intelligence";
+import { TenderKundali, type TenderKundaliData } from "@/components/intel/tender-kundali";
 import { getTender, type ProcurementIntelligenceSignal } from "@/lib/api";
 import { formatDate, formatMoney } from "@/lib/format";
 
@@ -18,14 +19,31 @@ type PageProps = {
   }>;
 };
 
+async function getTenderKundali(tenderId: string): Promise<TenderKundaliData | null> {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+  try {
+    const response = await fetch(`${backendUrl}/api/tenders/${tenderId}/kundali`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as TenderKundaliData;
+  } catch {
+    return null;
+  }
+}
+
 export default async function TenderDetailPage({ params }: PageProps) {
   const { tenderId } = await params;
-  const tender = await getTender(tenderId).catch((error) => {
-    if (error instanceof Error && error.message === "not_found") {
-      notFound();
-    }
-    throw error;
-  });
+  const [tender, kundali] = await Promise.all([
+    getTender(tenderId).catch((error) => {
+      if (error instanceof Error && error.message === "not_found") {
+        notFound();
+      }
+      throw error;
+    }),
+    getTenderKundali(tenderId),
+  ]);
 
   const timelineItems = [
     { label: "Published", value: formatDate(tender.published_date), detail: tender.reference_number },
@@ -65,6 +83,10 @@ export default async function TenderDetailPage({ params }: PageProps) {
               <Detail label="Currency" value={tender.currency} />
             </dl>
             {tender.description ? <p className="mt-5 text-sm leading-6 text-muted">{tender.description}</p> : null}
+          </Section>
+
+          <Section eyebrow="Kundali" title="Tender Intelligence">
+            <TenderKundali data={kundali} />
           </Section>
 
           <Section eyebrow="Outcome" title="Awards">

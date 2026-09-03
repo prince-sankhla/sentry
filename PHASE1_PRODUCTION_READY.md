@@ -1,1 +1,0 @@
-Phase 1 production-ready checkpoint: CPPP + public GeM BidPlus live ingestion is implemented and the production deployment should track this main branch commit.
