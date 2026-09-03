@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import date, datetime
 from decimal import Decimal
-from statistics import quantiles
 from uuid import UUID
 
 from sqlalchemy import select
@@ -131,23 +130,20 @@ def _documents(documents: list[Document]) -> list[KundaliDocument]:
 
 
 def _awards(awards: list[Award]) -> list[KundaliAward]:
-    result: list[KundaliAward] = []
-    for award in awards:
-        if award.company is None:
-            continue
-        result.append(
-            KundaliAward(
-                id=str(award.id),
-                supplier_id=str(award.company_id),
-                supplier_name=award.company.name,
-                award_date=award.award_date,
-                award_value=award.award_value,
-                currency=award.currency,
-                source_name=award.source_name,
-                source_url=award.source_url,
-            )
+    return [
+        KundaliAward(
+            id=str(award.id),
+            supplier_id=str(award.company_id),
+            supplier_name=award.company.name,
+            award_date=award.award_date,
+            award_value=award.award_value,
+            currency=award.currency,
+            source_name=award.source_name,
+            source_url=award.source_url,
         )
-    return result
+        for award in awards
+        if award.company is not None
+    ]
 
 
 def _comparables(db: Session, tender: Tender) -> list[KundaliComparableTender]:
@@ -161,19 +157,18 @@ def _comparables(db: Session, tender: Tender) -> list[KundaliComparableTender]:
     buyer = _fold(tender.procuring_entity)
     for candidate in candidates:
         score = 0
-        reasons: list[str] = []
         if buyer and buyer == _fold(candidate.procuring_entity):
-            score += 4; reasons.append("same buyer")
+            score += 4
         if tender.category and tender.category.casefold() == (candidate.category or "").casefold():
-            score += 3; reasons.append("same category")
+            score += 3
         if tender.procurement_method and tender.procurement_method.casefold() == (candidate.procurement_method or "").casefold():
-            score += 2; reasons.append("same procurement method")
+            score += 2
         if tender.currency == candidate.currency:
             score += 1
         if tender.estimated_value and candidate.estimated_value:
             ratio = max(tender.estimated_value, candidate.estimated_value) / min(tender.estimated_value, candidate.estimated_value)
             if ratio <= Decimal("2"):
-                score += 2; reasons.append("similar value band")
+                score += 2
         if score >= 5:
             ranked.append((score, candidate))
     ranked.sort(key=lambda item: (item[0], item[1].published_date or date.min), reverse=True)
@@ -191,7 +186,7 @@ def _comparables(db: Session, tender: Tender) -> list[KundaliComparableTender]:
                 published_date=candidate.published_date,
                 estimated_value=candidate.estimated_value,
                 currency=candidate.currency,
-                similarity_reasons=[f"match score {score}", *([] if not score else [])] + _similarity_reasons(tender, candidate),
+                similarity_reasons=[f"match score {score}", *_similarity_reasons(tender, candidate)],
                 award_supplier=award.company.name if award and award.company else None,
                 award_value=award.award_value if award else None,
             )
@@ -201,10 +196,28 @@ def _comparables(db: Session, tender: Tender) -> list[KundaliComparableTender]:
 
 def _similarity_reasons(a: Tender, b: Tender) -> list[str]:
     reasons: list[str] = []
-    if a.procuring_entity and _fold(a.procuring_entity) == _fold(b.procuring_entity): reasons.append("same buyer")
-    if a.category and a.category.casefold() == (b.category or "").casefold(): reasons.append("same category")
-    if a.procurement_method and a.procurement_method.casefold() == (b.procurement_method or "").casefold(): reasons.append("same method")
+    if a.procuring_entity and _fold(a.procuring_entity) == _fold(b.procuring_entity):
+        reasons.append("same buyer")
+    if a.category and a.category.casefold() == (b.category or "").casefold():
+        reasons.append("same category")
+    if a.procurement_method and a.procurement_method.casefold() == (b.procurement_method or "").casefold():
+        reasons.append("same method")
     return reasons
+
+
+def _quartiles(values: list[Decimal]) -> tuple[Decimal, Decimal]:
+    ordered = sorted(values)
+    if len(ordered) < 2:
+        return ordered[0], ordered[0]
+
+    def percentile(p: Decimal) -> Decimal:
+        position = (Decimal(len(ordered) - 1) * p)
+        low = int(position)
+        high = min(low + 1, len(ordered) - 1)
+        fraction = position - Decimal(low)
+        return ordered[low] + (ordered[high] - ordered[low]) * fraction
+
+    return percentile(Decimal("0.25")), percentile(Decimal("0.75"))
 
 
 def _benchmark(tender: Tender, comparable: list[KundaliComparableTender]) -> KundaliBenchmark:
@@ -212,19 +225,16 @@ def _benchmark(tender: Tender, comparable: list[KundaliComparableTender]) -> Kun
     if not values:
         return KundaliBenchmark(sample_size=0, median=None, p25=None, p75=None, min_value=None, max_value=None, tender_percentile=None, position="insufficient", basis=["same-buyer/category/method comparable set"])
     median = values[len(values) // 2]
-    if len(values) >= 4:
-        qs = quantiles(values, n=4, method="inclusive")
-        p25, p75 = qs[0], qs[2]
-    else:
-        p25 = values[0]
-        p75 = values[-1]
+    p25, p75 = _quartiles(values)
     t = tender.estimated_value
     percentile = None
     if t is not None:
         percentile = round(100.0 * sum(1 for v in values if v <= t) / len(values), 1)
     position = "within comparable range"
-    if t is not None and t < p25: position = "below P25"
-    elif t is not None and t > p75: position = "above P75"
+    if t is not None and t < p25:
+        position = "below P25"
+    elif t is not None and t > p75:
+        position = "above P75"
     return KundaliBenchmark(
         sample_size=len(values), median=median, p25=p25, p75=p75,
         min_value=values[0], max_value=values[-1], tender_percentile=percentile,
@@ -235,7 +245,7 @@ def _benchmark(tender: Tender, comparable: list[KundaliComparableTender]) -> Kun
 def _supplier_history(db: Session, awards: list[KundaliAward]) -> list[KundaliSupplierHistory]:
     if not awards:
         return []
-    ids = [UUID(a.supplier_id) for a in awards]
+    ids = list(dict.fromkeys(UUID(a.supplier_id) for a in awards))
     rows = db.execute(
         select(Award).where(Award.company_id.in_(ids)).options(joinedload(Award.company), joinedload(Award.tender))
     ).unique().scalars().all()
