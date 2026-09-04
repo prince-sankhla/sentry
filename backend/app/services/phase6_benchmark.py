@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.tender import Tender
 from app.schemas.phase6_benchmark import BenchmarkPopulation, BenchmarkStats, TenderBenchmarkComparison
-from app.services.procurement_scope import INTERNATIONAL_PROCUREMENT_SOURCES
+from app.services.procurement_scope import indian_source_clause, is_indian_source
 
 MIN_SAMPLE_SIZE = 5
 VALUE_BANDS = (
@@ -76,6 +76,26 @@ def compare_tender_estimate(db: Session, tender_id: str) -> TenderBenchmarkCompa
         "Percentile and IQR are contextual statistics, not statutory thresholds",
     ]
 
+    if not is_indian_source(target.source_name):
+        return TenderBenchmarkComparison(
+            tender_id=str(target.id),
+            reference_number=target.reference_number,
+            metric="estimated_value",
+            observed_value=target.estimated_value,
+            currency=target.currency,
+            benchmark_available=False,
+            population=BenchmarkPopulation(
+                level="out_of_scope",
+                dimensions={"scope": "Indian procurement only"},
+                sample_size=0,
+                sufficient_sample=False,
+            ),
+            statistics=BenchmarkStats(),
+            interpretation="Benchmark unavailable because this record is outside the Indian procurement intelligence scope.",
+            generated_at=datetime.now(timezone.utc),
+            methodology=methodology,
+        )
+
     if target.estimated_value is None or target.estimated_value <= 0:
         return TenderBenchmarkComparison(
             tender_id=str(target.id),
@@ -98,8 +118,8 @@ def compare_tender_estimate(db: Session, tender_id: str) -> TenderBenchmarkCompa
 
     candidates = db.scalars(
         select(Tender).where(
+            indian_source_clause(Tender.source_name),
             Tender.deleted_at.is_(None),
-            Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES),
             Tender.estimated_value.isnot(None),
             Tender.estimated_value > 0,
         )
@@ -163,9 +183,9 @@ def compare_tender_estimate(db: Session, tender_id: str) -> TenderBenchmarkCompa
             break
 
     stats = _stats(selected_values, target.estimated_value)
-    available = stats.median is not None
+    available = len(selected_values) >= MIN_SAMPLE_SIZE and stats.median is not None
     population = BenchmarkPopulation(
-        level=selected_level,
+        level=selected_level if selected_values else "insufficient_data",
         dimensions=selected_dimensions,
         sample_size=len(selected_values),
         sufficient_sample=available,
