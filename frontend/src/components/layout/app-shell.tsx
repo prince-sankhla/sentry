@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronsLeft,
   FileText,
+  Flag,
   FolderSearch,
   GitBranch,
   LayoutDashboard,
@@ -40,17 +41,19 @@ const navGroups: {
     label: "Intelligence",
     items: [
       { href: "/", icon: LayoutDashboard, label: "Command Center" },
-      { href: "/investigations", icon: FolderSearch, label: "Investigations" },
-      { href: "/graph", icon: GitBranch, label: "Graph Explorer" },
-      { href: "/risk", icon: Radar, label: "Risk Monitor" }
+      { href: "/investigations", icon: FolderSearch, label: "Investigation Workspace" },
+      { href: "/buyers", icon: Building2, label: "Buyer Intelligence" },
+      { href: "/graph", icon: GitBranch, label: "Relationship Graph" },
+      { href: "/risk", icon: Radar, label: "Risk Assessment" },
+      { href: "/red-flags", icon: Flag, label: "Red-flag Screening" }
     ]
   },
   {
     label: "Records",
     items: [
-      { href: "/tenders", icon: FileText, label: "Tenders" },
-      { href: "/companies", icon: Building2, label: "Companies" },
-      { href: "/awards", icon: Award, label: "Awards" }
+      { href: "/tenders", icon: FileText, label: "Tender Records" },
+      { href: "/companies", icon: Building2, label: "Supplier Records" },
+      { href: "/awards", icon: Award, label: "Award Records" }
     ]
   },
   {
@@ -58,7 +61,7 @@ const navGroups: {
     items: [
       { href: "/timeline", icon: Clock, label: "Timeline" },
       { href: "/map", icon: MapIcon, label: "Geography" },
-      { href: "/reports", icon: Activity, label: "Reports" }
+      { href: "/reports", icon: Activity, label: "Portfolio Reports" }
     ]
   },
   {
@@ -76,8 +79,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
-  // The marketing homepage renders chromeless — its own floating navbar and
-  // full-bleed sections replace the application shell (sidebar + header).
   const isMarketing = pathname === "/";
 
   useEffect(() => {
@@ -91,10 +92,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // close mobile drawer on route change
   useEffect(() => setMobileOpen(false), [pathname]);
 
-  // Chromeless marketing home (all hooks above run unconditionally first).
   if (isMarketing) {
     return <div className="min-h-screen">{children}</div>;
   }
@@ -105,7 +104,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-bg text-text">
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
-      {/* ---------------- Header ---------------- */}
       <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-bg-2/80 px-4 backdrop-blur-xl">
         <Button
           variant="ghost"
@@ -131,18 +129,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
         >
           <Search className="h-4 w-4 text-muted transition-colors group-hover:text-accent" />
-          <span className="flex-1 truncate">
-            Search companies, buyers, tenders, awards…
-          </span>
+          <span className="flex-1 truncate">Search companies, buyers, tenders, awards…</span>
           <kbd className="hidden items-center gap-0.5 rounded-md border border-border bg-bg-2 px-1.5 py-0.5 text-[10px] font-medium text-muted sm:flex">
             ⌘K
           </kbd>
         </button>
 
         <div className="ml-auto flex items-center gap-2.5">
-          {/* Single, quiet system-status chip — colour reserved for meaning */}
           <span className="hidden xl:block">
-            <StatusChip label="Operational" detail="Live data" pulse />
+            <StatusChip label="Operational" detail="India scope" pulse />
           </span>
 
           <div className="mx-0.5 hidden h-5 w-px bg-border xl:block" />
@@ -171,57 +166,32 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* ---------------- Sidebar ---------------- */}
       <motion.aside
         animate={{ width }}
         initial={false}
         transition={{ duration: 0.18, ease: EASE }}
-        className={`fixed bottom-0 left-0 top-16 z-30 border-r border-border bg-bg-2/70 backdrop-blur-xl ${
-          mobileOpen ? "block" : "hidden lg:block"
-        }`}
+        className={`fixed bottom-0 left-0 top-16 z-30 border-r border-border bg-bg-2/70 backdrop-blur-xl ${mobileOpen ? "block" : "hidden lg:block"}`}
       >
         <div className="flex h-full flex-col overflow-y-auto px-3 py-5">
           <nav className="flex-1 space-y-6">
             {navGroups.map((group) => (
               <div key={group.label}>
-                {!collapsed && (
-                  <div className="t-label px-2 pb-2.5">{group.label}</div>
-                )}
+                {!collapsed && <div className="t-label px-2 pb-2.5">{group.label}</div>}
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
                     const Icon = item.icon;
-                    const active =
-                      pathname === item.href ||
-                      (item.href !== "/" && pathname.startsWith(item.href));
+                    const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         title={collapsed ? item.label : undefined}
-                        className={`group relative flex h-10 items-center gap-3 rounded-xl px-3 text-[13.5px] transition-colors duration-150 ${
-                          active
-                            ? "font-medium text-text"
-                            : "text-muted hover:bg-surface/50 hover:text-text"
-                        }`}
+                        className={`group relative flex h-10 items-center gap-3 rounded-xl px-3 text-[13.5px] transition-colors duration-150 ${active ? "font-medium text-text" : "text-muted hover:bg-surface/50 hover:text-text"}`}
                       >
-                        {active && (
-                          <motion.span
-                            layoutId="nav-active"
-                            transition={SPRING}
-                            className="absolute inset-0 rounded-xl border border-border-strong/60 bg-surface-2"
-                          />
-                        )}
-                        {active && (
-                          <span className="absolute inset-y-2 left-0 z-10 w-0.5 rounded-full bg-accent" />
-                        )}
-                        <Icon
-                          className={`relative z-10 h-[18px] w-[18px] shrink-0 transition-colors ${
-                            active ? "text-accent" : "group-hover:text-text"
-                          }`}
-                        />
-                        {!collapsed && (
-                          <span className="relative z-10 truncate">{item.label}</span>
-                        )}
+                        {active && <motion.span layoutId="nav-active" transition={SPRING} className="absolute inset-0 rounded-xl border border-border-strong/60 bg-surface-2" />}
+                        {active && <span className="absolute inset-y-2 left-0 z-10 w-0.5 rounded-full bg-accent" />}
+                        <Icon className={`relative z-10 h-[18px] w-[18px] shrink-0 transition-colors ${active ? "text-accent" : "group-hover:text-text"}`} />
+                        {!collapsed && <span className="relative z-10 truncate">{item.label}</span>}
                       </Link>
                     );
                   })}
@@ -239,7 +209,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 New Investigation
               </div>
               <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-                Launch an AI investigation from a single prompt.
+                Start a guided evidence review from a verified procurement entity.
               </p>
               <Button
                 href="/investigations"
@@ -247,9 +217,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 size="sm"
                 fullWidth
                 className="mt-3.5"
-                trailing={
-                  <Command className="h-3.5 w-3.5 opacity-70 transition-transform group-hover:translate-x-0.5" />
-                }
+                trailing={<Command className="h-3.5 w-3.5 opacity-70 transition-transform group-hover:translate-x-0.5" />}
               >
                 Start
               </Button>
@@ -261,13 +229,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             size="sm"
             onClick={() => setCollapsed((v) => !v)}
             className="mt-3 hidden justify-start lg:flex"
-            icon={
-              <ChevronsLeft
-                className={`h-4 w-4 transition-transform duration-200 ${
-                  collapsed ? "rotate-180" : ""
-                }`}
-              />
-            }
+            icon={<ChevronsLeft className={`h-4 w-4 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />}
           >
             {!collapsed && "Collapse"}
           </Button>
@@ -275,13 +237,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </motion.aside>
 
       {mobileOpen && (
-        <div
-          className="fixed inset-0 top-16 z-20 bg-bg/60 backdrop-blur-sm lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 top-16 z-20 bg-bg/60 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* ---------------- Main ---------------- */}
       <motion.main
         animate={{ paddingLeft: width }}
         initial={false}
