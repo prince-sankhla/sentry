@@ -5,17 +5,17 @@ import { BarChart3, Database, Info, Loader2, TrendingUp } from "lucide-react";
 
 import { formatMoney } from "@/lib/format";
 
-type MoneyValue = string | number | null;
+type MoneyValue = string | number | null | undefined;
 
 type BenchmarkData = {
   tender_id: string;
   reference_number: string;
   metric: string;
   observed_value: MoneyValue;
-  currency: string | null;
+  currency: string | null | undefined;
   benchmark_available: boolean;
   population: { level: string; dimensions: Record<string, string>; sample_size: number; sufficient_sample: boolean };
-  statistics: { minimum: MoneyValue; p25: MoneyValue; median: MoneyValue; mean: MoneyValue; p75: MoneyValue; maximum: MoneyValue; iqr: MoneyValue; percentile: number | null; deviation_iqr: MoneyValue };
+  statistics: { minimum: MoneyValue; p25: MoneyValue; median: MoneyValue; mean: MoneyValue; p75: MoneyValue; maximum: MoneyValue; iqr: MoneyValue; percentile: number | null | undefined; deviation_iqr: MoneyValue };
   interpretation: string;
 };
 
@@ -77,11 +77,11 @@ export function TenderBenchmark({ tenderId }: { tenderId: string }) {
   );
 }
 
-function money(value: MoneyValue, currency: string | null): string {
+function money(value: MoneyValue, currency: string | null | undefined): string {
   return value == null ? "—" : `${formatMoney(String(value), currency ?? "INR")} ${currency ?? ""}`.trim();
 }
 
-function Stat({ label, value, currency, emphasized, plain, icon }: { label: string; value: MoneyValue | undefined; currency?: string | null; emphasized?: boolean; plain?: boolean; icon?: ReactNode }) {
+function Stat({ label, value, currency, emphasized, plain, icon }: { label: string; value: MoneyValue; currency?: string | null | undefined; emphasized?: boolean; plain?: boolean; icon?: ReactNode }) {
   return <div className={`rounded-2xl border p-4 ${emphasized ? "border-accent/30 bg-accent/[0.06]" : "border-border bg-surface"}`}><div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{icon}{label}</div><div className="mt-2 text-lg font-semibold tabular-nums text-text">{value == null ? "—" : plain ? String(value) : money(value, currency)}</div></div>;
 }
 
