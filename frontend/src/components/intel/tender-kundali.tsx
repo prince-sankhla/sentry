@@ -36,55 +36,55 @@ function money(value: string | null, currency: string) {
 }
 
 export function TenderKundali({ data }: { data: TenderKundaliData | null }) {
-  if (!data) return <EmptyState message="Tender kundali is unavailable." />;
+  if (!data) return <EmptyState message="Tender intelligence is unavailable for this record." />;
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Status" value={data.status} />
-        <Metric label="Buyer" value={data.buyer ?? "Unknown"} />
-        <Metric label="Method" value={data.procurement_method ?? "Not structured"} />
+        <Metric label="Status" value={data.status || "Not available"} />
+        <Metric label="Procuring entity" value={data.buyer ?? "Not available"} />
+        <Metric label="Procurement method" value={data.procurement_method ?? "Not structured"} />
         <Metric label="Category" value={data.category ?? "Not structured"} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card title="Tender facts">
-          <Row label="Estimate" value={money(data.estimated_value, data.currency)} />
-          <Row label="Published" value={data.published_date ?? "—"} />
-          <Row label="Closing" value={data.closing_date ?? "—"} />
+        <Card title="Tender details">
+          <Row label="Estimated value" value={money(data.estimated_value, data.currency)} />
+          <Row label="Published" value={data.published_date ?? "Not available"} />
+          <Row label="Closing" value={data.closing_date ?? "Not available"} />
           <Row label="Geography" value={data.geography ?? "Not structured"} />
           <Row label="Source" value={data.source.source_name} />
-          <Row label="Snapshot" value={data.source.content_hash ? data.source.content_hash.slice(0, 12) + "…" : "Not available"} mono />
+          <Row label="Source snapshot" value={data.source.content_hash ? data.source.content_hash.slice(0, 12) + "…" : "Not available"} mono />
         </Card>
 
-        <Card title="Historical benchmark">
+        <Card title="Comparable-market benchmark">
           <div className="text-2xl font-semibold text-text">{data.benchmark.position}</div>
-          <div className="mt-1 text-xs text-muted">{data.benchmark.sample_size} comparable Indian tenders</div>
+          <div className="mt-1 text-xs text-muted">{data.benchmark.sample_size} comparable Indian tender records</div>
           <div className="mt-4 grid grid-cols-3 gap-2">
             <Stat label="P25" value={money(data.benchmark.p25, data.currency)} />
             <Stat label="Median" value={money(data.benchmark.median, data.currency)} />
             <Stat label="P75" value={money(data.benchmark.p75, data.currency)} />
           </div>
-          {data.benchmark.tender_percentile != null ? <div className="mt-3 text-xs text-muted">Tender estimate percentile: <span className="font-semibold text-text">{data.benchmark.tender_percentile}th</span></div> : null}
+          {data.benchmark.tender_percentile != null ? <div className="mt-3 text-xs text-muted">Estimate percentile: <span className="font-semibold text-text">{data.benchmark.tender_percentile}th</span></div> : null}
         </Card>
 
-        <Card title="Evidence ledger">
+        <Card title="Evidence coverage">
           <div className="grid grid-cols-2 gap-2">
             <Stat label="Snapshots" value={String(data.evidence_summary.source_snapshots ?? 0)} />
             <Stat label="Documents" value={String(data.evidence_summary.documents ?? 0)} />
             <Stat label="Awards" value={String(data.evidence_summary.awards ?? 0)} />
             <Stat label="Comparables" value={String(data.evidence_summary.comparables ?? 0)} />
           </div>
-          <p className="mt-3 text-xs leading-5 text-muted">As-of {data.as_of ?? "source retrieval time unavailable"}. Findings remain review leads, not determinations.</p>
+          <p className="mt-3 text-xs leading-5 text-muted">As of {data.as_of ?? "source retrieval time unavailable"}. Screening observations are review leads, not determinations.</p>
         </Card>
       </div>
 
-      <Card title={`Red flags & review leads (${data.signals.length})`}>
-        {data.signals.length === 0 ? <EmptyState message="No tender-level review signal was produced from the available evidence." /> : <div className="space-y-3">{data.signals.map((signal) => <div className="rounded-2xl border border-border bg-bg-2 p-4" key={`${signal.type}-${signal.title}`}><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-semibold text-text">{signal.title}</div><p className="mt-1 text-sm leading-6 text-muted">{signal.summary}</p></div><span className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold uppercase text-muted">{signal.severity}</span></div>{signal.evidence.length ? <div className="mt-3 flex flex-wrap gap-1.5">{signal.evidence.map((item) => <span className="rounded-md bg-surface px-2 py-1 text-[11px] text-muted" key={item}>{item}</span>)}</div> : null}</div>)}</div>}
+      <Card title={`Screening observations (${data.signals.length})`}>
+        {data.signals.length === 0 ? <EmptyState message="No tender-level screening observation was produced from the available evidence." /> : <div className="space-y-3">{data.signals.map((signal) => <div className="rounded-2xl border border-border bg-bg-2 p-4" key={`${signal.type}-${signal.title}`}><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-semibold text-text">{signal.title}</div><p className="mt-1 text-sm leading-6 text-muted">{signal.summary}</p></div><span className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold uppercase text-muted">{signal.severity}</span></div>{signal.evidence.length ? <div className="mt-3 flex flex-wrap gap-1.5">{signal.evidence.map((item) => <span className="rounded-md bg-surface px-2 py-1 text-[11px] text-muted" key={item}>{item}</span>)}</div> : null}</div>)}</div>}
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title={`Supplier history (${data.supplier_history.length})`}>
-          {data.supplier_history.length === 0 ? <EmptyState message="No recorded award history for this tender's suppliers." /> : <div className="space-y-3">{data.supplier_history.map((supplier) => <div className="rounded-xl border border-border bg-bg-2 p-3" key={supplier.supplier_id}><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-semibold text-text">{supplier.supplier_name}</div><div className="mt-1 text-xs text-muted">{supplier.award_count} awards · {supplier.buyer_count} buyers</div></div><div className="text-sm font-semibold text-accent">{money(supplier.total_award_value, data.currency)}</div></div><div className="mt-2 text-xs text-muted">{supplier.buyer_names.slice(0, 4).join(" · ") || "Buyer history unavailable"}</div></div>)}</div>}
+          {data.supplier_history.length === 0 ? <EmptyState message="No recorded award history is available for this tender's suppliers." /> : <div className="space-y-3">{data.supplier_history.map((supplier) => <div className="rounded-xl border border-border bg-bg-2 p-3" key={supplier.supplier_id}><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-semibold text-text">{supplier.supplier_name}</div><div className="mt-1 text-xs text-muted">{supplier.award_count} awards · {supplier.buyer_count} procuring entities</div></div><div className="text-sm font-semibold text-accent">{money(supplier.total_award_value, data.currency)}</div></div><div className="mt-2 text-xs text-muted">{supplier.buyer_names.slice(0, 4).join(" · ") || "Buyer history unavailable"}</div></div>)}</div>}
         </Card>
 
         <Card title={`Comparable tenders (${data.comparable_tenders.length})`}>
@@ -92,11 +92,11 @@ export function TenderKundali({ data }: { data: TenderKundaliData | null }) {
         </Card>
       </div>
 
-      <Card title={`Documents (${data.documents.length})`}>
-        {data.documents.length === 0 ? <EmptyState message="No document links are currently indexed for this tender." /> : <div className="grid gap-2 sm:grid-cols-2">{data.documents.map((document) => <a href={document.url ?? "#"} target={document.url ? "_blank" : undefined} rel={document.url ? "noreferrer" : undefined} key={document.id} className="rounded-xl border border-border bg-bg-2 p-3 transition hover:border-border-strong"><div className="text-sm font-semibold text-text">{document.title}</div><div className="mt-1 text-xs text-muted">{document.document_type} · {document.available ? "source-linked" : "metadata only"}</div></a>)}</div>}
+      <Card title={`Source documents (${data.documents.length})`}>
+        {data.documents.length === 0 ? <EmptyState message="No document links are currently indexed for this tender." /> : <div className="grid gap-2 sm:grid-cols-2">{data.documents.map((document) => <a href={document.url ?? "#"} target={document.url ? "_blank" : undefined} rel={document.url ? "noreferrer" : undefined} key={document.id} className="rounded-xl border border-border bg-bg-2 p-3 transition hover:border-border-strong"><div className="text-sm font-semibold text-text">{document.title}</div><div className="mt-1 text-xs text-muted">{document.document_type} · {document.available ? "source linked" : "metadata only"}</div></a>)}</div>}
       </Card>
 
-      <Card title="Limitations">
+      <Card title="Evidence limitations">
         <ul className="space-y-2">{data.limitations.map((item) => <li className="text-xs leading-5 text-muted" key={item}>• {item}</li>)}</ul>
       </Card>
     </div>
