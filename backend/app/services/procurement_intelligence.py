@@ -15,26 +15,33 @@ from app.schemas.procurement_intelligence import (
     ProcurementIntelligence,
     ProcurementIntelligenceSignal,
 )
+from app.services.procurement_scope import is_indian_source
 
 REPEAT_SUPPLIER_MIN_AWARDS = 2
 CONCENTRATION_REVIEW_THRESHOLD = Decimal("0.50")
+STRONG_CONCENTRATION_THRESHOLD = Decimal("0.75")
+STRONG_CONCENTRATION_MIN_AWARDS = 3
 
 
 def build_tender_intelligence(db: Session, tender: Tender) -> ProcurementIntelligence:
-    awards = _awards_with_entities(db)
+    if not is_indian_source(tender.source_name):
+        return ProcurementIntelligence(signals=[], relationship_scores=[])
+
+    awards = _indian_awards_with_entities(db)
     tender_awards = [award for award in awards if award.tender_id == tender.id and award.company is not None]
     buyer = _buyer_key(tender.procuring_entity)
-
-    signals: list[ProcurementIntelligenceSignal] = []
+    buyer_awards_map = _awards_by_buyer(awards)
 
     relationship_scores = [
-        _relationship_score(buyer_awards=buyer_awards, supplier_awards=supplier_awards)
+        _relationship_score(buyer_awards=buyer_awards_map[relationship_buyer], supplier_awards=supplier_awards)
         for (relationship_buyer, _company_id), supplier_awards in _awards_by_buyer_supplier(awards).items()
-        for buyer_awards in [_awards_by_buyer(awards)[relationship_buyer]]
-        if relationship_buyer == buyer and supplier_awards and supplier_awards[0].company_id in {award.company_id for award in tender_awards}
+        if relationship_buyer == buyer
+        and supplier_awards
+        and supplier_awards[0].company_id in {award.company_id for award in tender_awards}
+        and relationship_buyer in buyer_awards_map
     ]
 
-    signals.extend(_relationship_signals(relationship_scores, tender_id=tender.id))
+    signals = _relationship_signals(relationship_scores, tender_id=tender.id)
     return ProcurementIntelligence(
         signals=_dedupe_signals(signals),
         relationship_scores=sorted(relationship_scores, key=lambda score: score.score, reverse=True),
@@ -42,7 +49,7 @@ def build_tender_intelligence(db: Session, tender: Tender) -> ProcurementIntelli
 
 
 def build_company_intelligence(db: Session, company: Company) -> ProcurementIntelligence:
-    awards = _awards_with_entities(db)
+    awards = _indian_awards_with_entities(db)
     company_awards = [award for award in awards if award.company_id == company.id and award.tender is not None]
     buyer_awards = _awards_by_buyer(awards)
     relationship_scores = [
@@ -59,36 +66,30 @@ def build_company_intelligence(db: Session, company: Company) -> ProcurementInte
 
 
 def build_portfolio_risk(db: Session) -> PortfolioRisk:
-    awards = _awards_with_entities(db)
-    valid_awards = [
-        award for award in awards if award.tender is not None and award.company is not None
-    ]
+    awards = _indian_awards_with_entities(db)
 
-    signals: list[RiskSignal] = []
-
-    # The imported Indian dataset is award/winner-centric and has no individual
-    # bid records. A single recorded awardee is therefore NOT a single-bidder
-    # observation and must never be emitted as a competition finding.
+    # Indian procurement surfaces only. Award/winner-centric records cannot
+    # support a single-bidder conclusion unless the source exposes bidder data.
     single_bidder_tenders = 0
+    signals: list[RiskSignal] = []
 
     buyer_awards = _awards_by_buyer(awards)
     flagged_relationships = 0
     for (buyer, _company_id), supplier_awards in _awards_by_buyer_supplier(awards).items():
-        if len(supplier_awards) < REPEAT_SUPPLIER_MIN_AWARDS:
+        if len(supplier_awards) < REPEAT_SUPPLIER_MIN_AWARDS or buyer not in buyer_awards:
             continue
+
         relationship = _relationship_score(
             buyer_awards=buyer_awards[buyer],
             supplier_awards=supplier_awards,
         )
         flagged_relationships += 1
-        is_high = relationship.supplier_award_share >= CONCENTRATION_REVIEW_THRESHOLD
+        severity, title = _relationship_severity(relationship)
         signals.append(
             RiskSignal(
-                type="buyer_supplier_relationship" if is_high else "repeat_supplier",
-                severity="high" if is_high else "medium",
-                title="Buyer-Supplier Relationship Scoring"
-                if is_high
-                else "Repeat Supplier Detection",
+                type="buyer_supplier_relationship" if severity == "high" else "repeat_supplier",
+                severity=severity,
+                title=title,
                 summary=(
                     f"{relationship.supplier_name} holds {relationship.awards_to_supplier} awards "
                     f"from {relationship.buyer or 'the same buyer'} "
@@ -101,6 +102,7 @@ def build_portfolio_risk(db: Session) -> PortfolioRisk:
                 tender_id=None,
                 tender_reference=None,
                 evidence=[
+                    "Source scope: Indian procurement records only",
                     f"Awards to supplier: {relationship.awards_to_supplier}",
                     f"Total buyer awards indexed: {relationship.total_buyer_awards}",
                     f"Supplier share: {relationship.supplier_award_share:.0%}",
@@ -123,10 +125,17 @@ def build_portfolio_risk(db: Session) -> PortfolioRisk:
     return PortfolioRisk(summary=summary, signals=ranked)
 
 
-def _awards_with_entities(db: Session) -> list[Award]:
-    return db.execute(
+def _indian_awards_with_entities(db: Session) -> list[Award]:
+    awards = db.execute(
         select(Award).options(joinedload(Award.company), joinedload(Award.tender))
     ).unique().scalars().all()
+    return [
+        award
+        for award in awards
+        if award.tender is not None
+        and award.company is not None
+        and is_indian_source(award.tender.source_name)
+    ]
 
 
 def _awards_by_buyer(awards: list[Award]) -> dict[str, list[Award]]:
@@ -180,6 +189,20 @@ def _relationship_score(
     )
 
 
+def _relationship_severity(relationship: BuyerSupplierRelationshipScore) -> tuple[str, str]:
+    # High is reserved for sustained, strong concentration. Repeat awards alone
+    # remain medium because concentration can be entirely legitimate in a
+    # specialised supplier market.
+    strong = (
+        relationship.awards_to_supplier >= STRONG_CONCENTRATION_MIN_AWARDS
+        and relationship.supplier_award_share >= STRONG_CONCENTRATION_THRESHOLD
+        and relationship.total_buyer_awards >= 4
+    )
+    if strong:
+        return "high", "Buyer-Supplier Concentration Review"
+    return "medium", "Repeat Supplier / Concentration Review"
+
+
 def _relationship_signals(
     relationship_scores: list[BuyerSupplierRelationshipScore],
     *,
@@ -189,35 +212,23 @@ def _relationship_signals(
     signals: list[ProcurementIntelligenceSignal] = []
     for relationship in relationship_scores:
         if relationship.awards_to_supplier >= REPEAT_SUPPLIER_MIN_AWARDS:
+            severity = "high" if (
+                relationship.awards_to_supplier >= STRONG_CONCENTRATION_MIN_AWARDS
+                and relationship.supplier_award_share >= STRONG_CONCENTRATION_THRESHOLD
+                and relationship.total_buyer_awards >= 4
+            ) else "medium"
             signals.append(
                 ProcurementIntelligenceSignal(
                     type="repeat_supplier",
-                    severity="high" if relationship.supplier_award_share >= CONCENTRATION_REVIEW_THRESHOLD else "medium",
-                    title="Repeat Supplier Detection",
+                    severity=severity,
+                    title="Repeat Supplier Detection" if severity == "medium" else "Buyer-Supplier Concentration Review",
                     summary=f"{relationship.supplier_name} has {relationship.awards_to_supplier} recorded awards from {relationship.buyer or 'the same buyer'}.",
                     score=relationship.score,
                     evidence=[
+                        "Source scope: Indian procurement records only",
                         f"Awards to supplier: {relationship.awards_to_supplier}",
                         f"Total buyer awards indexed: {relationship.total_buyer_awards}",
                         f"Supplier share: {relationship.supplier_award_share:.0%}",
-                    ],
-                    tender_id=tender_id,
-                    company_id=company_id or relationship.supplier_id,
-                    buyer=relationship.buyer,
-                )
-            )
-        if relationship.score >= 70:
-            signals.append(
-                ProcurementIntelligenceSignal(
-                    type="buyer_supplier_relationship",
-                    severity="high",
-                    title="Buyer-Supplier Relationship Scoring",
-                    summary=f"Relationship score is {relationship.score}/100 for {relationship.supplier_name} and {relationship.buyer or 'the buyer'}.",
-                    score=relationship.score,
-                    evidence=[
-                        f"Repeat award score: {relationship.awards_to_supplier} awards",
-                        f"Concentration: {relationship.supplier_award_share:.0%}",
-                        f"Latest award: {relationship.latest_award_date.isoformat() if relationship.latest_award_date else 'No award date'}",
                     ],
                     tender_id=tender_id,
                     company_id=company_id or relationship.supplier_id,
