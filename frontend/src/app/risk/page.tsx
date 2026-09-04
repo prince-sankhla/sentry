@@ -22,7 +22,7 @@ export default async function RiskPage() {
     return (
       <PageShell>
         <PageHeader eyebrow="Intelligence" title="Risk Monitor" />
-        <ErrorState message="Could not compute portfolio risk signals." />
+        <ErrorState title="Risk assessment unavailable" message="SENTRY could not retrieve the current portfolio assessment. Retry the request before drawing any conclusion." />
       </PageShell>
     );
   }
@@ -34,26 +34,26 @@ export default async function RiskPage() {
       <PageHeader
         eyebrow="Intelligence"
         title="Procurement Risk Assessment"
-        subtitle="Analytical observations computed live across every imported tender, award, and buyer-supplier relationship."
+        subtitle="Deterministic review signals derived from Indian procurement tenders, awards, and buyer–supplier relationships."
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Total signals" value={String(summary.total)} tone="accent" icon={<Radar className="h-4 w-4" />} />
+        <StatCard label="Review signals" value={String(summary.total)} tone="accent" icon={<Radar className="h-4 w-4" />} />
         <StatCard label="High severity" value={String(summary.high)} tone="danger" icon={<ShieldAlert className="h-4 w-4" />} />
-        <StatCard label="Medium" value={String(summary.medium)} tone="warning" />
-        <StatCard label="Single-bidder tenders" value={String(summary.single_bidder_tenders)} icon={<AlertTriangle className="h-4 w-4" />} />
-        <StatCard label="Flagged relationships" value={String(summary.flagged_relationships)} icon={<Users className="h-4 w-4" />} />
+        <StatCard label="Medium severity" value={String(summary.medium)} tone="warning" />
+        <StatCard label="Bid-level data" value={summary.single_bidder_tenders > 0 ? String(summary.single_bidder_tenders) : "Unavailable"} icon={<AlertTriangle className="h-4 w-4" />} />
+        <StatCard label="Concentration reviews" value={String(summary.flagged_relationships)} icon={<Users className="h-4 w-4" />} />
       </div>
 
       {signals.length === 0 ? (
         <EmptyState
           icon={<Radar className="h-5 w-5" />}
-          title="No risk signals detected"
-          message="No single-bidder tenders or supplier concentration patterns were found in the current dataset."
+          title="No review signals in scope"
+          message="No current procurement risk indicators were surfaced from the available Indian records. This is a screening result, not a finding of misconduct."
           suggestions={[
-            "Import more tenders to increase screening coverage",
-            "Run an investigation from the Investigation Workspace",
-            "Connect additional procurement sources in Settings"
+            "Import additional procurement records to expand screening coverage",
+            "Start an investigation from the Investigation Workspace",
+            "Review source coverage and freshness in Settings"
           ]}
         />
       ) : (
@@ -92,10 +92,7 @@ export default async function RiskPage() {
                 {sig.evidence.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5 pl-12">
                     {sig.evidence.map((e, j) => (
-                      <span
-                        key={j}
-                        className="rounded-md border border-border bg-bg-2 px-2 py-1 text-[11px] text-muted"
-                      >
+                      <span key={j} className="rounded-md border border-border bg-bg-2 px-2 py-1 text-[11px] text-muted">
                         {e}
                       </span>
                     ))}
@@ -104,16 +101,8 @@ export default async function RiskPage() {
 
                 <div className="mt-3 flex flex-wrap items-center gap-4 pl-12 text-xs">
                   {sig.buyer && <span className="text-faint">Buyer: <span className="text-muted">{sig.buyer}</span></span>}
-                  {sh && (
-                    <Link href={sh} className="text-accent hover:underline">
-                      {sig.supplier_name ?? "View supplier"} →
-                    </Link>
-                  )}
-                  {th && (
-                    <Link href={th} className="text-accent hover:underline">
-                      {sig.tender_reference ?? "View tender"} →
-                    </Link>
-                  )}
+                  {sh && <Link href={sh} className="text-accent hover:underline">{sig.supplier_name ?? "View supplier"} →</Link>}
+                  {th && <Link href={th} className="text-accent hover:underline">{sig.tender_reference ?? "View tender"} →</Link>}
                 </div>
               </div>
             );
