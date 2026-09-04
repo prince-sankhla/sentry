@@ -26,7 +26,7 @@ const GROUP_ICON = {
 function hrefFor(hit: Flat): string {
   if (hit.group === "Tenders") return `/tenders/${hit.id}`;
   if (hit.group === "Companies") return `/companies/${hit.id}`;
-  return `/?q=${encodeURIComponent(hit.label)}`;
+  return `/buyers?name=${encodeURIComponent(hit.label)}`;
 }
 
 export function CommandPalette({
@@ -44,7 +44,6 @@ export function CommandPalette({
   const [searched, setSearched] = useState(false);
   const [active, setActive] = useState(0);
 
-  // reset on open
   useEffect(() => {
     if (open) {
       setQuery("");
@@ -56,7 +55,6 @@ export function CommandPalette({
     }
   }, [open]);
 
-  // debounced live search
   useEffect(() => {
     if (!open) return;
     const trimmed = query.trim();
@@ -106,7 +104,7 @@ export function CommandPalette({
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((i) => Math.min(i + 1, hits.length - 1));
+      setActive((i) => Math.min(i + 1, Math.max(hits.length - 1, 0)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((i) => Math.max(i - 1, 0));
@@ -122,70 +120,24 @@ export function CommandPalette({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.14 }}
-        >
-          <div
-            className="absolute inset-0 bg-bg/70 backdrop-blur-md"
-            onClick={onClose}
-          />
-          <motion.div
-            className="glass-hi float relative w-full max-w-2xl overflow-hidden rounded-2xl"
-            initial={{ opacity: 0, y: -10, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.985 }}
-            transition={{ duration: DURATION.fast, ease: EASE }}
-          >
+        <motion.div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }}>
+          <div className="absolute inset-0 bg-bg/70 backdrop-blur-md" onClick={onClose} />
+          <motion.div className="glass-hi float relative w-full max-w-2xl overflow-hidden rounded-2xl" initial={{ opacity: 0, y: -10, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.985 }} transition={{ duration: DURATION.fast, ease: EASE }}>
             <div className="flex items-center gap-3 border-b border-border px-5">
-              {loading ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" />
-              ) : (
-                <Search className="h-4 w-4 shrink-0 text-muted" />
-              )}
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={onKeyDown}
-                placeholder="Search companies, buyers, tenders, awards…"
-                className="h-16 w-full bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
-              />
-              <kbd className="hidden rounded-md border border-border bg-bg-2 px-1.5 py-0.5 text-[10px] font-medium text-faint sm:block">
-                ESC
-              </kbd>
+              {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" /> : <Search className="h-4 w-4 shrink-0 text-muted" />}
+              <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown} placeholder="Search companies, buyers, tenders, awards…" className="h-16 w-full bg-transparent text-[15px] text-text outline-none placeholder:text-faint" />
+              <kbd className="hidden rounded-md border border-border bg-bg-2 px-1.5 py-0.5 text-[10px] font-medium text-faint sm:block">ESC</kbd>
             </div>
 
             <div className="max-h-[52vh] overflow-y-auto p-2.5">
-              {query.trim().length < 2 && (
-                <div className="px-3 py-10 text-center text-sm leading-relaxed text-faint">
-                  Type at least 2 characters to search the local investigation
-                  database.
+              {query.trim().length < 2 && <div className="px-3 py-10 text-center text-sm leading-relaxed text-faint">Type at least 2 characters to search the local investigation database.</div>}
+              {query.trim().length >= 2 && searched && hits.length === 0 && !loading && (
+                <div className="flex flex-col items-center gap-2.5 px-3 py-12 text-center">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-surface/60 text-faint"><SearchX className="h-5 w-5" /></span>
+                  <p className="text-sm font-medium text-text">Not in the local investigation database</p>
+                  <p className="max-w-sm text-xs leading-relaxed text-muted">“{query.trim()}” is not available among imported buyers, companies, tenders, or awards. Import the entity to investigate it.</p>
                 </div>
               )}
-
-              {query.trim().length >= 2 &&
-                searched &&
-                hits.length === 0 &&
-                !loading && (
-                  <div className="flex flex-col items-center gap-2.5 px-3 py-12 text-center">
-                    <span className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-surface/60 text-faint">
-                      <SearchX className="h-5 w-5" />
-                    </span>
-                    <p className="text-sm font-medium text-text">
-                      Not in the local investigation database
-                    </p>
-                    <p className="max-w-sm text-xs leading-relaxed text-muted">
-                      “{query.trim()}” is not available among imported buyers,
-                      companies, tenders, or awards. Import the entity to
-                      investigate it.
-                    </p>
-                  </div>
-                )}
-
               {grouped.map((section) => {
                 const Icon = GROUP_ICON[section.group];
                 return (
@@ -195,38 +147,13 @@ export function CommandPalette({
                       const idx = hits.indexOf(hit);
                       const isActive = idx === active;
                       return (
-                        <button
-                          key={`${hit.group}-${hit.id}`}
-                          onMouseEnter={() => setActive(idx)}
-                          onClick={() => go(hit)}
-                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-150 ${
-                            isActive
-                              ? "bg-accent/[0.10] text-text"
-                              : "text-muted hover:bg-surface/60"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
-                              isActive
-                                ? "border-accent/40 bg-accent/10 text-accent"
-                                : "border-border bg-bg-2 text-muted"
-                            }`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
+                        <button key={`${hit.group}-${hit.id}`} onMouseEnter={() => setActive(idx)} onClick={() => go(hit)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-150 ${isActive ? "bg-accent/[0.10] text-text" : "text-muted hover:bg-surface/60"}`}>
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${isActive ? "border-accent/40 bg-accent/10 text-accent" : "border-border bg-bg-2 text-muted"}`}><Icon className="h-4 w-4" /></span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-text">
-                              {hit.label}
-                            </span>
-                            {hit.sublabel && (
-                              <span className="block truncate text-xs text-faint">
-                                {hit.sublabel}
-                              </span>
-                            )}
+                            <span className="block truncate text-sm font-medium text-text">{hit.label}</span>
+                            {hit.sublabel && <span className="block truncate text-xs text-faint">{hit.sublabel}</span>}
                           </span>
-                          {isActive && (
-                            <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-accent" />
-                          )}
+                          {isActive && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-accent" />}
                         </button>
                       );
                     })}
@@ -236,17 +163,7 @@ export function CommandPalette({
             </div>
 
             <div className="flex items-center justify-between border-t border-border bg-bg-2/60 px-5 py-2.5 text-[11px] text-faint">
-              <span className="flex items-center gap-3.5">
-                <span className="flex items-center gap-1">
-                  <kbd className="rounded-md border border-border px-1">↑</kbd>
-                  <kbd className="rounded-md border border-border px-1">↓</kbd>
-                  navigate
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="rounded-md border border-border px-1">↵</kbd>
-                  open
-                </span>
-              </span>
+              <span className="flex items-center gap-3.5"><span className="flex items-center gap-1"><kbd className="rounded-md border border-border px-1">↑</kbd><kbd className="rounded-md border border-border px-1">↓</kbd>navigate</span><span className="flex items-center gap-1"><kbd className="rounded-md border border-border px-1">↵</kbd>open</span></span>
               <span>Local investigation database</span>
             </div>
           </motion.div>
