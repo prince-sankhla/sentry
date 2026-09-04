@@ -125,7 +125,7 @@ function CommandCenterView({ data, onLaunch }: { data: Bundle; onLaunch: (q: str
         <div className="space-y-5">
           <Section eyebrow="Risk assessment" title="Review signal distribution" action={<Link href="/risk" className="text-xs text-accent hover:underline">Open assessment →</Link>}>
             <div className="grid grid-cols-[1fr_auto] items-center gap-4">
-              <DonutChart slices={riskSlices} centerValue={formatNumber(risk.summary.high)} centerLabel="High severity" height={200} />
+              <DonutChart slices={riskSlices} centerValue={formatNumber(risk.summary.total)} centerLabel="Review signals" height={200} />
               <ul className="space-y-2.5 pr-2">
                 {riskSlices.map((s) => (
                   <li key={s.name} className="flex items-center gap-2 text-sm">
@@ -136,6 +136,7 @@ function CommandCenterView({ data, onLaunch }: { data: Bundle; onLaunch: (q: str
                 ))}
               </ul>
             </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-faint">Severity levels are screening priorities, not determinations of misconduct. A zero high-severity count means no signal currently meets the high-severity criteria; medium-severity signals can still require analyst review.</p>
           </Section>
 
           <Section eyebrow="Screening" title="Recent review signals" action={<Link href="/risk" className="text-xs text-accent hover:underline">View assessment →</Link>}>
@@ -258,31 +259,3 @@ const BOOT_LINES = [
   "Preparing review signals…",
   "Assembling the morning brief…"
 ];
-
-function CommandCenterSkeleton() {
-  const [line, setLine] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setLine((l) => (l + 1) % BOOT_LINES.length), 900);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="mt-2 space-y-5">
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-surface/80 p-8 md:p-10">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
-        <div className="t-label flex items-center gap-2 text-accent"><Zap className="h-3.5 w-3.5" /> Morning Intelligence Brief</div>
-        <div className="mt-4 h-7 w-2/3 shimmer rounded-lg" />
-        <div className="mt-2 h-7 w-1/2 shimmer rounded-lg" />
-        <div className="mt-5 flex items-center gap-2 text-sm text-muted">
-          <span className="h-2 w-2 rounded-full bg-accent pulse-live" />
-          <motion.span key={line} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-faint">{BOOT_LINES[line]}</motion.span>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-[104px] rounded-2xl" />)}</div>
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.6fr_1fr]">
-        <div className="shimmer h-[540px] rounded-2xl" />
-        <div className="space-y-5"><div className="shimmer h-[280px] rounded-2xl" /><div className="shimmer h-[240px] rounded-2xl" /></div>
-      </div>
-    </div>
-  );
-}
