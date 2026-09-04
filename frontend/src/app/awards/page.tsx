@@ -37,7 +37,7 @@ export default async function AwardsPage({
     return (
       <PageShell>
         <PageHeader eyebrow="Records" title="Awards" />
-        <ErrorState message="Could not reach the awards service." />
+        <ErrorState message="SENTRY could not retrieve award records. Check the data connection and retry." />
       </PageShell>
     );
   }
@@ -49,7 +49,7 @@ export default async function AwardsPage({
       render: (a) => (
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-text">{a.company.name}</div>
-          <div className="truncate font-mono text-[11px] text-faint">{a.company.registration_number ?? "—"}</div>
+          <div className="truncate font-mono text-[11px] text-faint">{a.company.registration_number ?? "Registration not available"}</div>
         </div>
       )
     },
@@ -65,8 +65,8 @@ export default async function AwardsPage({
     },
     {
       key: "buyer",
-      header: "Buyer",
-      render: (a) => <span className="text-sm text-muted">{a.tender.procuring_entity ?? "—"}</span>
+      header: "Procuring entity",
+      render: (a) => <span className="text-sm text-muted">{a.tender.procuring_entity ?? "Not available"}</span>
     },
     {
       key: "date",
@@ -75,7 +75,7 @@ export default async function AwardsPage({
     },
     {
       key: "value",
-      header: "Value",
+      header: "Award value",
       align: "right",
       render: (a) => (
         <span className="tabular text-sm font-semibold text-text">{formatMoneyFull(a.award_value, a.currency)}</span>
@@ -87,18 +87,18 @@ export default async function AwardsPage({
     <PageShell>
       <PageHeader
         eyebrow="Records"
-        title="Awards"
-        subtitle="Contract awards linking suppliers to procuring buyers in the Indian procurement dataset."
+        title="Award Records"
+        subtitle="Award records linking suppliers, procuring entities and tender notices within the indexed Indian procurement dataset."
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total awards" value={data.stats.total_awards.toLocaleString()} tone="accent" icon={<AwardIcon className="h-4 w-4" />} />
+        <StatCard label="Award records" value={data.stats.total_awards.toLocaleString()} tone="accent" icon={<AwardIcon className="h-4 w-4" />} />
         <StatCard label="Awarded value" value={formatCompactMoney(data.stats.total_value, "INR")} tone="success" />
-        <StatCard label="Avg. award" value={formatCompactMoney(data.stats.average_value, "INR")} />
+        <StatCard label="Average award" value={formatCompactMoney(data.stats.average_value, "INR")} />
         <StatCard label="Suppliers · Buyers" value={`${data.stats.awarded_suppliers} · ${data.stats.awarding_buyers}`} />
       </div>
 
-      <ListControls placeholder="Search supplier, tender, or reference…" sortOptions={SORTS} total={data.pagination.total} limit={limit} offset={offset} />
+      <ListControls placeholder="Search supplier, tender, reference, or buyer…" sortOptions={SORTS} total={data.pagination.total} limit={limit} offset={offset} />
 
       <DataTable
         columns={columns}
@@ -108,20 +108,21 @@ export default async function AwardsPage({
           <div className="flex items-center gap-1">
             <InvestigateAction query={award.company.name} label="Supplier" variant="subtle" />
             <InvestigateAction query={award.tender.reference_number} label="Tender" variant="subtle" />
+            {award.tender.procuring_entity ? <InvestigateAction query={award.tender.procuring_entity} label="Buyer" variant="subtle" /> : null}
           </div>
         )}
         empty={
           <EmptyState
             icon={<AwardIcon className="h-5 w-5" />}
-            title="No awards found"
-            message={q ? `No awards match “${q}”.` : "No contract awards have been imported yet."}
+            title="No award records found"
+            message={q ? `No award records match “${q}”.` : "No award records are available in the current indexed dataset."}
             suggestions={
               q
                 ? undefined
                 : [
-                    "Run an investigation - awarded tenders are captured automatically",
-                    "Import a tender dataset that includes award information",
-                    "Connect a source with award data in Settings -> Data Sources"
+                    "Review tender records to identify awards and related entities",
+                    "Load a source that publishes award information",
+                    "Open an investigation from a verified supplier, buyer, or tender"
                   ]
             }
           />
@@ -129,7 +130,7 @@ export default async function AwardsPage({
       />
 
       <p className="mt-4 text-center text-xs text-faint">
-        Award records are scoped to Indian procurement sources. Every row can open supplier or tender investigation, and relationships can be explored in the{" "}
+        Award records are scoped to Indian procurement sources. Use the row actions to move from an award to a supplier, tender, or procuring-entity investigation, then inspect relationships in the{" "}
         <Link href="/graph" className="text-accent hover:underline">Graph Explorer</Link>.
       </p>
     </PageShell>
