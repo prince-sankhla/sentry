@@ -44,7 +44,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.backend_cors_origins,
-    allow_methods=["GET", "POST"],
+    # The Next.js frontend can run from a Vercel preview deployment whose
+    # hostname changes on every deployment. Keep the explicit configured origins
+    # for local/custom deployments, and allow only SENTRY's own Vercel preview
+    # hostnames for browser-to-backend API calls.
+    allow_origin_regex=r"https://sentry-platform-evaluation(?:-[a-z0-9]+)?-prince-sankhla-s-projects\.vercel\.app",
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
