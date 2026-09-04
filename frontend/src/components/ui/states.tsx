@@ -7,9 +7,19 @@ import type { ReactNode } from "react";
  * should read as a recoverable system condition, not as an analytical finding.
  */
 
-function userFacingErrorMessage(message: string): string {
+function isNetworkFailure(message: string): boolean {
   const normalized = message.trim().toLowerCase();
-  if (normalized === "failed to fetch" || normalized.includes("networkerror") || normalized.includes("fetch failed")) {
+  return normalized === "failed to fetch" || normalized.includes("networkerror") || normalized.includes("fetch failed");
+}
+
+function userFacingErrorTitle(message: string, title: string): string {
+  return isNetworkFailure(message) && title === "Investigation could not complete"
+    ? "Investigation data unavailable"
+    : title;
+}
+
+function userFacingErrorMessage(message: string): string {
+  if (isNetworkFailure(message)) {
     return "SENTRY could not retrieve the investigation data. Check the connection and retry. No investigative conclusion was produced.";
   }
   return message;
@@ -66,7 +76,7 @@ export function ErrorState({
       <span className="grid h-14 w-14 place-items-center rounded-2xl border border-danger/40 bg-danger/10 text-danger">
         <AlertTriangle className="h-6 w-6" aria-hidden="true" />
       </span>
-      <h3 className="mt-6 text-[17px] font-semibold tracking-[-0.014em] text-text">{title}</h3>
+      <h3 className="mt-6 text-[17px] font-semibold tracking-[-0.014em] text-text">{userFacingErrorTitle(message, title)}</h3>
       <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-muted">{userFacingErrorMessage(message)}</p>
       <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
         {onRetry && (
