@@ -6,11 +6,13 @@
  * activity, animated hotspot markers on the most active states, hover tooltips,
  * and zoom/pan. India is the default and only viewport.
  *
- * TopoJSON is served locally from /geo/india-states.json (public/).
+ * TopoJSON is served locally from /geo/india-states.json (public/). It is
+ * fetched explicitly before rendering so a missing/failed asset never leaves
+ * the map silently blank.
  */
 import { AnimatePresence, motion } from "framer-motion";
 import { Minus, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -23,6 +25,8 @@ import { MAP, mapColor } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 
 const GEO_URL = "/geo/india-states.json";
+
+type GeoData = Record<string, unknown>;
 
 export type RegionDatum = {
   region: string;
@@ -44,6 +48,26 @@ export function IndiaMap({
 }) {
   const [hover, setHover] = useState<Hover>(null);
   const [zoom, setZoom] = useState(1);
+  const [geoData, setGeoData] = useState<GeoData | null>(null);
+  const [geoError, setGeoError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(GEO_URL, { cache: "force-cache" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`India map asset returned ${response.status}`);
+        return (await response.json()) as GeoData;
+      })
+      .then((data) => {
+        if (alive) setGeoData(data);
+      })
+      .catch(() => {
+        if (alive) setGeoError(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Build a lookup keyed by canonical state name.
   const byState = useMemo(() => {
@@ -81,7 +105,6 @@ export function IndiaMap({
   function fill(stateName: string): string {
     const datum = byState.get(canonicalState(stateName) ?? "");
     if (!datum || datum.tenders === 0) return MAP.empty;
-    // graphite -> emerald density ramp, shared with the rest of the platform
     return mapColor(datum.tenders / maxTenders);
   }
 
@@ -108,53 +131,65 @@ export function IndiaMap({
         />
       </div>
 
-      <ComposableMap
-        projection="geoMercator"
-        projectionConfig={{ scale: 1000, center: [82.8, 22.6] }}
-        style={{ width: "100%", height }}
-      >
-        <ZoomableGroup zoom={zoom} center={[82.8, 22.6]} onMoveEnd={({ zoom: z }) => setZoom(z)} minZoom={1} maxZoom={8}>
-          <Geographies geography={GEO_URL}>
-            {({ geographies }) =>
-              geographies.map((geo) => {
-                const name = geo.properties.st_nm ?? geo.properties.NAME_1 ?? geo.properties.name ?? "";
-                const datum = byState.get(canonicalState(name) ?? "");
-                return (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    onMouseEnter={(e) => setHover({ name, x: e.clientX, y: e.clientY, datum })}
-                    onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
-                    onMouseLeave={() => setHover(null)}
-                    onClick={() => onSelectRegion?.(canonicalState(name) ?? name)}
-                    style={{
-                      default: { fill: fill(name), stroke: MAP.stroke, strokeWidth: 0.5, outline: "none", transition: "fill 0.2s" },
-                      hover: { fill: MAP.hover, stroke: MAP.stroke, strokeWidth: 0.6, outline: "none", cursor: "pointer" },
-                      pressed: { fill: MAP.pressed, outline: "none" }
-                    }}
-                  />
-                );
-              })
-            }
-          </Geographies>
+      {!geoData && !geoError ? (
+        <div className="grid place-items-center text-sm text-faint" style={{ height }}>
+          Loading India procurement map…
+        </div>
+      ) : geoError ? (
+        <div className="grid place-items-center rounded-lg border border-border bg-bg-2/30 px-6 text-center" style={{ height }}>
+          <div>
+            <div className="text-sm font-medium text-text">India map data is temporarily unavailable.</div>
+            <div className="mt-1 text-xs text-faint">The underlying procurement records remain available.</div>
+          </div>
+        </div>
+      ) : (
+        <ComposableMap
+          projection="geoMercator"
+          projectionConfig={{ scale: 1000, center: [82.8, 22.6] }}
+          style={{ width: "100%", height }}
+        >
+          <ZoomableGroup zoom={zoom} center={[82.8, 22.6]} onMoveEnd={({ zoom: z }) => setZoom(z)} minZoom={1} maxZoom={8}>
+            <Geographies geography={geoData}>
+              {({ geographies }) =>
+                geographies.map((geo) => {
+                  const name = geo.properties.st_nm ?? geo.properties.NAME_1 ?? geo.properties.name ?? "";
+                  const datum = byState.get(canonicalState(name) ?? "");
+                  return (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      onMouseEnter={(e) => setHover({ name, x: e.clientX, y: e.clientY, datum })}
+                      onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                      onMouseLeave={() => setHover(null)}
+                      onClick={() => onSelectRegion?.(canonicalState(name) ?? name)}
+                      style={{
+                        default: { fill: fill(name), stroke: MAP.stroke, strokeWidth: 0.5, outline: "none", transition: "fill 0.2s" },
+                        hover: { fill: MAP.hover, stroke: MAP.stroke, strokeWidth: 0.6, outline: "none", cursor: "pointer" },
+                        pressed: { fill: MAP.pressed, outline: "none" }
+                      }}
+                    />
+                  );
+                })
+              }
+            </Geographies>
 
-          {hotspots.map((h) => {
-            const c = STATE_CENTROIDS[h.region];
-            if (!c) return null;
-            return (
-              <Marker key={h.region} coordinates={c}>
-                <circle r={4} fill={MAP.marker} stroke={MAP.markerStroke} strokeWidth={1} />
-                <circle r={4} fill="none" stroke={MAP.marker} strokeWidth={1} opacity={0.6}>
-                  <animate attributeName="r" from="4" to="16" dur="2.2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" from="0.6" to="0" dur="2.2s" repeatCount="indefinite" />
-                </circle>
-              </Marker>
-            );
-          })}
-        </ZoomableGroup>
-      </ComposableMap>
+            {hotspots.map((h) => {
+              const c = STATE_CENTROIDS[h.region];
+              if (!c) return null;
+              return (
+                <Marker key={h.region} coordinates={c}>
+                  <circle r={4} fill={MAP.marker} stroke={MAP.markerStroke} strokeWidth={1} />
+                  <circle r={4} fill="none" stroke={MAP.marker} strokeWidth={1} opacity={0.6}>
+                    <animate attributeName="r" from="4" to="16" dur="2.2s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" from="0.6" to="0" dur="2.2s" repeatCount="indefinite" />
+                  </circle>
+                </Marker>
+              );
+            })}
+          </ZoomableGroup>
+        </ComposableMap>
+      )}
 
-      {/* legend — same ramp the choropleth interpolates */}
       <div className="mt-4 flex items-center gap-3 px-1 text-[11px] text-faint">
         <span>Low</span>
         <div
