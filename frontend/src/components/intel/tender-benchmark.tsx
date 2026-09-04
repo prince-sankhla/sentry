@@ -5,15 +5,17 @@ import { BarChart3, Database, Info, Loader2, TrendingUp } from "lucide-react";
 
 import { formatMoney } from "@/lib/format";
 
+type MoneyValue = string | number | null;
+
 type BenchmarkData = {
   tender_id: string;
   reference_number: string;
   metric: string;
-  observed_value: string | number | null;
+  observed_value: MoneyValue;
   currency: string | null;
   benchmark_available: boolean;
   population: { level: string; dimensions: Record<string, string>; sample_size: number; sufficient_sample: boolean };
-  statistics: { minimum: string | number | null; p25: string | number | null; median: string | number | null; mean: string | number | null; p75: string | number | null; maximum: string | number | null; iqr: string | number | null; percentile: number | null; deviation_iqr: string | number | null };
+  statistics: { minimum: MoneyValue; p25: MoneyValue; median: MoneyValue; mean: MoneyValue; p75: MoneyValue; maximum: MoneyValue; iqr: MoneyValue; percentile: number | null; deviation_iqr: MoneyValue };
   interpretation: string;
 };
 
@@ -49,7 +51,7 @@ export function TenderBenchmark({ tenderId }: { tenderId: string }) {
             <div className="flex items-center gap-2 text-sm font-semibold text-text"><BarChart3 className="h-4 w-4 text-accent" /> Market Benchmark</div>
             <div className="mt-1 text-xs text-faint">{data.population.sample_size} comparable Indian tenders · {data.population.level}</div>
           </div>
-          <div className="text-right"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Observed</div><div className="mt-1 text-xl font-semibold tabular-nums text-text">{formatMoney(data.observed_value, data.currency ?? "INR")} {data.currency ?? ""}</div></div>
+          <div className="text-right"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Observed</div><div className="mt-1 text-xl font-semibold tabular-nums text-text">{money(data.observed_value, data.currency)}</div></div>
         </div>
       </div>
 
@@ -64,7 +66,7 @@ export function TenderBenchmark({ tenderId }: { tenderId: string }) {
             <Stat label="Percentile" value={s.percentile == null ? null : `${s.percentile}th`} plain icon={<TrendingUp className="h-3.5 w-3.5" />} />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-surface p-4"><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Distribution</div><div className="mt-3 space-y-2 text-xs text-muted"><Row label="Minimum" value={formatMoney(s.minimum, data.currency ?? "INR")} /><Row label="Mean" value={formatMoney(s.mean, data.currency ?? "INR")} /><Row label="Maximum" value={formatMoney(s.maximum, data.currency ?? "INR")} /><Row label="IQR" value={formatMoney(s.iqr, data.currency ?? "INR")} /></div></div>
+            <div className="rounded-2xl border border-border bg-surface p-4"><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Distribution</div><div className="mt-3 space-y-2 text-xs text-muted"><Row label="Minimum" value={money(s.minimum, data.currency)} /><Row label="Mean" value={money(s.mean, data.currency)} /><Row label="Maximum" value={money(s.maximum, data.currency)} /><Row label="IQR" value={money(s.iqr, data.currency)} /></div></div>
             <div className="rounded-2xl border border-border bg-surface p-4"><div className="text-[10px] uppercase tracking-[0.15em] text-faint">Interpretation</div><p className="mt-3 text-sm leading-6 text-muted">{data.interpretation}</p>{s.deviation_iqr != null ? <div className="mt-3 rounded-xl border border-border bg-bg-2/50 px-3 py-2 text-xs text-faint">Deviation from median: <span className="font-semibold text-text">{Number(s.deviation_iqr).toFixed(2)} IQR</span></div> : null}</div>
           </div>
         </>
@@ -75,7 +77,14 @@ export function TenderBenchmark({ tenderId }: { tenderId: string }) {
   );
 }
 
-function Stat({ label, value, currency, emphasized, plain, icon }: { label: string; value: string | number | null | undefined; currency?: string | null; emphasized?: boolean; plain?: boolean; icon?: ReactNode }) {
-  return <div className={`rounded-2xl border p-4 ${emphasized ? "border-accent/30 bg-accent/[0.06]" : "border-border bg-surface"}`}><div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{icon}{label}</div><div className="mt-2 text-lg font-semibold tabular-nums text-text">{value == null ? "—" : plain ? value : `${formatMoney(value, currency ?? "INR")} ${currency ?? ""}`}</div></div>;
+function money(value: MoneyValue, currency: string | null): string {
+  return value == null ? "—" : `${formatMoney(String(value), currency ?? "INR")} ${currency ?? ""}`.trim();
 }
-function Row({ label, value }: { label: string; value: string }) { return <div className="flex items-center justify-between gap-3"><span>{label}</span><span className="font-semibold tabular-nums text-text">{value}</span></div>; }
+
+function Stat({ label, value, currency, emphasized, plain, icon }: { label: string; value: MoneyValue | undefined; currency?: string | null; emphasized?: boolean; plain?: boolean; icon?: ReactNode }) {
+  return <div className={`rounded-2xl border p-4 ${emphasized ? "border-accent/30 bg-accent/[0.06]" : "border-border bg-surface"}`}><div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{icon}{label}</div><div className="mt-2 text-lg font-semibold tabular-nums text-text">{value == null ? "—" : plain ? String(value) : money(value, currency)}</div></div>;
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-center justify-between gap-3"><span>{label}</span><span className="font-semibold tabular-nums text-text">{value}</span></div>;
+}
