@@ -50,19 +50,19 @@ export default async function TenderDetailPage({ params }: PageProps) {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Tender File"
+        eyebrow="Tender Record"
         title={tender.title}
         subtitle={<span className="font-mono text-faint">{tender.reference_number}</span>}
         breadcrumb={[
-          { label: "Dashboard", href: "/" },
-          { label: "Tenders", href: "/tenders" },
+          { label: "Command Center", href: "/" },
+          { label: "Tender Records", href: "/tenders" },
           { label: tender.reference_number }
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <InvestigateAction query={tender.reference_number} label="Investigate tender" size="md" variant="primary" />
             <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong" href={`/graph?tender_id=${tenderId}&depth=2`}>
-              <GitBranch className="h-4 w-4" aria-hidden="true" /> Open graph
+              <GitBranch className="h-4 w-4" aria-hidden="true" /> View relationships
             </Link>
           </div>
         }
@@ -70,9 +70,9 @@ export default async function TenderDetailPage({ params }: PageProps) {
 
       <section className="grid w-full gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
-          <Section eyebrow="Overview" title="Tender Details">
+          <Section eyebrow="Record overview" title="Tender details">
             <dl className="grid gap-4 sm:grid-cols-2">
-              <Detail label="Procuring entity" value={tender.buyer.name ?? tender.procuring_entity ?? "Unknown"} />
+              <Detail label="Procuring entity" value={tender.buyer.name ?? tender.procuring_entity ?? "Not available"} />
               <Detail label="Published date" value={formatDate(tender.published_date)} />
               <Detail label="Estimated value" value={`${formatMoney(tender.estimated_value, tender.currency)} ${tender.currency}`} />
               <Detail label="Currency" value={tender.currency} />
@@ -80,12 +80,12 @@ export default async function TenderDetailPage({ params }: PageProps) {
             {tender.description ? <p className="mt-5 text-sm leading-6 text-muted">{tender.description}</p> : null}
           </Section>
 
-          <Section eyebrow="Kundali" title="Tender Intelligence"><TenderKundali data={kundali} /></Section>
+          <Section eyebrow="Tender intelligence" title="Intelligence profile"><TenderKundali data={kundali} /></Section>
 
-          <Section eyebrow="Benchmark" title="Comparable Market Context"><TenderBenchmark tenderId={tenderId} /></Section>
+          <Section eyebrow="Benchmark" title="Comparable market context"><TenderBenchmark tenderId={tenderId} /></Section>
 
-          <Section eyebrow="Outcome" title="Awards">
-            {tender.awards.length === 0 ? <EmptyState message="No awards recorded for this tender." /> : (
+          <Section eyebrow="Award outcome" title="Recorded awards">
+            {tender.awards.length === 0 ? <EmptyState message="No award record is currently associated with this tender." /> : (
               <div className="space-y-3">
                 {tender.awards.map((award) => (
                   <div className="grid gap-3 rounded-2xl border border-border bg-bg-2 p-4 transition hover:bg-surface-2 md:grid-cols-[1fr_auto]" key={award.id}>
@@ -93,7 +93,7 @@ export default async function TenderDetailPage({ params }: PageProps) {
                       <Link className="flex items-center gap-2 text-sm font-semibold text-text transition hover:text-accent" href={`/companies/${award.company.id}`}>
                         <Award className="h-4 w-4 text-accent" aria-hidden="true" /> {award.company.name}
                       </Link>
-                      <div className="mt-1 font-mono text-xs text-faint">{award.company.registration_number ?? "No identifier"}</div>
+                      <div className="mt-1 font-mono text-xs text-faint">{award.company.registration_number ?? "Identifier not available"}</div>
                     </div>
                     <div className="flex items-center gap-3 text-left md:text-right">
                       <div>
@@ -108,31 +108,31 @@ export default async function TenderDetailPage({ params }: PageProps) {
             )}
           </Section>
 
-          <Section eyebrow="Risk" title="Procurement Intelligence"><IntelligenceSignals signals={tender.intelligence.signals} /></Section>
+          <Section eyebrow="Screening" title="Procurement review signals"><IntelligenceSignals signals={tender.intelligence.signals} /></Section>
 
           {tender.pdf_intelligence && !tender.pdf_intelligence.empty ? (
-            <Section eyebrow="Document" title="PDF Intelligence"><PdfIntelligence extraction={tender.pdf_intelligence} /></Section>
+            <Section eyebrow="Document analysis" title="PDF intelligence"><PdfIntelligence extraction={tender.pdf_intelligence} /></Section>
           ) : null}
 
-          <Section eyebrow="Evidence" title="Evidence Docket">
+          <Section eyebrow="Evidence" title="Evidence docket">
             <EvidenceDocket signals={tender.intelligence.signals} awards={tender.awards.length} companies={tender.participating_companies.length} hasDocument={Boolean(tender.pdf_intelligence && !tender.pdf_intelligence.empty)} />
           </Section>
         </div>
 
         <aside className="space-y-5 lg:self-start">
           <SurfaceCard className="p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-text"><Calendar className="h-4 w-4 text-accent" aria-hidden="true" />Timeline</div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-text"><Calendar className="h-4 w-4 text-accent" aria-hidden="true" />Tender timeline</div>
             <div className="mt-4"><Timeline items={timelineItems} /></div>
           </SurfaceCard>
 
-          <Section eyebrow="Entities" title="Related Companies">
-            {tender.participating_companies.length === 0 ? <EmptyState message="No companies recorded." /> : (
+          <Section eyebrow="Entities" title="Related suppliers">
+            {tender.participating_companies.length === 0 ? <EmptyState message="No supplier records are associated with this tender." /> : (
               <div className="space-y-3">
                 {tender.participating_companies.map((company) => (
                   <div className="flex items-center gap-3 rounded-2xl border border-border bg-bg-2 p-3" key={company.id}>
                     <Link className="min-w-0 flex-1" href={`/companies/${company.id}`}>
                       <div className="flex items-center gap-2 text-sm font-semibold text-text"><Building2 className="h-4 w-4 text-accent" aria-hidden="true" />{company.name}</div>
-                      <div className="mt-1 font-mono text-xs text-faint">{company.registration_number ?? "No identifier"}</div>
+                      <div className="mt-1 font-mono text-xs text-faint">{company.registration_number ?? "Identifier not available"}</div>
                     </Link>
                     <InvestigateAction query={company.name} label="Investigate" size="sm" variant="subtle" />
                   </div>
@@ -141,13 +141,13 @@ export default async function TenderDetailPage({ params }: PageProps) {
             )}
           </Section>
 
-          <Section eyebrow="Scoring" title="Buyer-Supplier Scores">
+          <Section eyebrow="Relationship scoring" title="Buyer–supplier context">
             {tender.intelligence.relationship_scores.length === 0 ? <EmptyState message="No relationship score is available for this tender." /> : (
               <div className="space-y-3">
                 {tender.intelligence.relationship_scores.map((relationship) => (
                   <div className="rounded-2xl border border-border bg-bg-2 p-3" key={`${relationship.buyer}-${relationship.supplier_id}`}>
-                    <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-semibold text-text">{relationship.supplier_name}</div><div className="mt-1 text-xs text-muted">{relationship.buyer ?? "Unknown buyer"}</div></div><div className="text-lg font-semibold tabular-nums text-accent">{relationship.score}</div></div>
-                    <div className="mt-2 text-xs text-muted">{relationship.awards_to_supplier} of {relationship.total_buyer_awards} buyer awards</div>
+                    <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-semibold text-text">{relationship.supplier_name}</div><div className="mt-1 text-xs text-muted">{relationship.buyer ?? "Procuring entity not available"}</div></div><div className="text-lg font-semibold tabular-nums text-accent">{relationship.score}</div></div>
+                    <div className="mt-2 text-xs text-muted">{relationship.awards_to_supplier} of {relationship.total_buyer_awards} recorded buyer awards</div>
                   </div>
                 ))}
               </div>
@@ -160,7 +160,7 @@ export default async function TenderDetailPage({ params }: PageProps) {
 }
 
 function IntelligenceSignals({ signals }: { signals: ProcurementIntelligenceSignal[] }) {
-  if (signals.length === 0) return <EmptyState message="No procurement intelligence signals were detected for this tender." />;
+  if (signals.length === 0) return <EmptyState message="No procurement review signals were detected for this tender." />;
   return <div className="grid gap-3">{signals.map((signal) => (
     <div className="rounded-2xl border border-border bg-bg-2 p-4" key={`${signal.type}-${signal.company_id}-${signal.buyer}`}>
       <div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2 text-sm font-semibold text-text"><ShieldAlert className="h-4 w-4 text-accent" aria-hidden="true" />{signal.title}</div><p className="mt-2 text-sm leading-6 text-muted">{signal.summary}</p></div><SeverityBadge severity={signal.severity} score={signal.score} /></div>
@@ -171,7 +171,7 @@ function IntelligenceSignals({ signals }: { signals: ProcurementIntelligenceSign
 
 function EvidenceDocket({ signals, awards, companies, hasDocument }: { signals: ProcurementIntelligenceSignal[]; awards: number; companies: number; hasDocument: boolean }) {
   const evidenceItems = signals.flatMap((signal) => signal.evidence).slice(0, 6);
-  return <div className="space-y-3"><div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><DocketMetric label="Signals" value={String(signals.length)} /><DocketMetric label="Awards" value={String(awards)} /><DocketMetric label="Companies" value={String(companies)} /><DocketMetric label="Document" value={hasDocument ? "Parsed" : "None"} /></div>{evidenceItems.length === 0 ? <EmptyState title="No cited evidence" message="The current tender file has no extracted evidence references." /> : <ul className="space-y-2">{evidenceItems.map((item, index) => <li className="rounded-xl border border-border bg-bg-2/40 p-3 text-sm text-muted" key={`${item}-${index}`}>{item}</li>)}</ul>}</div>;
+  return <div className="space-y-3"><div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><DocketMetric label="Review signals" value={String(signals.length)} /><DocketMetric label="Awards" value={String(awards)} /><DocketMetric label="Suppliers" value={String(companies)} /><DocketMetric label="Document" value={hasDocument ? "Parsed" : "Not available"} /></div>{evidenceItems.length === 0 ? <EmptyState title="No cited evidence" message="The current tender record has no extracted evidence references." /> : <ul className="space-y-2">{evidenceItems.map((item, index) => <li className="rounded-xl border border-border bg-bg-2/40 p-3 text-sm text-muted" key={`${item}-${index}`}>{item}</li>)}</ul>}</div>;
 }
 
 function DocketMetric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-border bg-bg-2/40 p-3"><div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-faint">{label}</div><div className="mt-1 text-sm font-semibold text-text">{value}</div></div>; }
