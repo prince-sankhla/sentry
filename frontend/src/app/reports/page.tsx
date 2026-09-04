@@ -31,9 +31,9 @@ export default async function ReportsPage() {
     color: CHART_SERIES[index % CHART_SERIES.length]
   }));
   const controlChecks = [
-    { label: "Bid participation coverage", value: 0, max: Math.max(1, totals.tenders), meta: "Unavailable in current source records", tone: "info" as const },
+    { label: "Bid participation coverage", value: 0, max: Math.max(1, totals.tenders), meta: "Unavailable in current source records", tone: "neutral" as const },
     { label: "Award coverage", value: totals.awards, max: Math.max(1, totals.tenders), meta: `${formatNumber(totals.awards)} award records`, tone: "success" as const },
-    { label: "Supplier coverage", value: totals.companies, max: Math.max(1, totals.buyers + totals.companies), meta: `${formatNumber(totals.companies)} supplier entities`, tone: "info" as const }
+    { label: "Supplier coverage", value: totals.companies, max: Math.max(1, totals.buyers + totals.companies), meta: `${formatNumber(totals.companies)} supplier entities`, tone: "neutral" as const }
   ];
 
   return (
@@ -48,7 +48,7 @@ export default async function ReportsPage() {
         <StatCard label="Tenders" value={formatNumber(totals.tenders)} tone="accent" icon={<FileText className="h-4 w-4" />} />
         <StatCard label="Awarded value" value={formatCompactMoney(totals.total_awarded_value)} tone="success" icon={<TrendingUp className="h-4 w-4" />} />
         <StatCard label="Buyers" value={formatNumber(totals.buyers)} icon={<Landmark className="h-4 w-4" />} />
-        <StatCard label="Bid participation" value="N/A" tone="info" meta="Bidder-level records not exposed by current sources" />
+        <StatCard label="Bid participation" value="N/A" tone="neutral" meta="Bidder-level records not exposed by current sources" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -58,7 +58,7 @@ export default async function ReportsPage() {
           </Section>
         </div>
         <Section eyebrow="Sources" title="Records by source">
-          {sources.length === 0 ? <EmptyState message="No source records are available." /> : <div className="space-y-3">{sources.map((s) => <RankBar key={s.source_name} label={s.source_name} value={s.tenders} max={maxSource} meta={formatNumber(s.tenders)} tone="info" />)}</div>}
+          {sources.length === 0 ? <EmptyState message="No source records are available." /> : <div className="space-y-3">{sources.map((s) => <RankBar key={s.source_name} label={s.source_name} value={s.tenders} max={maxSource} meta={formatNumber(s.tenders)} tone="neutral" />)}</div>}
         </Section>
         <Section eyebrow="Distribution" title="Indian procurement distribution">
           {distributionSlices.length === 0 ? <EmptyState message="No distribution data is available." /> : <div className="grid gap-4 sm:grid-cols-[220px_1fr] lg:grid-cols-1"><DonutChart slices={distributionSlices} centerValue={formatNumber(totals.tenders)} centerLabel="Indian tenders" height={210} /><div className="space-y-2">{distributionSlices.map((slice) => <div className="flex items-center gap-2 text-sm" key={slice.name}><span className="h-2.5 w-2.5 rounded-sm" style={{ background: slice.color }} /><span className="min-w-0 flex-1 truncate text-muted">{slice.name}</span><span className="tabular font-semibold text-text">{formatNumber(slice.value)}</span></div>)}</div></div>}
