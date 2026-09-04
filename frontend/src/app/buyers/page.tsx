@@ -19,18 +19,18 @@ export default async function BuyersPage({ searchParams }: Props) {
     <PageShell>
       <PageHeader
         eyebrow="Buyer Intelligence"
-        title="Buyer Kundali"
-        subtitle="Understand a procuring entity across its tender volume, suppliers, methods, value patterns, timelines, and review leads."
+        title="Buyer Intelligence Profile"
+        subtitle="Review a procuring entity across tender activity, supplier relationships, procurement methods, value patterns, timelines, and evidence-backed review leads."
         breadcrumb={[
-          { label: "Dashboard", href: "/" },
-          { label: "Buyer Kundali" }
+          { label: "Command Center", href: "/" },
+          { label: "Buyer Intelligence" }
         ]}
         actions={
           <Link
             href="/investigations"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong"
           >
-            Open investigation desk
+            Open investigation workspace
             <ArrowRight className="h-4 w-4" />
           </Link>
         }
@@ -41,21 +41,23 @@ export default async function BuyersPage({ searchParams }: Props) {
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
               <Building2 className="h-4 w-4" />
-              Buyer profile
+              Procuring-entity lookup
             </div>
-            <div className="mt-2 text-sm text-muted">
-              Search the exact procuring-entity name currently stored in Indian tender records.
+            <div className="mt-2 max-w-xl text-sm leading-6 text-muted">
+              Search the procuring-entity name as recorded in the indexed Indian tender records. Use the verified entity name for consistent cross-record analysis.
             </div>
           </div>
           <form className="flex w-full max-w-2xl gap-2" action="/buyers">
+            <label className="sr-only" htmlFor="buyer-name">Procuring-entity name</label>
             <input
+              id="buyer-name"
               name="name"
               defaultValue={buyer}
               placeholder="e.g. National Highways Authority of India"
-              className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-bg-2 px-4 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/50"
+              className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-bg-2 px-4 text-sm text-text outline-none transition placeholder:text-faint focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
             />
             <button className="h-11 rounded-xl bg-accent px-5 text-sm font-semibold text-bg transition hover:brightness-110" type="submit">
-              Load buyer
+              View profile
             </button>
           </form>
         </div>
@@ -64,9 +66,9 @@ export default async function BuyersPage({ searchParams }: Props) {
       {buyer ? <BuyerKundaliPanel buyer={buyer} /> : (
         <SurfaceCard className="p-10 text-center">
           <Building2 className="mx-auto h-10 w-10 text-accent/60" />
-          <div className="mt-4 text-lg font-semibold text-text">Choose a buyer to inspect</div>
+          <div className="mt-4 text-lg font-semibold text-text">Select a procuring entity</div>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted">
-            The Buyer Kundali is built from indexed Indian tender records and keeps bidder-level or cancellation claims as insufficient-data when the source does not expose them.
+            The profile is built from indexed Indian tender records. Bidder participation, cancellation status, or other facts are not inferred when the source does not provide them.
           </p>
         </SurfaceCard>
       )}
