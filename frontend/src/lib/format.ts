@@ -1,5 +1,5 @@
-export function formatMoney(value: string | null, currency: string): string {
-  if (value === null) {
+export function formatMoney(value: string | null | undefined, currency: string): string {
+  if (value === null || value === undefined) {
     return "Not disclosed";
   }
 
@@ -27,7 +27,7 @@ export function currencySymbol(currency: string): string {
 }
 
 /** Compact figure for dashboards: ₹1.2Cr / $3.4M. Indian units for INR. */
-export function formatCompactMoney(value: string | null, currency = "INR"): string {
+export function formatCompactMoney(value: string | null | undefined, currency = "INR"): string {
   if (value === null || value === undefined) return "—";
   const amount = Number(value);
   if (!Number.isFinite(amount)) return `${value}`;
@@ -45,8 +45,8 @@ export function formatCompactMoney(value: string | null, currency = "INR"): stri
   return `${sym}${amount.toFixed(0)}`;
 }
 
-export function formatMoneyFull(value: string | null, currency = "INR"): string {
-  if (value === null) return "Not disclosed";
+export function formatMoneyFull(value: string | null | undefined, currency = "INR"): string {
+  if (value === null || value === undefined) return "Not disclosed";
   const amount = Number(value);
   if (!Number.isFinite(amount)) return `${value} ${currency}`;
   return `${currencySymbol(currency)}${new Intl.NumberFormat("en-IN", {
