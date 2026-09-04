@@ -29,15 +29,17 @@ export function Section({
   action,
   children,
   eyebrow,
-  title
+  title,
+  className = ""
 }: {
   action?: ReactNode;
   children: ReactNode;
   eyebrow?: string;
   title: string;
+  className?: string;
 }) {
   return (
-    <SurfaceCard>
+    <SurfaceCard className={className}>
       <div className="flex items-center justify-between gap-4 border-b border-border bg-bg-2/40 px-6 py-4">
         <div className="min-w-0">
           {eyebrow ? (
