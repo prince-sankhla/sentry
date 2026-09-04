@@ -88,7 +88,7 @@ export default async function AwardsPage({
       <PageHeader
         eyebrow="Records"
         title="Awards"
-        subtitle="Contract awards linking suppliers to procuring buyers across all imported sources."
+        subtitle="Contract awards linking suppliers to procuring buyers in the Indian procurement dataset."
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -98,20 +98,17 @@ export default async function AwardsPage({
         <StatCard label="Suppliers · Buyers" value={`${data.stats.awarded_suppliers} · ${data.stats.awarding_buyers}`} />
       </div>
 
-      <ListControls
-        placeholder="Search supplier, tender, or reference…"
-        sortOptions={SORTS}
-        total={data.pagination.total}
-        limit={limit}
-        offset={offset}
-      />
+      <ListControls placeholder="Search supplier, tender, or reference…" sortOptions={SORTS} total={data.pagination.total} limit={limit} offset={offset} />
 
       <DataTable
         columns={columns}
         items={data.items}
         getHref={(a) => `/companies/${a.company.id}`}
         rowAction={(award) => (
-          <InvestigateAction query={award.company.name} label="Investigate supplier" variant="subtle" />
+          <div className="flex items-center gap-1">
+            <InvestigateAction query={award.company.name} label="Supplier" variant="subtle" />
+            <InvestigateAction query={award.tender.reference_number} label="Tender" variant="subtle" />
+          </div>
         )}
         empty={
           <EmptyState
@@ -132,7 +129,7 @@ export default async function AwardsPage({
       />
 
       <p className="mt-4 text-center text-xs text-faint">
-        Every award exposes a direct supplier investigation. Explore relationships in the{" "}
+        Award records are scoped to Indian procurement sources. Every row can open supplier or tender investigation, and relationships can be explored in the{" "}
         <Link href="/graph" className="text-accent hover:underline">Graph Explorer</Link>.
       </p>
     </PageShell>
