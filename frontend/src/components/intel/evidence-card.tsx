@@ -86,9 +86,11 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
   const Glyph = item.kind === "web" ? Globe2 : item.kind === "document" ? FileText : ShieldCheck;
   const effectiveArchivedUrl =
     item.archivedUrl ??
-    (item.kind === "web" && item.sourceUrl
-      ? `/api/web/archive/by-url?source_url=${encodeURIComponent(item.sourceUrl)}`
-      : null);
+    (item.kind === "web" && item.recordId
+      ? `/api/web/archive/${encodeURIComponent(item.recordId)}`
+      : item.kind === "web" && item.sourceUrl
+        ? `/api/web/archive/by-url?source_url=${encodeURIComponent(item.sourceUrl)}`
+        : null);
 
   async function copyCitation() {
     try {
@@ -152,6 +154,17 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
       <div className="mt-3.5 border-t border-border/60 pt-3">
         {(item.sourceUrl || effectiveArchivedUrl) && (
           <div className="mb-2.5 flex flex-wrap items-center gap-2">
+            {effectiveArchivedUrl && (
+              <a
+                href={effectiveArchivedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-success/30 bg-success/[0.07] px-2.5 py-1.5 text-[11px] font-semibold text-success transition-colors duration-200 hover:bg-success/15"
+              >
+                <ShieldCheck className="h-3 w-3" />
+                Open SENTRY Snapshot
+              </a>
+            )}
             {item.sourceUrl ? (
               <a
                 href={item.sourceUrl}
@@ -164,17 +177,6 @@ export function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: 
               </a>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-bg-2/40 px-2.5 py-1.5 font-mono text-[10px] text-faint">{item.recordId ?? "No public URL"}</span>
-            )}
-            {effectiveArchivedUrl && (
-              <a
-                href={effectiveArchivedUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-success/30 bg-success/[0.07] px-2.5 py-1.5 text-[11px] font-medium text-success transition-colors duration-200 hover:bg-success/15"
-              >
-                <ShieldCheck className="h-3 w-3" />
-                SENTRY Snapshot
-              </a>
             )}
           </div>
         )}
