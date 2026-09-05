@@ -1,3 +1,4 @@
+import { InvestigationPhases } from "@/components/intel/investigation-phases";
 import { InvestigationWorkspace } from "../investigation-workspace";
 
 export const dynamic = "force-dynamic";
@@ -10,5 +11,15 @@ type PageProps = {
 
 export default async function InvestigatePage({ searchParams }: PageProps) {
   const params = await searchParams;
-  return <InvestigationWorkspace initialQuery={(params.q ?? "").trim()} />;
+  const initialQuery = (params.q ?? "").trim();
+
+  return (
+    <>
+      <InvestigationPhases
+        active={initialQuery ? "intelligence" : "intelligence"}
+        completed={[]}
+      />
+      <InvestigationWorkspace initialQuery={initialQuery} />
+    </>
+  );
 }
