@@ -45,19 +45,7 @@ type FocusState = {
 type IntelligenceResponse = {
   clusters: Array<{
     cluster: string;
-    items: Array<{
-      id: string;
-      source: string;
-      source_type: string;
-      evidence_type: string;
-      cluster: string;
-      confidence: number;
-      confidence_tier: string;
-      publication_date: string | null;
-      url: string;
-      evidence_summary: string;
-      retrieved_at: string;
-    }>;
+    items: ContextItem[];
   }>;
 };
 
@@ -68,11 +56,17 @@ const FOCUSES: Array<{ key: FocusKey; label: string; icon: typeof FileSearch }> 
   { key: "compliance", label: "Audit / vigilance / debarment signals", icon: Siren },
 ];
 
+function createEmptyFocusState(): Record<FocusKey, FocusState> {
+  return {
+    records: { status: "queued", items: [] },
+    news: { status: "queued", items: [] },
+    legal: { status: "queued", items: [] },
+    compliance: { status: "queued", items: [] },
+  };
+}
+
 export function InvestigationWebResearch({ initialQuery }: { initialQuery: string }) {
-  const emptyState = useMemo<Record<FocusKey, FocusState>>(
-    () => Object.fromEntries(FOCUSES.map(({ key }) => [key, { status: "queued", items: [] }])) as Record<FocusKey, FocusState>,
-    [],
-  );
+  const emptyState = useMemo(createEmptyFocusState, []);
   const [focusState, setFocusState] = useState<Record<FocusKey, FocusState>>(emptyState);
   const [items, setItems] = useState<ContextItem[]>([]);
   const [running, setRunning] = useState(Boolean(initialQuery));
@@ -87,7 +81,7 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
       setRunning(true);
       setRefreshing(false);
       setItems([]);
-      setFocusState(emptyState);
+      setFocusState(createEmptyFocusState());
 
       const collect = async (focus: (typeof FOCUSES)[number], index: number) => {
         const detail = [
@@ -96,7 +90,10 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
           "Classifying records, reporting and legal context…",
           "Preserving a stable SENTRY snapshot for review…",
         ][index];
-        setFocusState((prev) => ({ ...prev, [focus.key]: { status: "searching", detail, items: [] } }));
+        setFocusState((prev) => ({
+          ...prev,
+          [focus.key]: { status: "searching", detail, items: [] },
+        }));
         try {
           const response = await fetch("/api/web/context-search", {
             method: "POST",
@@ -128,17 +125,16 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
 
       setRefreshing(true);
       try {
-        const response = await fetch(`/api/web/context?q=${encodeURIComponent(initialQuery)}&limit=80`, {
-          cache: "no-store",
+        const response = await fetch(`/api/web/context?q=${encodeURIComponent(initialQuery)}`, {
           signal: controller.signal,
         });
         if (response.ok) {
-          const intelligence = (await response.json()) as IntelligenceResponse;
-          const flattened = intelligence.clusters.flatMap((cluster) => cluster.items);
-          setItems(flattened);
+          const payload = (await response.json()) as IntelligenceResponse;
+          const refreshed = payload.clusters.flatMap((cluster) => cluster.items ?? []);
+          if (alive) setItems((prev) => mergeItems(prev, refreshed));
         }
       } catch {
-        // Keep already-collected cards if aggregate refresh fails.
+        // Context refresh is supplemental; collected results remain usable.
       } finally {
         if (alive) {
           setRefreshing(false);
@@ -154,167 +150,82 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
     };
   }, [emptyState, initialQuery]);
 
-  const completed = FOCUSES.filter(({ key }) => focusState[key].status === "complete").length;
-  const failed = FOCUSES.filter(({ key }) => focusState[key].status === "error").length;
-  const progress = running ? Math.max(8, Math.round(((completed + failed) / FOCUSES.length) * 100)) : 100;
-  const clusters = countClusters(items);
-
   return (
-    <section className="mt-8">
-      <Section
-        eyebrow="Parallel intelligence"
-        title="Open-web context is being researched alongside the procurement investigation"
-        action={
-          <span className="inline-flex items-center gap-2 text-[11px] text-faint">
-            <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent pulse-live" : "bg-success"}`} />
-            {running ? "Searching live" : "Research pass complete"}
-          </span>
-        }
-      >
-        <div className="rounded-2xl border border-border bg-bg-2/50 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-accent">
-                <Globe2 className="h-3.5 w-3.5" />
-                Web intelligence console
-              </div>
-              <div className="mt-2 flex items-center gap-2.5">
-                {running ? <Loader2 className="h-5 w-5 animate-spin text-accent" /> : <CheckCircle2 className="h-5 w-5 text-success" />}
-                <div>
-                  <div className="text-sm font-semibold text-text">{running ? "SENTRY is searching beyond the structured dataset" : "Context research assembled"}</div>
-                  <div className="mt-0.5 text-xs text-muted">
-                    {running ? "Collecting tender history, contracts, reporting, legal context and integrity signals…" : `${items.length} admissible context items retained for review.`}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 lg:min-w-[280px]">
-              <MiniStat label="Lanes complete" value={`${completed}/${FOCUSES.length}`} />
-              <MiniStat label="Context items" value={items.length} />
-              <MiniStat label="Progress" value={`${progress}%`} />
-            </div>
+    <Section
+      eyebrow="Parallel intelligence"
+      title="Open-web context research"
+      action={
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.12em] text-faint">
+          {running ? <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" /> : <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+          {running ? "Searching live" : refreshing ? "Refreshing snapshot" : "Research complete"}
+        </div>
+      }
+    >
+      <div className="mb-4 overflow-hidden rounded-xl border border-border bg-bg-2/40 p-4">
+        <div className="flex items-start gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent/20 bg-accent/10 text-accent">
+            <Globe2 className="h-4 w-4" />
           </div>
-
-          <div className="mt-5 h-1 overflow-hidden rounded-full bg-border">
-            <motion.div className="h-full bg-accent" animate={{ width: `${progress}%` }} transition={{ duration: 0.35 }} />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold text-text">SENTRY is researching beyond the procurement record</div>
+            <p className="mt-1 text-[11px] leading-5 text-muted">
+              Web results are contextual intelligence only. Procurement evidence and deterministic risk calculations remain separate.
+            </p>
           </div>
+          <Sparkles className="hidden h-4 w-4 shrink-0 text-accent sm:block" />
+        </div>
+        {running && <div className="mt-4 h-1 overflow-hidden rounded-full bg-border"><motion.div className="h-full w-1/3 rounded-full bg-accent" animate={{ x: ["-120%", "360%"] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }} /></div>}
+      </div>
 
-          <div className="mt-5 grid gap-2 md:grid-cols-2">
-            {FOCUSES.map((focus) => {
-              const state = focusState[focus.key];
-              const Icon = focus.icon;
-              return (
-                <div key={focus.key} className="flex items-center gap-3 rounded-xl border border-border bg-surface/60 px-3.5 py-3">
-                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border ${state.status === "complete" ? "border-success/25 bg-success/10 text-success" : state.status === "error" ? "border-danger/25 bg-danger/10 text-danger" : "border-accent/25 bg-accent/10 text-accent"}`}>
-                    {state.status === "complete" ? <CheckCircle2 className="h-4 w-4" /> : state.status === "searching" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-                  </span>
+      <div className="grid gap-2 md:grid-cols-2">
+        {FOCUSES.map(({ key, label, icon: Icon }) => {
+          const state = focusState[key];
+          return (
+            <div key={key} className="rounded-xl border border-border bg-surface p-3">
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-accent" />
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-text">{label}</span>
+                {state.status === "searching" ? <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" /> : state.status === "complete" ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : null}
+              </div>
+              <div className="mt-2 text-[10px] text-faint">{state.detail ?? `${state.items.length} context items`}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {items.length === 0 && !running ? (
+          <EmptyState title="No web context found" message="No contextual web records were returned for this investigation query." />
+        ) : (
+          <AnimatePresence initial={false}>
+            {items.slice(0, 12).map((item) => (
+              <motion.article key={item.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-border p-3">
+                <div className="flex items-start gap-3">
+                  <Archive className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium text-text">{focus.label}</div>
-                    <div className="mt-0.5 truncate text-[10.5px] text-faint">{state.detail ?? (state.status === "queued" ? "Queued" : `${state.items.length} sources retained`)}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-text">{item.source}</span>
+                      <Chip>{item.evidence_type}</Chip>
+                      <Chip>{item.confidence_tier}</Chip>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-5 text-muted">{item.evidence_summary}</p>
+                    <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-faint">
+                      <span className="inline-flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> SENTRY snapshot preserved</span>
+                      <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline"><Link2 className="h-3 w-3" /> Original source</a>
+                    </div>
                   </div>
-                  <Chip tone={state.status === "complete" ? "success" : state.status === "error" ? "danger" : "neutral"}>
-                    {state.status === "complete" ? `${state.items.length} found` : state.status === "searching" ? "searching" : state.status}
-                  </Chip>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {items.length > 0 ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-text">Context signals to inspect</div>
-                  <div className="mt-0.5 text-[11px] text-muted">These sources can corroborate timelines, surface prior reporting, locate documents, or challenge an explanation. They do not modify the deterministic risk result.</div>
-                </div>
-                <div className="hidden items-center gap-1.5 sm:flex">
-                  {clusters.map((cluster) => <Chip key={cluster.key} tone="neutral">{cluster.label} · {cluster.count}</Chip>)}
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                {items.slice(0, 12).map((item) => <ContextCard key={item.id} item={item} />)}
-              </div>
-              {items.length > 12 ? <div className="mt-3 text-center text-[10.5px] text-faint">+{items.length - 12} additional context items available in the research workspace.</div> : null}
-            </motion.div>
-          ) : !running ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5">
-              <EmptyState icon={<Sparkles className="h-5 w-5" />} title="No admissible web context found" message="The absence of web context is not evidence of an issue. Try Guided Research for a more targeted source query." />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <div className="mt-5 flex flex-col gap-2 rounded-xl border border-warning/20 bg-warning/[0.04] px-4 py-3 text-[11px] leading-relaxed text-muted sm:flex-row sm:items-start">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-          <div>
-            <span className="font-semibold text-text">Context only — not procurement evidence.</span> Open-web material stays separate from official procurement records and deterministic risk calculations. SENTRY captures a review snapshot so the investigator is not dependent on a source session remaining valid.
-            {refreshing ? <span className="ml-1 text-faint">Refreshing the aggregate context view…</span> : null}
-          </div>
-        </div>
-      </Section>
-    </section>
+              </motion.article>
+            ))}
+          </AnimatePresence>
+        )}
+      </div>
+    </Section>
   );
 }
 
-function ContextCard({ item }: { item: ContextItem }) {
-  const archiveUrl = `/api/web/archive/${item.id}`;
-  const date = item.publication_date ? formatDate(item.publication_date) : `retrieved ${formatDate(item.retrieved_at)}`;
-  return (
-    <article className="group rounded-2xl border border-border bg-surface/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong">
-      <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border bg-bg-2 text-accent"><Archive className="h-4 w-4" /></span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Chip tone="neutral">{item.evidence_type.replaceAll("_", " ")}</Chip>
-            <Chip tone="outline">{item.source_type.replaceAll("_", " ")}</Chip>
-            <span className="text-[10px] text-faint">{date}</span>
-          </div>
-          <h3 className="mt-2 text-[13px] font-semibold leading-snug text-text">{item.evidence_summary}</h3>
-          <div className="mt-1 truncate text-[10.5px] text-faint">{item.source}</div>
-        </div>
-        <span className="hidden shrink-0 tabular text-[10px] font-semibold text-muted sm:block">{Math.round(item.confidence * 100)}%</span>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <a href={archiveUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-accent/25 bg-accent/[0.06] px-2.5 py-1.5 text-[10.5px] font-medium text-accent transition hover:bg-accent/10">
-          <Archive className="h-3.5 w-3.5" /> SENTRY snapshot
-        </a>
-        <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-2/50 px-2.5 py-1.5 text-[10.5px] font-medium text-muted transition hover:text-text">
-          <Link2 className="h-3.5 w-3.5" /> Original source
-        </a>
-      </div>
-    </article>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string | number }) {
-  return <div className="rounded-xl border border-border bg-surface/70 px-3 py-2.5"><div className="t-label">{label}</div><div className="mt-1 text-sm font-semibold tabular text-text">{value}</div></div>;
-}
-
-function mergeItems(current: ContextItem[], next: ContextItem[]) {
-  const merged = new Map<string, ContextItem>();
-  [...current, ...next].forEach((item) => merged.set(item.id, item));
-  return Array.from(merged.values()).slice(0, 80);
-}
-
-function countClusters(items: ContextItem[]) {
-  const labels: Record<string, string> = {
-    contracts: "Contracts",
-    litigation: "Litigation",
-    audit: "Audit",
-    compliance: "Compliance",
-    financial: "Financial",
-    news: "News",
-    government: "Government",
-  };
-  const counts = new Map<string, number>();
-  items.forEach((item) => counts.set(item.cluster, (counts.get(item.cluster) ?? 0) + 1));
-  return Array.from(counts.entries()).map(([key, count]) => ({ key, count, label: labels[key] ?? key }));
-}
-
-function formatDate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(parsed);
+function mergeItems(current: ContextItem[], incoming: ContextItem[]) {
+  const map = new Map(current.map((item) => [item.id, item]));
+  for (const item of incoming) map.set(item.id, item);
+  return Array.from(map.values());
 }
