@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Activity, Award, Bell, BookOpenCheck, Building2, ChevronsLeft, FileCheck2, FileText, Flag, FolderSearch, GitBranch, Inbox, LayoutDashboard, Map as MapIcon, Menu, Radar, Search, Settings, Clock, UserCircle, Command, Zap, ClipboardCheck, BriefcaseBusiness, RadioTower } from "lucide-react";
+import { Activity, Award, Bell, BookOpenCheck, Building2, ChevronsLeft, FileCheck2, FileText, Flag, FolderSearch, GitBranch, Globe2, Inbox, LayoutDashboard, Map as MapIcon, Menu, Radar, Search, Settings, Clock, UserCircle, Command, Zap, ClipboardCheck, BriefcaseBusiness, RadioTower } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -21,6 +21,7 @@ const navGroups: { label: string; items: { href: string; icon: typeof LayoutDash
     { href: "/investigations", icon: FolderSearch, label: "Investigation Workspace", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
     { href: "/monitoring", icon: RadioTower, label: "Live Monitoring", roles: ["government_audit", "journalist_researcher"] },
     { href: "/research", icon: Search, label: "Guided Research", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
+    { href: "/context", icon: Globe2, label: "Open-source Context", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
     { href: "/verification", icon: FileCheck2, label: "Evidence Verification", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
     { href: "/review", icon: ClipboardCheck, label: "Official Review", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
     { href: "/review/inbox", icon: Inbox, label: "Review Inbox", roles: ["government_audit"] },
