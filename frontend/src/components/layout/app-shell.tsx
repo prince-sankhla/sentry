@@ -20,7 +20,8 @@ import {
   Clock,
   UserCircle,
   Command,
-  Zap
+  Zap,
+  FileCheck2
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -49,6 +50,7 @@ const navGroups: {
       { href: "/", icon: LayoutDashboard, label: "Command Center" },
       { href: "/investigations", icon: FolderSearch, label: "Investigation Workspace", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
       { href: "/research", icon: Search, label: "Guided Research", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
+      { href: "/verification", icon: FileCheck2, label: "Evidence Verification", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
       { href: "/buyers", icon: Building2, label: "Buyer Intelligence", roles: ["journalist_researcher", "government_audit"] },
       { href: "/graph", icon: GitBranch, label: "Relationship Graph", roles: ["journalist_researcher", "government_audit"] },
       { href: "/risk", icon: Radar, label: "Risk Assessment", roles: ["journalist_researcher", "government_audit"] },
