@@ -1,4 +1,4 @@
-import { Network, Search } from "lucide-react";
+import { Network, Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 
 import { PageHeader, PageShell } from "@/components/ui/page";
@@ -44,6 +44,10 @@ export default async function GraphPage({ searchParams }: PageProps) {
               <Network className="h-3.5 w-3.5 text-accent" />
               {focusedLabel}
             </span>
+            <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-bg-2/50 px-3 text-xs text-muted">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-accent" />
+              Depth {depth}
+            </span>
             <Link
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong hover:bg-surface-2"
               href="/tenders"
@@ -54,6 +58,27 @@ export default async function GraphPage({ searchParams }: PageProps) {
           </div>
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface/60 p-2">
+        <span className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">Investigation radius</span>
+        {[1, 2, 3].map((value) => {
+          const active = value === depth;
+          const query = new URLSearchParams();
+          if (params.company_id) query.set("company_id", params.company_id);
+          if (params.tender_id) query.set("tender_id", params.tender_id);
+          query.set("depth", String(value));
+          return (
+            <Link
+              key={value}
+              href={`/graph?${query.toString()}`}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${active ? "border-accent/45 bg-accent/10 text-accent" : "border-border bg-bg-2/50 text-muted hover:text-text"}`}
+            >
+              {value === 1 ? "Direct" : value === 2 ? "Connected" : "Extended"}
+            </Link>
+          );
+        })}
+        <span className="ml-auto hidden text-[10.5px] text-faint md:block">Use filters and node search inside the graph to narrow the investigation.</span>
+      </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <ContextStat label="Nodes" value={graph.nodes.length} detail="Entities in view" />
