@@ -15,6 +15,7 @@ from app.api.routes import (
     graph,
     investigations,
     live_ingestion,
+    monitoring,
     profiles,
     search,
     statistics,
@@ -76,6 +77,7 @@ app.include_router(graph.router)
 app.include_router(ecosystem_graph.router)
 app.include_router(investigations.router)
 app.include_router(live_ingestion.router)
+app.include_router(monitoring.router)
 app.include_router(search.router)
 app.include_router(statistics.router)
 app.include_router(profiles.router)
