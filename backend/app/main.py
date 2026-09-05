@@ -23,6 +23,8 @@ from app.api.routes import (
     tender_kundali,
     tenders,
     web,
+    web_archive,
+    web_context,
 )
 from app.core.config import get_settings
 from app.db.connection import verify_database_connection
@@ -82,3 +84,5 @@ app.include_router(search.router)
 app.include_router(statistics.router)
 app.include_router(profiles.router)
 app.include_router(web.router)
+app.include_router(web_archive.router)
+app.include_router(web_context.router)
