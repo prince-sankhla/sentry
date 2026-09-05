@@ -48,6 +48,7 @@ const navGroups: {
     items: [
       { href: "/", icon: LayoutDashboard, label: "Command Center" },
       { href: "/investigations", icon: FolderSearch, label: "Investigation Workspace", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
+      { href: "/research", icon: Search, label: "Guided Research", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
       { href: "/buyers", icon: Building2, label: "Buyer Intelligence", roles: ["journalist_researcher", "government_audit"] },
       { href: "/graph", icon: GitBranch, label: "Relationship Graph", roles: ["journalist_researcher", "government_audit"] },
       { href: "/risk", icon: Radar, label: "Risk Assessment", roles: ["journalist_researcher", "government_audit"] },
