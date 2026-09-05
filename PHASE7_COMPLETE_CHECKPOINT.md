@@ -1,60 +1,45 @@
-# Phase 7 — Evidence + Official Context
+# SENTRY — Phase 7 Complete Checkpoint
 
-**Status:** COMPLETE (implementation + integration checkpoint)
+**Phase:** 7 — Live Procurement Monitoring  
+**Status:** COMPLETE (implementation checkpoint)  
+**Repository:** `prince-sankhla/sentry`  
+**Branch:** `main`
 
-## Audit-first result
+## Delivered
 
-Phase 7 was completed by auditing the existing SENTRY implementation first and formalizing the already-built evidence/provenance and official-context capability. No duplicate evidence engine or parallel context system was introduced.
+### 1. Live monitoring console
+Added `/monitoring` as the dedicated monitoring workspace. It refreshes the current procurement database snapshot every 30 seconds and also provides a manual refresh action.
 
-## Scope delivered
+### 2. Change-oriented overview
+The workspace surfaces:
 
-- Evidence Engine remains the provenance backbone for investigation reasoning.
-- Important citations preserve source name, source record, source URL, retrieval time, related tender, document metadata, evidence type, and quality tier where available.
-- Evidence ledger de-duplicates records by source identity before packet assembly.
-- Deterministic evidence-quality scoring distinguishes primary, corroborating, weak, and unverified evidence.
-- Primary procurement documents are distinguished from portal source notices.
-- Ephemeral/session-scoped procurement URLs are identified rather than presented as permanent evidence.
-- Consolidated Evidence Packet already carries official source URLs, supporting documents, missing evidence, alternative explanations, and manual verification requirements.
-- Verified Context Engine uses a curated corpus and a hard allowlist of trusted authorities/domains.
-- Trusted retrieval returns guidance as draft context; it is not auto-verified or silently persisted as authoritative law.
-- Applicability is evaluated deterministically from retrieved facts where the guidance premise is checkable.
-- Unsupported applicability remains explicitly indeterminate rather than inferred.
-- Context analysis is read-only and does not alter deterministic risk findings or severity.
-- Existing investigation API exposes GET/POST `/api/investigations/context-analysis`.
-- Existing `FindingCaseFile` integrates the Procurement Context block with source/authority/applicability presentation.
+- tender and award totals from the current snapshot
+- review-signal totals and high-severity review count
+- recent tender publications
+- recent award records
+- direct links into tender/company/risk investigation views
 
-## Existing validation coverage audited
+### 3. Investigation watchlist
+Added a lightweight local watchlist for buyer, supplier, or tender references. Watch items persist on the investigator's device and launch directly into the existing investigation workspace.
 
-- `backend/tests/test_verified_context.py`
-- `backend/tests/test_trusted_retrieval.py`
-- `backend/tests/test_context_applicability.py`
-- `backend/tests/test_context_analyzer.py`
-- `backend/tests/test_investigation_evidence_packet.py`
+### 4. Scope and integrity disclosure
+The UI explicitly distinguishes database-snapshot refresh from source-portal polling. A 30-second UI refresh is **not** presented as proof that CPPP, GeM, or another upstream portal was itself polled every 30 seconds.
 
-These contracts cover deterministic retrieval, trusted-domain allowlisting, provenance preservation, draft-only retrieval, applicability gating, neutral no-guidance behaviour, read-only analysis, evidence verification, and packet assembly.
+### 5. Architecture preservation
+The monitoring surface reuses the existing dashboard, risk, and investigation APIs. It does not create a second risk engine, infer bidder participation from awards, or modify deterministic screening logic.
 
 ## Integrity boundaries retained
 
-1. Official Indian procurement sources remain the highest-authority evidence layer for Indian cases.
-2. International guidance is clearly classified and is never silently promoted to Indian law.
-3. News and other contextual material are not converted into automatic risk merely because they exist.
-4. Missing evidence reduces what SENTRY can establish; it does not become a positive finding.
-5. A citation alone does not make a finding verified; required evidence must be present for a verified status.
-6. Official context can explain or challenge a finding but cannot adjudicate guilt or rewrite the deterministic risk engine.
-7. Entity-resolution uncertainty, unsupported bidder-level claims, and unavailable applicability remain explicit uncertainty states.
-
-## Repository integration points
-
-- `backend/app/services/investigation_evidence.py`
-- `backend/app/services/investigation_packet.py`
-- `backend/app/verified_context/`
-- `backend/app/api/routes/investigations.py`
-- `frontend/src/components/intel/finding-case-file.tsx`
+1. Monitoring is an observability surface over the currently indexed procurement data.
+2. Review signals remain prioritisation leads, not findings of wrongdoing.
+3. Missing data is not converted into risk.
+4. Indian procurement scope and provenance rules remain unchanged.
+5. Watchlist state is local presentation state and does not alter backend evidence or risk calculations.
 
 ## Validation note
 
-The repository-level implementation and test contracts were audited from the current `main` branch. The exact current `main` test suite was not executed from this chat session, so this checkpoint does not claim a fresh full-suite pass. Vercel production status is also intentionally not claimed here.
+Repository files were audited before the Phase 7 implementation. The monitoring route and component were committed to `main`. A fresh full frontend/backend test suite was not executed from this chat session; Vercel status is intentionally not used as the Phase 7 completion criterion.
 
 ## Next phase
 
-**Phase 8 — Investigation Engine 2.0**
+**Phase 8 — Public/Journalist → Government Review Pipeline**
