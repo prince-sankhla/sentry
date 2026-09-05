@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CompanyTenderSort } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { SearchInput, Select } from "@/components/ui/input";
+import { InvestigateAction } from "@/components/intel/investigate-action";
 import { SupplierKundaliPanel } from "./supplier-kundali-panel";
 
 type Props = {
@@ -30,6 +31,7 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const companyId = pathname.split("/").filter(Boolean).at(-1) ?? "";
 
   const page = Math.floor(offset / limit) + 1;
   const pages = Math.max(1, Math.ceil(total / limit));
@@ -63,6 +65,14 @@ export function CompanyInvestigationControls({ limit, offset, query, sort, total
       <SupplierKundaliPanel />
 
       <div className="rounded-2xl border border-border bg-surface/70 p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.12em] text-faint">Company investigation</div>
+            <div className="mt-1 text-sm text-muted">Launch the full SENTRY investigation for this company; web intelligence starts automatically.</div>
+          </div>
+          <InvestigateAction query={companyId} label="Investigate company" variant="primary" />
+        </div>
+
         <form className="grid gap-3 lg:grid-cols-[1fr_190px_auto]" onSubmit={onSearch}>
           <label className="relative block">
             <span className="sr-only">Search procurement history</span>
