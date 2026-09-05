@@ -4,9 +4,8 @@
  * ProviderBadge — live attribution of which reasoning engine answered.
  *
  * SENTRY is always transparent about provenance: a live LLM (Claude / OpenRouter
- * / OpenAI / Gemini) or the deterministic composer. This badge renders that state
- * compactly with an online/fallback pulse, and doubles as the Provider Status
- * chip fed by the /providers endpoint.
+ * / OpenAI / Gemini) or the deterministic evidence engine. The badge keeps that
+ * distinction visible without presenting the deterministic path as an error state.
  */
 
 import { motion } from "framer-motion";
@@ -27,9 +26,8 @@ export function providerDisplayName(provider: string | null | undefined, model?:
             ? "Gemini"
             : provider
               ? provider.charAt(0).toUpperCase() + provider.slice(1)
-              : "Deterministic";
-  if (model && label !== "Deterministic") {
-    // Trim provider prefixes / long ids to a readable model name.
+              : "Evidence Engine";
+  if (model && label !== "Evidence Engine") {
     const short = model.split("/").pop() ?? model;
     return `${label} ${short}`;
   }
@@ -48,8 +46,8 @@ export function ProviderBadge({
   size?: "sm" | "md";
 }) {
   const live = generatedBy === "llm";
-  const label = live ? providerDisplayName(provider, model) : "Deterministic";
-  const state = live ? "ONLINE" : "FALLBACK ACTIVE";
+  const label = live ? providerDisplayName(provider, model) : "Evidence Engine";
+  const state = live ? "ONLINE" : "EVIDENCE MODE";
   const pad = size === "md" ? "px-3 py-1.5 text-xs" : "px-2.5 py-1 text-[11px]";
 
   return (
@@ -57,6 +55,11 @@ export function ProviderBadge({
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: DURATION.base, ease: EASE }}
+      title={
+        live
+          ? "LLM reasoning is online and grounded in the cited evidence."
+          : "SENTRY is using its deterministic evidence engine. This is a supported analysis mode, not an error state."
+      }
       className={`inline-flex items-center gap-2 rounded-full border font-medium ${pad} ${
         live ? "border-accent/40 bg-accent/[0.08] text-accent" : "border-border-strong bg-surface-2 text-muted"
       }`}
@@ -66,7 +69,7 @@ export function ProviderBadge({
       </span>
       <span className="truncate">{label}</span>
       <span className="inline-flex items-center gap-1 border-l border-current/20 pl-2 text-[9px] font-semibold uppercase tracking-wide opacity-80">
-        <span className={`relative h-1.5 w-1.5 rounded-full ${live ? "bg-success" : "bg-warning"}`}>
+        <span className={`relative h-1.5 w-1.5 rounded-full ${live ? "bg-success" : "bg-accent"}`}>
           {live && <span className="absolute inset-0 rounded-full bg-success pulse-live" />}
         </span>
         {state}
