@@ -13,6 +13,7 @@ from app.webintel.extractor import extract_evidence
 from app.webintel.intelligence import build_intelligence
 from app.webintel.models import WebEvidence
 from app.webintel.schemas import ProcurementIntelligenceResponse, SearchRequest, StoredPage
+from app.webintel.search import get_default_search_provider
 from app.webintel.source_authority import classify_source
 from app.webintel.utils import canonicalize_url
 
@@ -77,9 +78,9 @@ def _is_context_relevant(query: str, title: str | None, content: str, url: str) 
     if not tokens:
         return keyword_hits >= 2
 
-    # For multi-token entities require at least two subject tokens (or all tokens
-    # when the entity name is short). This rejects generic pages such as a Delhi
-    # tourism homepage for a Delhi University investigation.
+    # For multi-token entities require at least two subject tokens. For a single
+    # token subject, one match is enough. This rejects generic pages such as a
+    # Delhi tourism homepage for a Delhi University investigation.
     required = 1 if len(tokens) == 1 else min(2, len(tokens))
     subject_hits = sum(1 for token in tokens[:10] if token in haystack)
     return subject_hits >= required
@@ -95,9 +96,7 @@ def search_web_context(request: WebContextSearchRequest, db: Session = Depends(g
     focus = request.focus.strip() or "procurement context"
     limit = min(max(request.limit, 1), 10)
     search_query = f'"{subject}" {focus}'
-    provider = get_default_crawler()  # type-check placeholder; replaced below
-    del provider
-    search_provider = __import__("app.webintel.search", fromlist=["get_default_search_provider"]).get_default_search_provider()
+    search_provider = get_default_search_provider()
     crawler = get_default_crawler()
 
     raw_results = search_provider.search(query=search_query, limit=max(limit * 3, 18))
