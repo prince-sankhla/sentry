@@ -1,90 +1,55 @@
 # SENTRY — Phase 8 Complete Checkpoint
 
 ## Phase
-**Phase 8 — Investigation Engine 2.0**
+**Phase 8 — Public / Journalist → Government Review Pipeline**
 
 ## Status
-**COMPLETE — integrated into the existing investigation pipeline**
+**COMPLETE — review handoff and government intake experience implemented**
 
-## Audit-first decision
-Phase 8 was implemented by auditing the existing investigation stack before adding duplicate orchestration. The current `main` branch already contains the substantive Investigation Engine 2.0 capabilities, so this phase formalizes and validates that integrated surface rather than introducing a parallel engine.
+## Scope delivered
 
-## Investigation journey
-The live investigation pipeline now exposes the intended analyst journey:
+Phase 8 connects a completed investigation to a structured human-review handoff without changing the deterministic evidence or risk engines.
 
-1. **Detect** — deterministic indicators + Risk Engine V2 patterns.
-2. **Contextualize** — trusted procurement-context analysis and competing evidence.
-3. **Connect** — canonical entity resolution, buyer/supplier relationships and typed graph.
-4. **Compare** — benchmark context and historical/comparable procurement data.
-5. **Challenge** — Evidence Challenge asks what evidence could prove each finding wrong.
-6. **Corroborate** — source-attributed evidence ledger, documents, timeline and graph relationships.
-7. **Verify** — evidence-status validation, grounding checks and provenance.
-8. **Prioritize** — deterministic priority queue and risk/confidence output for human review.
+### Investigator / Researcher side
+- Dedicated `GET /review?q=<investigation subject>` review-handoff route.
+- Review handoff composes the investigation subject, observed review leads, evidence count, outstanding evidence requests, evidence-backed alternative explanations, and a submitter/reviewer note.
+- Handoff draft can be saved locally for continuation and exported as JSON for external review workflows.
+- Explicit non-adjudication language is shown at the handoff boundary.
 
-## Existing integrated components audited
-- `backend/app/api/routes/investigations.py`
-  - `/api/investigations/stream`
-  - entity resolution
-  - investigation planning/execution
-  - evidence-packet export
-  - trusted context-analysis endpoints
-  - priority investigation queue
-- `backend/app/services/investigation_executor.py`
-  - canonical resolution before retrieval
-  - precision retrieval for entity investigations
-  - Indian-only entity retrieval
-  - package finalization
-  - deterministic indicators + Risk Engine V2
-  - complete investigation graph
-- `backend/app/services/investigation_reasoning.py`
-  - grounded analyst reasoning
-  - Investigator Review
-  - Evidence Challenge
-  - evidence ledger / packet
-  - analyst trace/report
-  - investigation memory
-- `backend/app/services/investigator_review.py`
-  - supporting evidence
-  - routine-procurement competing evidence
-  - evidence still required
-- `backend/app/services/evidence_challenge.py`
-  - evidence-backed legitimate explanations
-  - verification questions
-  - fixed non-verdict decision boundary
-- `frontend/src/app/investigation-workspace.tsx`
-  - live streamed pipeline
-  - entity resolution state
-  - investigation replay
-  - graph/evidence/analyst surfaces
-  - provider provenance
-  - follow-up investigation flow
+### Government / Audit side
+- Dedicated `GET /review/inbox` intake route.
+- Review Inbox is visible only in the Government / Audit workspace navigation.
+- Intake displays the prepared review lead, evidence volume, outstanding evidence, submitter note, and `Pending human review` state.
+- Government intake is intentionally separated from automated risk calculation and enforcement.
 
-## Integrity boundaries
-- Risk remains deterministic and explainable.
-- Investigation Review and Evidence Challenge are read-only organizational layers; they do not modify indicators, scores or severity.
-- LLM output is grounded in the executed evidence package and has deterministic fallback behavior.
-- No finding is presented as proof of wrongdoing.
-- Missing evidence remains missing; the system does not manufacture bidder-level facts.
-- Official procurement provenance remains attached to evidence.
-- Entity investigations use precision retrieval to avoid contaminating a case with unrelated records.
-- Indian procurement scope remains distinct from international procurement sources.
+### Navigation / role integration
+- Public Investigator, Journalist / Researcher, and Government / Audit all receive the Official Review entry point.
+- Government / Audit additionally receives the Review Inbox.
+- Existing role-aware navigation remains presentation-only; it does not alter evidence retrieval, indicator calculations, severity, or risk scoring.
 
-## Phase 8 acceptance criteria
-- [x] One investigation pipeline orchestrates planning, retrieval, entity resolution, detection, evidence, grounding and reasoning.
-- [x] Canonical entity resolution precedes entity-specific retrieval.
-- [x] Findings are linked to provenance-backed evidence.
-- [x] Competing/routine explanations are surfaced without cancelling findings.
-- [x] Every major finding can be challenged with verification questions.
-- [x] Complete typed investigation graph is generated from the package.
-- [x] Investigation replay exposes how the system reached its output.
-- [x] Priority queue supports human-review prioritization.
-- [x] Evidence Packet export is available in structured JSON and print-ready HTML.
-- [x] LLM reasoning cannot become the source of truth for risk.
+## Integrity boundaries retained
 
-## Known validation limitation
-This checkpoint records code-level integration based on repository inspection. A fresh full CI/test run and production deployment verification were not performed as part of this checkpoint, so neither is claimed here.
+1. A review handoff is a request for human examination, not an allegation or finding of wrongdoing.
+2. SENTRY does not submit automatically to a government case-management system; the current handoff is an explicit local/export workflow boundary.
+3. Missing evidence is surfaced as outstanding evidence; it is never converted into a positive finding.
+4. Evidence-backed alternative explanations remain visible to the reviewer.
+5. Risk Engine V2 remains the authoritative deterministic screening layer.
+6. Indian procurement evidence remains distinct from international context.
+
+## Repository integration points
+
+- `frontend/src/components/intel/review-handoff.tsx`
+- `frontend/src/components/intel/review-handoff-page.tsx`
+- `frontend/src/components/intel/review-inbox.tsx`
+- `frontend/src/app/review/page.tsx`
+- `frontend/src/app/review/inbox/page.tsx`
+- `frontend/src/components/layout/app-shell.tsx`
+
+## Validation note
+
+The implementation was added after auditing the existing Investigation Workspace, Evidence Verification, Evidence Ledger, Risk Engine payloads, and role-aware navigation. A fresh full CI/test execution was not performed from this chat session, so no new test-suite or Vercel success is claimed here.
 
 ## Next phase
-**Phase 9 — Graph / Ecosystem Intelligence**
+**Phase 9 — Government Case Management**
 
-Target: turn the existing typed investigation graph into a deeper ecosystem-level intelligence layer covering Buyer ↔ Tender ↔ Supplier ↔ Award ↔ Document ↔ Evidence ↔ Related Entity relationships, with deterministic relationship signals and investigation-grade graph explanations.
+Target: give Government / Audit reviewers a formal human-review case lifecycle with assignment, review state, decision history, actions, and auditability while keeping SENTRY advisory and evidence-driven.
