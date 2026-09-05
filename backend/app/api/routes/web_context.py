@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import or_, select
@@ -20,20 +21,66 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/web", tags=["web-intelligence"])
 
+# Context is intentionally broader than primary procurement evidence. These are
+# only used by the context route and are never promoted to ProcurementEvidence.
+_CONTEXT_NEWS_HOSTS = (
+    "thehindu.com",
+    "indianexpress.com",
+    "timesofindia.indiatimes.com",
+    "economictimes.indiatimes.com",
+    "business-standard.com",
+    "hindustantimes.com",
+    "moneycontrol.com",
+    "livemint.com",
+    "financialexpress.com",
+    "deccanherald.com",
+    "telegraphindia.com",
+)
+
+_CONTEXT_KEYWORDS = (
+    "tender", "procurement", "contract", "award", "bid", "vendor", "supplier",
+    "work order", "purchase order", "audit", "vigilance", "investigation",
+    "irregularity", "probe", "litigation", "court", "blacklist", "debar",
+    "scam", "allegation", "dispute", "government spending", "public works",
+)
+
 
 class WebContextSearchRequest(SearchRequest):
-    focus: str = "procurement context"
+    focus: str = "tender contract procurement news audit investigation history"
     limit: int = 8
 
 
-@router.post("/context-search")
-def search_web_context(request: WebContextSearchRequest, db: Session = Depends(get_db)) -> dict[str, object]:
-    """Search and store contextual web material for an investigation.
+def _host(url: str) -> str:
+    return (urlparse(url).hostname or "").lower()
 
-    This route deliberately does NOT create WebProcurementEvidence links. Context
-    can inform an investigator about prior reporting, contracts, litigation,
-    audit/compliance history, or government statements, but it is kept outside the
-    authoritative procurement evidence/risk path.
+
+def _is_context_host(url: str) -> bool:
+    host = _host(url)
+    if any(host == suffix or host.endswith("." + suffix) for suffix in _CONTEXT_NEWS_HOSTS):
+        return True
+    return classify_source(url).admissible
+
+
+def _is_context_relevant(query: str, title: str | None, content: str, url: str) -> bool:
+    haystack = " ".join([query, title or "", url, content[:12000]]).casefold()
+    keyword_hits = sum(1 for keyword in _CONTEXT_KEYWORDS if keyword in haystack)
+    if keyword_hits < 1:
+        return False
+    # Query relevance is a useful deterministic guard, but do not require an
+    # exact phrase because articles commonly use aliases or abbreviated names.
+    query_tokens = [token for token in query.casefold().split() if len(token) > 3]
+    if not query_tokens:
+        return keyword_hits >= 2
+    subject_hits = sum(1 for token in query_tokens[:8] if token in haystack)
+    return subject_hits >= 1 and keyword_hits >= 1
+
+
+def search_web_context(request: WebContextSearchRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    """Search historical/news/contract context without creating case evidence.
+
+    Context pages are optionally captured so their text remains available for
+    review, but no WebProcurementEvidence relationship is created. They therefore
+    cannot enter the deterministic procurement risk calculation.
     """
     subject = request.query.strip()
     focus = request.focus.strip() or "procurement context"
@@ -41,78 +88,79 @@ def search_web_context(request: WebContextSearchRequest, db: Session = Depends(g
     search_query = f'"{subject}" {focus}'
     provider = get_default_search_provider()
     crawler = get_default_crawler()
-    results = provider.search(query=search_query, limit=limit)
 
+    raw_results = provider.search(query=search_query, limit=max(limit * 2, 12))
+    selected_results = []
     stored: list[StoredPage] = []
     rejected = 0
     seen: set[str] = set()
 
-    for result in results:
+    for result in raw_results:
         url = canonicalize_url(result.url)
         if url in seen:
             continue
         seen.add(url)
-
-        classification = classify_source(url, title=result.title)
-        if not classification.admissible:
+        if not _is_context_host(url):
             rejected += 1
             continue
 
+        page = None
         try:
             page = crawler.fetch(url)
         except Exception as exc:  # noqa: BLE001
             logger.info("Context crawler failed url=%s error=%s", url, exc)
-            continue
-        if page is None:
-            continue
-        if not is_procurement_relevant(page.title or result.title, page.url, page.content):
+
+        if page is not None:
+            relevant = _is_context_relevant(subject, page.title or result.title, page.content, page.url)
+        else:
+            relevant = _is_context_relevant(subject, result.title, result.snippet or "", url)
+
+        if not relevant:
             rejected += 1
             continue
 
-        existing = db.scalar(
-            select(WebEvidence).where(
-                or_(WebEvidence.content_hash == page.content_hash, WebEvidence.url == page.url)
+        selected_results.append(result)
+        if page is not None:
+            existing = db.scalar(
+                select(WebEvidence).where(
+                    or_(WebEvidence.content_hash == page.content_hash, WebEvidence.url == page.url)
+                )
             )
-        )
-        if existing is None:
-            evidence = WebEvidence(
-                query=subject,
-                url=page.url,
-                title=page.title or result.title,
-                content=page.content,
-                source=page.source or result.source,
-                retrieved_at=page.retrieved_at,
-                content_hash=page.content_hash,
-                extraction=extract_evidence(page.content).model_dump(),
-            )
-            db.add(evidence)
-            try:
-                db.commit()
-                db.refresh(evidence)
-                existing = evidence
-            except Exception:
-                db.rollback()
-                existing = db.scalar(select(WebEvidence).where(WebEvidence.content_hash == page.content_hash))
+            if existing is None:
+                evidence = WebEvidence(
+                    query=f"context:{subject}",
+                    url=page.url,
+                    title=page.title or result.title,
+                    content=page.content,
+                    source=page.source or result.source,
+                    retrieved_at=page.retrieved_at,
+                    content_hash=page.content_hash,
+                    extraction=extract_evidence(page.content).model_dump(),
+                )
+                db.add(evidence)
+                try:
+                    db.commit()
+                    db.refresh(evidence)
+                    existing = evidence
+                except Exception:
+                    db.rollback()
+                    existing = db.scalar(select(WebEvidence).where(WebEvidence.content_hash == page.content_hash))
+            if existing is not None:
+                stored.append(_stored_page(existing))
 
-        if existing is not None:
-            stored.append(_stored_page(existing))
+        if len(selected_results) >= limit:
+            break
 
-    logger.info(
-        "Stored web context subject=%s focus=%s results=%s stored=%s rejected=%s",
-        subject,
-        focus,
-        len(results),
-        len(stored),
-        rejected,
-    )
     return {
         "query": subject,
         "focus": focus,
         "search_query": search_query,
-        "search_results": [item.model_dump() for item in results],
+        "search_results": [item.model_dump(mode="json") for item in selected_results],
         "downloaded_pages": len(stored),
-        "stored_pages": [item.model_dump() for item in stored],
+        "stored_pages": [item.model_dump(mode="json") for item in stored],
         "rejected_non_context": rejected,
+        "classification": "supplementary_context_only",
+        "risk_impact": "none",
     }
 
 
@@ -122,9 +170,9 @@ def get_web_context(
     limit: int = 50,
     db: Session = Depends(get_db),
 ) -> ProcurementIntelligenceResponse:
-    """Return classified web context without elevating it into case evidence."""
+    """Return previously captured context; it remains outside primary evidence."""
     query = q.strip()
-    search_term = f"%{query}%"
+    search_term = f"%context:{query}%"
     statement = (
         select(WebEvidence)
         .where(WebEvidence.query.ilike(search_term))
