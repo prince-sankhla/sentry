@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Eye, FileSearch, ShieldCheck } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { getStoredWorkspaceRole, WORKSPACE_ROLES, type WorkspaceRole } from "./workspace-role";
 
 const FOCUS: Record<WorkspaceRole, string[]> = {
