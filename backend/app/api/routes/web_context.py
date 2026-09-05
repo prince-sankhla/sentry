@@ -13,16 +13,13 @@ from app.webintel.extractor import extract_evidence
 from app.webintel.intelligence import build_intelligence
 from app.webintel.models import WebEvidence
 from app.webintel.schemas import ProcurementIntelligenceResponse, SearchRequest, StoredPage
-from app.webintel.search import get_default_search_provider
-from app.webintel.source_authority import classify_source, is_procurement_relevant
+from app.webintel.source_authority import classify_source
 from app.webintel.utils import canonicalize_url
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/web", tags=["web-intelligence"])
 
-# Context is intentionally broader than primary procurement evidence. These are
-# only used by the context route and are never promoted to ProcurementEvidence.
 _CONTEXT_NEWS_HOSTS = (
     "thehindu.com",
     "indianexpress.com",
@@ -40,8 +37,10 @@ _CONTEXT_NEWS_HOSTS = (
 _CONTEXT_KEYWORDS = (
     "tender", "procurement", "contract", "award", "bid", "vendor", "supplier",
     "work order", "purchase order", "audit", "vigilance", "investigation",
-    "irregularity", "probe", "litigation", "court", "blacklist", "debar",
+    "irregularity", "probe", "litigation", "court", "tribunal", "blacklist", "debar",
     "scam", "allegation", "dispute", "government spending", "public works",
+    "company", "corporate", "annual report", "director", "subsidiary", "financial",
+    "regulatory", "compliance", "order", "judgment", "case", "notice", "penalty",
 )
 
 
@@ -61,35 +60,47 @@ def _is_context_host(url: str) -> bool:
     return classify_source(url).admissible
 
 
+def _query_tokens(query: str) -> list[str]:
+    cleaned = query.replace("||", " ").replace("/", " ").replace("-", " ")
+    return [token for token in cleaned.casefold().split() if len(token) > 3]
+
+
 def _is_context_relevant(query: str, title: str | None, content: str, url: str) -> bool:
-    haystack = " ".join([query, title or "", url, content[:12000]]).casefold()
+    # Never include the query itself in the searchable haystack: doing so makes
+    # every result appear subject-relevant even when the source says nothing about it.
+    haystack = " ".join([title or "", url, content[:16000]]).casefold()
     keyword_hits = sum(1 for keyword in _CONTEXT_KEYWORDS if keyword in haystack)
     if keyword_hits < 1:
         return False
-    # Query relevance is a useful deterministic guard, but do not require an
-    # exact phrase because articles commonly use aliases or abbreviated names.
-    query_tokens = [token for token in query.casefold().split() if len(token) > 3]
-    if not query_tokens:
+
+    tokens = _query_tokens(query)
+    if not tokens:
         return keyword_hits >= 2
-    subject_hits = sum(1 for token in query_tokens[:8] if token in haystack)
-    return subject_hits >= 1 and keyword_hits >= 1
+
+    # For multi-token entities require at least two subject tokens (or all tokens
+    # when the entity name is short). This rejects generic pages such as a Delhi
+    # tourism homepage for a Delhi University investigation.
+    required = 1 if len(tokens) == 1 else min(2, len(tokens))
+    subject_hits = sum(1 for token in tokens[:10] if token in haystack)
+    return subject_hits >= required
 
 
 def search_web_context(request: WebContextSearchRequest, db: Session = Depends(get_db)) -> dict[str, object]:
-    """Search historical/news/contract context without creating case evidence.
+    """Search public-web context with deterministic subject relevance guards.
 
-    Context pages are optionally captured so their text remains available for
-    review, but no WebProcurementEvidence relationship is created. They therefore
-    cannot enter the deterministic procurement risk calculation.
+    Context pages may be captured for review, but they remain outside primary
+    procurement evidence and therefore cannot alter deterministic risk.
     """
     subject = request.query.strip()
     focus = request.focus.strip() or "procurement context"
     limit = min(max(request.limit, 1), 10)
     search_query = f'"{subject}" {focus}'
-    provider = get_default_search_provider()
+    provider = get_default_crawler()  # type-check placeholder; replaced below
+    del provider
+    search_provider = __import__("app.webintel.search", fromlist=["get_default_search_provider"]).get_default_search_provider()
     crawler = get_default_crawler()
 
-    raw_results = provider.search(query=search_query, limit=max(limit * 2, 12))
+    raw_results = search_provider.search(query=search_query, limit=max(limit * 3, 18))
     selected_results = []
     stored: list[StoredPage] = []
     rejected = 0
@@ -166,12 +177,7 @@ def search_web_context(request: WebContextSearchRequest, db: Session = Depends(g
 
 @router.post("/context-search")
 def context_search(request: WebContextSearchRequest, db: Session = Depends(get_db)) -> dict[str, object]:
-    """Run one visible open-web research lane and return captured context.
-
-    The lane is used by the investigation UI for tender history, news, legal and
-    compliance research. Results are intentionally kept outside primary risk
-    evidence and therefore cannot change the deterministic risk assessment.
-    """
+    """Run one visible open-web research lane and return captured context."""
     return search_web_context(request, db)
 
 
@@ -181,7 +187,7 @@ def get_web_context(
     limit: int = 50,
     db: Session = Depends(get_db),
 ) -> ProcurementIntelligenceResponse:
-    """Return previously captured context; it remains outside primary evidence."""
+    """Return only previously captured context that still matches the subject."""
     query = q.strip()
     search_term = f"%context:{query}%"
     statement = (
@@ -190,7 +196,11 @@ def get_web_context(
         .order_by(WebEvidence.retrieved_at.desc(), WebEvidence.id.desc())
         .limit(min(max(limit, 1), 200))
     )
-    evidences = list(db.scalars(statement).all())
+    evidences = [
+        evidence
+        for evidence in db.scalars(statement).all()
+        if _is_context_relevant(query, evidence.title, evidence.content, evidence.url)
+    ]
     return build_intelligence(query, evidences)
 
 
