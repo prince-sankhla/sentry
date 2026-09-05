@@ -4,12 +4,36 @@ import { ExternalLink, Globe2, Landmark, Newspaper, ShieldCheck } from "lucide-r
 import { Section } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/states";
-import type { ProcurementIntelligenceResponse } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 
-type Props = {
-  data: ProcurementIntelligenceResponse | null;
+export type WebContextIntelligenceItem = {
+  id: string;
+  source: string;
+  source_type: string;
+  evidence_type: string;
+  cluster: string;
+  confidence: number;
+  confidence_tier: string;
+  publication_date: string | null;
+  url: string;
+  citation: string;
+  evidence_summary: string;
+  related_entities: string[];
+  related_tenders: string[];
+  related_contracts: string[];
+  related_organizations: string[];
+  related_investigations: string[];
+  matched_terms: string[];
+  retrieved_at: string;
 };
+
+export type WebContextIntelligenceData = {
+  query: string;
+  total_items: number;
+  clusters: Array<{ cluster: string; label: string; count: number; items: WebContextIntelligenceItem[] }>;
+};
+
+type Props = { data: WebContextIntelligenceData | null };
 
 const iconForCluster: Record<string, typeof Globe2> = {
   news: Newspaper,
@@ -24,14 +48,10 @@ export function WebContextIntelligence({ data }: Props) {
     <Section
       eyebrow="Open-source context"
       title="Web intelligence — context, not proof"
-      action={
-        <Chip tone="neutral">
-          {data?.total_items ?? 0} contextual sources
-        </Chip>
-      }
+      action={<Chip tone="neutral">{data?.total_items ?? 0} contextual sources</Chip>}
     >
       <div className="rounded-xl border border-accent/20 bg-accent/[0.04] px-4 py-3 text-[11.5px] leading-relaxed text-muted">
-        <span className="font-semibold text-text">How SENTRY uses the web:</span> current tender/contract pages can support procurement evidence; news, historical coverage, audit, litigation and other public context stay in this separate layer and do not increase or decrease the deterministic risk assessment.
+        <span className="font-semibold text-text">How SENTRY uses the web:</span> current tender and contract pages may corroborate procurement facts. News, historical coverage, audit, litigation and other public context stay in this separate layer and never alter the deterministic risk assessment.
       </div>
 
       {!items.length ? (
@@ -58,7 +78,7 @@ export function WebContextIntelligence({ data }: Props) {
                       <div className="text-[10.5px] text-faint">{cluster.count} source{cluster.count === 1 ? "" : "s"} · supplementary context</div>
                     </div>
                   </div>
-                  <span className="rounded-full border border-border bg-surface px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-faint">Context only</span>
+                  <span className="rounded-full border border-border bg-surface px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-faint">Not risk evidence</span>
                 </div>
 
                 <div className="mt-3 grid gap-2.5 lg:grid-cols-2">
@@ -73,7 +93,7 @@ export function WebContextIntelligence({ data }: Props) {
                       </div>
                       <p className="mt-2 line-clamp-2 text-[11.5px] leading-relaxed text-muted">{item.citation}</p>
                       <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className="font-mono text-[9.5px] text-faint">SHA-linked snapshot · {item.id.slice(0, 8)}…</span>
+                        <span className="font-mono text-[9.5px] text-faint">Captured snapshot · {item.id.slice(0, 8)}…</span>
                         <div className="flex items-center gap-1.5">
                           <a href={`/api/web/archive/${encodeURIComponent(item.id)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-success/25 bg-success/[0.06] px-2 py-1.5 text-[10.5px] font-semibold text-success hover:bg-success/10">
                             <ShieldCheck className="h-3 w-3" /> Snapshot
