@@ -4,6 +4,7 @@ import { ArrowRight, Building2, Search, ShieldAlert } from "lucide-react";
 import { PageHeader, PageShell } from "@/components/ui/page";
 import { SurfaceCard } from "@/components/ui/card";
 import { BuyerKundaliPanel } from "./buyer-kundali-panel";
+import { InvestigateAction } from "@/components/intel/investigate-action";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +27,26 @@ export default async function BuyersPage({ searchParams }: Props) {
           { label: "Buyer Intelligence" }
         ]}
         actions={
-          <Link
-            href="/investigations"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong hover:bg-surface-2"
-          >
-            Start investigation
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          buyer ? (
+            <div className="flex flex-wrap gap-2">
+              <InvestigateAction query={buyer} label="Investigate buyer" variant="primary" />
+              <Link
+                href="/investigations"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong hover:bg-surface-2"
+              >
+                Investigation workspace
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          ) : (
+            <Link
+              href="/investigations"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong hover:bg-surface-2"
+            >
+              Start investigation
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          )
         }
       />
 
