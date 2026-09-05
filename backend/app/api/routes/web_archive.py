@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,18 +14,7 @@ from app.webintel.models import WebEvidence
 router = APIRouter(prefix="/api/web", tags=["web-intelligence"])
 
 
-@router.get("/archive/{evidence_id}", response_class=HTMLResponse)
-def archive_web_evidence(evidence_id: UUID, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Render an immutable SENTRY-captured web snapshot.
-
-    The snapshot is served from the database rather than the source site, so a
-    source-session expiry, login wall, redirect, or later page change does not
-    break the investigator's review trail.
-    """
-    evidence = db.scalar(select(WebEvidence).where(WebEvidence.id == evidence_id))
-    if evidence is None:
-        raise HTTPException(status_code=404, detail="Stored web snapshot not found.")
-
+def _snapshot_response(evidence: WebEvidence) -> HTMLResponse:
     title = html.escape(evidence.title or "SENTRY web snapshot")
     source = html.escape(evidence.source or "Unknown source")
     original_url = html.escape(evidence.url, quote=True)
@@ -70,7 +59,30 @@ def archive_web_evidence(evidence_id: UUID, db: Session = Depends(get_db)) -> HT
   </main>
 </body>
 </html>"""
-    return HTMLResponse(
-        content=document,
-        headers={"Cache-Control": "public, max-age=86400"},
+    return HTMLResponse(content=document, headers={"Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/archive/{evidence_id}", response_class=HTMLResponse)
+def archive_web_evidence(evidence_id: UUID, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Render a stored web page by its SENTRY evidence id."""
+    evidence = db.scalar(select(WebEvidence).where(WebEvidence.id == evidence_id))
+    if evidence is None:
+        raise HTTPException(status_code=404, detail="Stored web snapshot not found.")
+    return _snapshot_response(evidence)
+
+
+@router.get("/archive/by-url", response_class=HTMLResponse)
+def archive_web_evidence_by_url(source_url: str = Query(min_length=5, max_length=4000), db: Session = Depends(get_db)) -> HTMLResponse:
+    """Render the latest captured copy for an original source URL.
+
+    This gives every existing web EvidenceCard a durable fallback without
+    changing the card's original-source provenance.
+    """
+    evidence = db.scalar(
+        select(WebEvidence)
+        .where(WebEvidence.url == source_url.strip())
+        .order_by(WebEvidence.retrieved_at.desc(), WebEvidence.id.desc())
     )
+    if evidence is None:
+        raise HTTPException(status_code=404, detail="No captured snapshot exists for this source URL.")
+    return _snapshot_response(evidence)
