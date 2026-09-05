@@ -1,6 +1,7 @@
 import { Hero } from "./hero";
 import { Navbar } from "./navbar";
 import { SectionArchitecture } from "./section-architecture";
+import { SectionCapabilities } from "./section-capabilities";
 import { SectionComparison } from "./section-comparison";
 import { SectionCta } from "./section-cta";
 import { SectionEvidencePreservation } from "./section-evidence-preservation";
@@ -11,12 +12,8 @@ import { SectionSources } from "./section-sources";
 import { SectionWhy } from "./section-why";
 
 /**
- * The SENTRY marketing homepage.
- *
- * Flow (per brand brief):
- * Hero → Problem → Why SENTRY → How Investigation Works →
- * Investigation Replay → Evidence Preservation →
- * Product Showcase → Trusted Sources → Architecture → CTA
+ * Marketing homepage: brand statement → problem → connected investigation →
+ * platform surface → workflow → evidence → product → architecture → CTA.
  */
 export function MarketingHome() {
   return (
@@ -26,6 +23,7 @@ export function MarketingHome() {
         <Hero />
         <SectionProblem />
         <SectionWhy />
+        <SectionCapabilities />
         <SectionPipeline />
         <SectionComparison />
         <SectionEvidencePreservation />
