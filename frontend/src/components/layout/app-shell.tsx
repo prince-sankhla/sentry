@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Activity, Award, Bell, Building2, ChevronsLeft, FileCheck2, FileText, Flag, FolderSearch, GitBranch, Inbox, LayoutDashboard, Map as MapIcon, Menu, Radar, Search, Settings, Clock, UserCircle, Command, Zap, ClipboardCheck, BriefcaseBusiness } from "lucide-react";
+import { Activity, Award, Bell, BookOpenCheck, Building2, ChevronsLeft, FileCheck2, FileText, Flag, FolderSearch, GitBranch, Inbox, LayoutDashboard, Map as MapIcon, Menu, Radar, Search, Settings, Clock, UserCircle, Command, Zap, ClipboardCheck, BriefcaseBusiness } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -17,6 +17,7 @@ import { getStoredWorkspaceRole, WorkspaceRoleSwitcher, WORKSPACE_ROLES, type Wo
 const navGroups: { label: string; items: { href: string; icon: typeof LayoutDashboard; label: string; roles?: WorkspaceRole[] }[] }[] = [
   { label: "Intelligence", items: [
     { href: "/", icon: LayoutDashboard, label: "Command Center" },
+    { href: "/demo", icon: BookOpenCheck, label: "Demo Runbook", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
     { href: "/investigations", icon: FolderSearch, label: "Investigation Workspace", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
     { href: "/research", icon: Search, label: "Guided Research", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
     { href: "/verification", icon: FileCheck2, label: "Evidence Verification", roles: ["public_investigator", "journalist_researcher", "government_audit"] },
