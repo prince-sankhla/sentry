@@ -164,6 +164,17 @@ def search_web_context(request: WebContextSearchRequest, db: Session = Depends(g
     }
 
 
+@router.post("/context-search")
+def context_search(request: WebContextSearchRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    """Run one visible open-web research lane and return captured context.
+
+    The lane is used by the investigation UI for tender history, news, legal and
+    compliance research. Results are intentionally kept outside primary risk
+    evidence and therefore cannot change the deterministic risk assessment.
+    """
+    return search_web_context(request, db)
+
+
 @router.get("/context", response_model=ProcurementIntelligenceResponse)
 def get_web_context(
     q: str,
