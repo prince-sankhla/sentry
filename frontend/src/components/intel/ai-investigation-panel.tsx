@@ -3,12 +3,10 @@
 /**
  * AiInvestigationPanel — the command surface for an AI investigation.
  *
- * The narrative-summary panel. Surfaces, in one panel,
- * every top-level reasoning signal the backend already produces: the executive
- * summary, the analyst's risk reasoning, overall confidence, grounding status,
- * evidence coverage, the provider that answered, processing time and evidence
- * count. Nothing here is fabricated — every value is read from the grounded
- * `InvestigationReasoning` payload (plus the client-measured elapsed time).
+ * The narrative-summary panel surfaces the grounded investigation result:
+ * executive summary, analyst reasoning, grounding, evidence coverage, provider,
+ * analysis duration and evidence count. The duration is the client-observed
+ * investigation pipeline time through final report generation.
  */
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -16,7 +14,6 @@ import {
   Activity,
   Clock,
   Database,
-
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -36,8 +33,9 @@ const RISK: Record<InvestigationRiskLevel, { label: string; text: string; ring: 
 
 function fmtElapsed(ms: number | null): string {
   if (ms == null) return "—";
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 1000) return `${Math.max(1, Math.round(ms))}ms`;
+  const seconds = ms / 1000;
+  return `${seconds.toFixed(seconds >= 10 ? 0 : 1)}s`;
 }
 
 export function AiInvestigationPanel({
@@ -60,13 +58,11 @@ export function AiInvestigationPanel({
       transition={{ duration: DURATION.slow, ease: EASE }}
       className={`relative overflow-hidden rounded-2xl border ${style.ring} elevate`}
     >
-      {/* emerald ambient wash */}
       <div
         aria-hidden
         className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent/[0.06] blur-3xl"
       />
 
-      {/* header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-2/40 px-5 py-4">
         <div className="t-label flex items-center gap-2 text-accent">
           <Sparkles className="h-3.5 w-3.5" /> Narrative Summary
@@ -89,7 +85,6 @@ export function AiInvestigationPanel({
       </div>
 
       <div className="grid gap-5 p-5 lg:grid-cols-[1fr_300px]">
-        {/* left — summary + reasoning */}
         <div className="min-w-0">
           <div className="mb-2 t-label">Executive summary</div>
           <motion.p
@@ -149,11 +144,7 @@ export function AiInvestigationPanel({
           </div>
         </div>
 
-        {/* right — metrics rail. No confidence meter, by design: SENTRY presents
-            evidence and grounding facts, never a probability that a finding is
-            true. The Investigator Review carries the evidence-driven reasoning. */}
         <div className="flex flex-col gap-3">
-          {/* grounding + coverage */}
           <div className="grid grid-cols-2 gap-3">
             <MetricTile
               icon={grounded ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
@@ -169,7 +160,7 @@ export function AiInvestigationPanel({
             />
             <MetricTile
               icon={<Timer className="h-3.5 w-3.5" />}
-              label="Processing time"
+              label="Analysis time"
               value={fmtElapsed(processingMs)}
               tone="accent"
             />
