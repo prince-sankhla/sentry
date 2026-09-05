@@ -10,7 +10,6 @@ import {
   Loader2,
   Newspaper,
   Scale,
-  Search,
   ShieldCheck,
   Siren,
   Sparkles,
@@ -20,16 +19,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Chip } from "@/components/ui/chip";
 import { Section } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
-import type { ProcurementIntelligenceResponse } from "@/lib/api";
 
-const FOCUSES = [
-  { key: "records", label: "Tender / award / contract history", icon: FileSearch },
-  { key: "news", label: "Current + past procurement reporting", icon: Newspaper },
-  { key: "legal", label: "Litigation / court / tribunal context", icon: Scale },
-  { key: "compliance", label: "Audit / vigilance / debarment signals", icon: Siren },
-] as const;
-
-type FocusKey = (typeof FOCUSES)[number]["key"];
+type FocusKey = "records" | "news" | "legal" | "compliance";
 
 type ContextItem = {
   id: string;
@@ -51,14 +42,41 @@ type FocusState = {
   items: ContextItem[];
 };
 
+type IntelligenceResponse = {
+  clusters: Array<{
+    cluster: string;
+    items: Array<{
+      id: string;
+      source: string;
+      source_type: string;
+      evidence_type: string;
+      cluster: string;
+      confidence: number;
+      confidence_tier: string;
+      publication_date: string | null;
+      url: string;
+      evidence_summary: string;
+      retrieved_at: string;
+    }>;
+  }>;
+};
+
+const FOCUSES: Array<{ key: FocusKey; label: string; icon: typeof FileSearch }> = [
+  { key: "records", label: "Tender / award / contract history", icon: FileSearch },
+  { key: "news", label: "Current + past procurement reporting", icon: Newspaper },
+  { key: "legal", label: "Litigation / court / tribunal context", icon: Scale },
+  { key: "compliance", label: "Audit / vigilance / debarment signals", icon: Siren },
+];
+
 export function InvestigationWebResearch({ initialQuery }: { initialQuery: string }) {
-  const [focusState, setFocusState] = useState<Record<FocusKey, FocusState>>(() =>
-    Object.fromEntries(FOCUSES.map(({ key }) => [key, { status: "queued", items: [] }])) as Record<FocusKey, FocusState>,
+  const emptyState = useMemo<Record<FocusKey, FocusState>>(
+    () => Object.fromEntries(FOCUSES.map(({ key }) => [key, { status: "queued", items: [] }])) as Record<FocusKey, FocusState>,
+    [],
   );
+  const [focusState, setFocusState] = useState<Record<FocusKey, FocusState>>(emptyState);
   const [items, setItems] = useState<ContextItem[]>([]);
   const [running, setRunning] = useState(Boolean(initialQuery));
   const [refreshing, setRefreshing] = useState(false);
-  const [pulse, setPulse] = useState(0);
 
   useEffect(() => {
     if (!initialQuery) return;
@@ -69,13 +87,13 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
       setRunning(true);
       setRefreshing(false);
       setItems([]);
-      setFocusState(Object.fromEntries(FOCUSES.map(({ key }) => [key, { status: "queued", items: [] }])) as Record<FocusKey, FocusState>);
+      setFocusState(emptyState);
 
       const collect = async (focus: (typeof FOCUSES)[number], index: number) => {
         const detail = [
           "Searching indexed procurement pages…",
           "Collecting source pages and historical context…",
-          "Classifying what is a record versus contextual reporting…",
+          "Classifying records, reporting and legal context…",
           "Preserving a stable SENTRY snapshot for review…",
         ][index];
         setFocusState((prev) => ({ ...prev, [focus.key]: { status: "searching", detail, items: [] } }));
@@ -86,8 +104,8 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
             body: JSON.stringify({ query: initialQuery, focus: focus.label, limit: 8 }),
             signal: controller.signal,
           });
-          const payload = (await response.json()) as { stored_pages?: ContextItem[]; error?: string };
-          if (!response.ok) throw new Error(payload.error || "Web search failed");
+          const payload = (await response.json()) as { stored_pages?: ContextItem[]; detail?: string };
+          if (!response.ok) throw new Error(payload.detail || "Web search failed");
           const next = payload.stored_pages ?? [];
           if (!alive) return;
           setFocusState((prev) => ({ ...prev, [focus.key]: { status: "complete", items: next } }));
@@ -105,8 +123,6 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
         }
       };
 
-      // Run all four research lanes in parallel so the live panel genuinely
-      // behaves like a parallel investigation rather than a staged animation.
       await Promise.allSettled(FOCUSES.map(collect));
       if (!alive) return;
 
@@ -117,24 +133,12 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
           signal: controller.signal,
         });
         if (response.ok) {
-          const intelligence = (await response.json()) as ProcurementIntelligenceResponse;
-          const flattened = intelligence.clusters.flatMap((cluster) => cluster.items.map((item) => ({
-            id: item.id,
-            source: item.source,
-            source_type: item.source_type,
-            evidence_type: item.evidence_type,
-            cluster: item.cluster,
-            confidence: item.confidence,
-            confidence_tier: item.confidence_tier,
-            publication_date: item.publication_date,
-            url: item.url,
-            evidence_summary: item.evidence_summary,
-            retrieved_at: item.retrieved_at,
-          })));
+          const intelligence = (await response.json()) as IntelligenceResponse;
+          const flattened = intelligence.clusters.flatMap((cluster) => cluster.items);
           setItems(flattened);
         }
       } catch {
-        // Existing collected cards remain visible even when the aggregate read fails.
+        // Keep already-collected cards if aggregate refresh fails.
       } finally {
         if (alive) {
           setRefreshing(false);
@@ -148,18 +152,12 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
       alive = false;
       controller.abort();
     };
-  }, [initialQuery]);
-
-  useEffect(() => {
-    if (!running) return;
-    const timer = window.setInterval(() => setPulse((value) => value + 1), 1400);
-    return () => window.clearInterval(timer);
-  }, [running]);
+  }, [emptyState, initialQuery]);
 
   const completed = FOCUSES.filter(({ key }) => focusState[key].status === "complete").length;
   const failed = FOCUSES.filter(({ key }) => focusState[key].status === "error").length;
   const progress = running ? Math.max(8, Math.round(((completed + failed) / FOCUSES.length) * 100)) : 100;
-  const clusters = useMemo(() => countClusters(items), [items, pulse]);
+  const clusters = countClusters(items);
 
   return (
     <section className="mt-8">
