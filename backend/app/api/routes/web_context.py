@@ -11,7 +11,7 @@ from app.webintel.crawler import get_default_crawler
 from app.webintel.extractor import extract_evidence
 from app.webintel.intelligence import build_intelligence
 from app.webintel.models import WebEvidence
-from app.webintel.schemas import ProcurementIntelligenceResponse, SearchRequest, StoredPage, WebSearchResponse
+from app.webintel.schemas import ProcurementIntelligenceResponse, SearchRequest, StoredPage
 from app.webintel.search import get_default_search_provider
 from app.webintel.source_authority import classify_source, is_procurement_relevant
 from app.webintel.utils import canonicalize_url
@@ -58,7 +58,11 @@ def search_web_context(request: WebContextSearchRequest, db: Session = Depends(g
             rejected += 1
             continue
 
-        page = crawler.fetch(url)
+        try:
+            page = crawler.fetch(url)
+        except Exception as exc:  # noqa: BLE001
+            logger.info("Context crawler failed url=%s error=%s", url, exc)
+            continue
         if page is None:
             continue
         if not is_procurement_relevant(page.title or result.title, page.url, page.content):
