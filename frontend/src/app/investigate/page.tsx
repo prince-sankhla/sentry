@@ -1,3 +1,4 @@
+import { InvestigationWebResearch } from "@/components/intel/investigation-web-research";
 import { InvestigationPhases } from "@/components/intel/investigation-phases";
 import { InvestigationWorkspace } from "../investigation-workspace";
 
@@ -15,10 +16,8 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
 
   return (
     <>
-      <InvestigationPhases
-        active={initialQuery ? "intelligence" : "intelligence"}
-        completed={[]}
-      />
+      <InvestigationPhases active="intelligence" completed={[]} />
+      {initialQuery ? <InvestigationWebResearch initialQuery={initialQuery} /> : null}
       <InvestigationWorkspace initialQuery={initialQuery} />
     </>
   );
