@@ -4,6 +4,7 @@ import { getAnalyticsOverview, getRisk } from "@/lib/api";
 import { PageHeader, PageShell, Badge, SeverityBadge } from "@/components/ui/page";
 import { Section, StatCard, SurfaceCard } from "@/components/ui/card";
 import { EmptyState, ErrorState } from "@/components/ui/states";
+import { WorkspaceRoleSummary } from "@/components/layout/workspace-role-summary";
 import { formatNumber } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export default async function ProfilePage() {
       <PageHeader
         eyebrow="Account"
         title="Analyst Profile"
-        subtitle="Your SENTRY investigation workspace and current portfolio coverage."
+        subtitle="Your SENTRY investigation workspace, active role, and current portfolio coverage."
       />
 
       <section className="grid w-full gap-5 xl:grid-cols-[360px_1fr]">
@@ -56,26 +57,28 @@ export default async function ProfilePage() {
             <StatCard label="Tenders" value={formatNumber(totals.tenders)} tone="accent" />
             <StatCard label="Companies" value={formatNumber(totals.companies)} />
             <StatCard label="Awards" value={formatNumber(totals.awards)} tone="success" />
-            <StatCard label="Risk signals" value={formatNumber(risk.summary.total)} tone="danger" icon={<Radar className="h-4 w-4" />} />
+            <StatCard label="Review signals" value={formatNumber(risk.summary.total)} tone="danger" icon={<Radar className="h-4 w-4" />} />
           </div>
         </aside>
 
         <div className="space-y-5">
+          <WorkspaceRoleSummary />
+
           <Section eyebrow="Workspace" title="Quick actions">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Action href="/investigations" icon={<FolderSearch className="h-4 w-4" />} label="New investigation" hint="Launch a workflow" />
               <Action href="/graph" icon={<GitBranch className="h-4 w-4" />} label="Graph explorer" hint="Map relationships" />
-              <Action href="/risk" icon={<ShieldAlert className="h-4 w-4" />} label="Risk monitor" hint={`${risk.summary.high} high signals`} />
+              <Action href="/risk" icon={<ShieldAlert className="h-4 w-4" />} label="Review signals" hint={`${risk.summary.high} high-severity signals`} />
             </div>
           </Section>
 
           <Section
             eyebrow="Attention"
-            title="Top risk signals in your portfolio"
-            action={<Link href="/risk" className="text-xs text-accent hover:underline">Monitor →</Link>}
+            title="Highest-priority review signals"
+            action={<Link href="/risk" className="text-xs text-accent hover:underline">Open assessment →</Link>}
           >
             {topSignals.length === 0 ? (
-              <EmptyState icon={<Activity className="h-5 w-5" />} message="No risk signals in the current dataset." />
+              <EmptyState icon={<Activity className="h-5 w-5" />} message="No review signals in the current dataset." />
             ) : (
               <ul className="divide-y divide-border">
                 {topSignals.map((s, i) => (
