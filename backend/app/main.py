@@ -4,7 +4,16 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import (
+from app.core.config import get_settings
+from app.db.connection import verify_database_connection
+from app.services.investigation_safety_patch import apply_safety_patch
+
+# Apply investigation guardrails before any route modules can import the risk
+# engine functions. This prevents historical winner-count proxies from reaching
+# production findings or risk output.
+apply_safety_patch()
+
+from app.api.routes import (  # noqa: E402
     analytics,
     benchmarks,
     buyer_kundali,
@@ -26,8 +35,6 @@ from app.api.routes import (
     web_archive,
     web_context,
 )
-from app.core.config import get_settings
-from app.db.connection import verify_database_connection
 
 settings = get_settings()
 
