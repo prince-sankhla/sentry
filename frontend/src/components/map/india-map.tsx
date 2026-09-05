@@ -69,7 +69,6 @@ export function IndiaMap({
     };
   }, []);
 
-  // Build a lookup keyed by canonical state name.
   const byState = useMemo(() => {
     const map = new Map<string, RegionDatum>();
     for (const r of regions) {
@@ -92,7 +91,6 @@ export function IndiaMap({
     [byState]
   );
 
-  // Top active states get an animated hotspot marker.
   const hotspots = useMemo(
     () =>
       [...byState.values()]
@@ -149,7 +147,7 @@ export function IndiaMap({
           style={{ width: "100%", height }}
         >
           <ZoomableGroup zoom={zoom} center={[82.8, 22.6]} onMoveEnd={({ zoom: z }) => setZoom(z)} minZoom={1} maxZoom={8}>
-            <Geographies geography={geoData}>
+            <Geographies geography={geoData as object}>
               {({ geographies }) =>
                 geographies.map((geo) => {
                   const name = geo.properties.st_nm ?? geo.properties.NAME_1 ?? geo.properties.name ?? "";
