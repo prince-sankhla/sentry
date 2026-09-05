@@ -23,17 +23,15 @@ from app.services.investigation_executor import InvestigationExecutor
 from app.services.investigation_reasoning import build_reasoning
 from app.services.investigation_packet import build_packet_document, render_packet_html
 from app.clients.llm import available_providers, get_llm_client
+from app.api.routes.web import search_web
+from app.api.routes.web_context import search_web_context, WebContextSearchRequest
+from app.webintel.schemas import SearchRequest
 
 router = APIRouter(prefix="/api/investigations", tags=["investigations"])
 
 
 class LLMProviderStatus(BaseModel):
-    """Observability for the multi-provider reasoning chain.
-
-    ``mode`` is ``llm`` when at least one provider is configured (the chain will
-    attempt live narration, falling back deterministically on failure) or
-    ``deterministic`` when none is configured (fully offline reasoning).
-    """
+    """Observability for the multi-provider reasoning chain."""
 
     mode: str
     providers: list[str]
@@ -78,15 +76,7 @@ def context_analysis(
     finding_name: str = Query("", max_length=200),
     jurisdiction: str = Query("", max_length=20),
 ):
-    """Procurement Context Analyzer — trusted procurement context for one finding.
-
-    Read-only runtime layer of the Verified Context Engine: resolves guidance
-    for the given deterministic finding (local Verified Context Library first,
-    then trusted retrieval) and organizes it into fixed presentation sections.
-    Nothing is cached or persisted; findings, severities, and scores are never
-    touched; when no relevant guidance exists the fixed no-guidance message is
-    returned instead of fabricated context.
-    """
+    """Procurement Context Analyzer — trusted procurement context for one finding."""
     from types import SimpleNamespace
 
     from app.verified_context import ProcurementContextAnalyzer
@@ -101,19 +91,12 @@ class ContextAnalysisRequest(BaseModel):
     finding_id: str
     finding_name: str = ""
     jurisdiction: str = ""
-    facts: dict | None = None      # ContextFacts payload (records + as_of)
+    facts: dict | None = None
 
 
 @router.post("/context-analysis")
 def context_analysis_with_facts(request: ContextAnalysisRequest):
-    """Procurement Context Analyzer with applicability evaluation.
-
-    Same read-only analyzer as the GET route, but the caller supplies the
-    investigation's retrieved facts so every guidance card is first evaluated
-    for applicability: guidance the facts support is labeled as such; guidance
-    the facts cannot establish (or contradict) is withheld with a neutral note.
-    Deterministic; nothing cached or persisted; findings never modified.
-    """
+    """Procurement Context Analyzer with applicability evaluation."""
     from types import SimpleNamespace
 
     from app.verified_context import ContextFacts, ProcurementContextAnalyzer
@@ -130,15 +113,7 @@ def priority_queue(
     limit: int = Query(8, ge=1, le=50),
     db: Session = Depends(get_db),
 ) -> PriorityQueueResponse:
-    """Priority Investigation Queue — built from the CURRENT procurement database.
-
-    For each real procuring entity in the live data, this runs the existing
-    deterministic investigation engine (indicators + Risk Engine V2) over that
-    entity's tenders and ranks the results by attention needed. It answers "where
-    should an investigator start today?" from current evidence — not from past
-    investigations. Deterministic and explainable: no AI, no historical memory,
-    no new scoring, no claim of wrongdoing.
-    """
+    """Priority Investigation Queue — built from the CURRENT procurement database."""
     return build_priority_queue(db, limit=limit)
 
 
@@ -148,13 +123,7 @@ class EntityResolutionRequest(BaseModel):
 
 @router.post("/resolve-entity", response_model=EntityResolutionResult)
 def resolve_entity(request: EntityResolutionRequest, db: Session = Depends(get_db)) -> EntityResolutionResult:
-    """Resolve free text to ranked canonical entity candidates before investigating.
-
-    Every investigation should begin here: if the text maps to more than one
-    plausible company (e.g. "Tata" → Tata Projects / Tata Steel / Tata Motors …)
-    the result flags ``requires_disambiguation`` so the caller can require an
-    explicit selection instead of merging unrelated entities into one case.
-    """
+    """Resolve free text to ranked canonical entity candidates before investigating."""
     return resolve_entities(db, request.query)
 
 
@@ -201,25 +170,10 @@ def _sse(event: str, data: dict) -> str:
 async def stream_investigation(
     request: InvestigationStreamRequest, db: Session = Depends(get_db)
 ) -> StreamingResponse:
-    """Run a full investigation from one free-text prompt, streaming live progress.
-
-    Emits SSE frames as the multi-step agent works:
-      * ``step``   — a pipeline step started/completed (plan, execute, resolve, indicators, reasoning)
-      * ``plan``   — the generated investigation plan
-      * ``report`` — the final package + grounded AI reasoning
-      * ``error``  — an unrecoverable failure
-
-    The heavy lifting reuses the existing planner, executor, entity resolution,
-    and indicator services — this endpoint only orchestrates and narrates them.
-    """
+    """Run a full investigation from one free-text prompt, streaming live progress."""
 
     async def event_stream() -> AsyncIterator[str]:
         try:
-            # Step 0 — canonical entity resolution. Every investigation begins by
-            # resolving the free text to a specific entity; when the text is
-            # ambiguous we surface ranked candidates (additive SSE frame) so the
-            # UI can offer explicit selection. Non-fatal: retrieval still proceeds
-            # on the raw query so existing single-shot behaviour is preserved.
             yield _sse("step", {"key": "resolve_entity", "status": "running", "label": "Resolving canonical entity"})
             try:
                 resolution = resolve_entities(db, request.query)
@@ -228,11 +182,10 @@ async def stream_investigation(
                     f"{len(resolution.candidates)} candidate(s)"
                     + (" · selection recommended" if resolution.requires_disambiguation else "")
                 )
-            except Exception:  # resolution is best-effort; never blocks the run
+            except Exception:
                 detail = "resolution skipped"
             yield _sse("step", {"key": "resolve_entity", "status": "complete", "label": "Entity resolution complete", "detail": detail})
 
-            # Step 1 — understand request & plan connectors
             yield _sse("step", {"key": "plan", "status": "running", "label": "Understanding request & selecting sources"})
             planner = InvestigationPlanner()
             plan = planner.build_plan(query=request.query, source_names=request.source_names)
@@ -247,8 +200,6 @@ async def stream_investigation(
                 },
             )
 
-            # Step 2 — retrieve records + resolve entities + build graph/indicators.
-            # The executor runs the planner's steps end to end and finalizes the package.
             yield _sse("step", {"key": "retrieve", "status": "running", "label": "Retrieving procurement records"})
             executor = InvestigationExecutor(session=db)
             package = await executor.execute(
@@ -288,9 +239,6 @@ async def stream_investigation(
                     "detail": indicators_detail,
                 },
             )
-            # Evidence + grounding are already computed inside the executor's
-            # package finalisation; surface them as their own pipeline steps so the
-            # analyst sees Retrieval → Evidence → Grounding → Reasoning in real time.
             documents_available = sum(1 for r in package.records if r.documents)
             yield _sse(
                 "step",
@@ -311,8 +259,76 @@ async def stream_investigation(
                 },
             )
 
-            # Step 3 — the LLM acts as the final Procurement Intelligence Analyst,
-            # reasoning ONLY over the grounded package (never the DB or the web).
+            # Automatic open-source intelligence is additive. Procurement web
+            # pages are stored in the web evidence subsystem; historical/news
+            # context is stored without a WebProcurementEvidence link, so it
+            # cannot change the deterministic risk engine.
+            web_procurement_count = 0
+            web_context_count = 0
+            yield _sse(
+                "step",
+                {
+                    "key": "web_search",
+                    "status": "running",
+                    "label": "Searching the open web",
+                    "detail": "Searching current tender, contract and procurement records…",
+                },
+            )
+            try:
+                web_result = search_web(SearchRequest(query=request.query), db)
+                web_procurement_count = len(web_result.stored_pages)
+                yield _sse(
+                    "step",
+                    {
+                        "key": "web_search",
+                        "status": "running",
+                        "label": "Searching procurement web sources",
+                        "detail": f"Found {len(web_result.search_results)} results · captured {web_procurement_count} procurement pages…",
+                    },
+                )
+            except Exception as exc:
+                yield _sse(
+                    "step",
+                    {
+                        "key": "web_search",
+                        "status": "running",
+                        "label": "Searching procurement web sources",
+                        "detail": f"Current web evidence unavailable · continuing safely ({type(exc).__name__})",
+                    },
+                )
+
+            yield _sse(
+                "step",
+                {
+                    "key": "web_search",
+                    "status": "running",
+                    "label": "Reading historical context",
+                    "detail": "Checking past tender, contract, audit and procurement coverage…",
+                },
+            )
+            try:
+                context_result = search_web_context(
+                    WebContextSearchRequest(
+                        query=request.query,
+                        focus="tender contract procurement news audit investigation history",
+                        limit=8,
+                    ),
+                    db,
+                )
+                web_context_count = int(context_result.get("downloaded_pages", 0))
+            except Exception:
+                web_context_count = 0
+
+            yield _sse(
+                "step",
+                {
+                    "key": "web_search",
+                    "status": "complete",
+                    "label": "Open-source intelligence collected",
+                    "detail": f"{web_procurement_count} procurement pages · {web_context_count} context pages · news/history excluded from risk scoring",
+                },
+            )
+
             provider_status = _provider_status()
             yield _sse(
                 "step",
@@ -341,7 +357,7 @@ async def stream_investigation(
             report = InvestigationReport(package=package, reasoning=reasoning)
             yield _sse("report", report.model_dump(mode="json"))
             yield _sse("done", {"ok": True})
-        except Exception as exc:  # surface failures to the client as an SSE error frame
+        except Exception as exc:
             yield _sse("error", {"message": str(exc)})
 
     return StreamingResponse(
@@ -352,11 +368,7 @@ async def stream_investigation(
 
 
 async def _run_and_build_packet(db: Session, query: str, limit: int):
-    """Reuse the full pipeline (plan → execute → reason) and assemble the packet.
-
-    Deterministic: the risk model and every packet number reproduce across runs
-    for the same data; only the optional AI phrasing (grounding-guarded) varies.
-    """
+    """Reuse the full pipeline (plan → execute → reason) and assemble the packet."""
     plan = InvestigationPlanner().build_plan(query=query)
     executor = InvestigationExecutor(session=db)
     package = await executor.execute(
@@ -375,11 +387,7 @@ async def evidence_packet_html(
     limit_per_connector: int = Query(25, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    """One-click Evidence Packet export: a self-contained, print-ready HTML document.
-
-    GET so it can be opened directly in a new tab and Printed → PDF. Every figure
-    traces to an official source URL inside the packet; nothing is invented.
-    """
+    """One-click Evidence Packet export: a self-contained, print-ready HTML document."""
     doc = await _run_and_build_packet(db, query, limit_per_connector)
     return HTMLResponse(content=render_packet_html(doc))
 
