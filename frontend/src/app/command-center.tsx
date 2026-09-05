@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AreaTrend, DonutChart, HBarChart } from "@/components/charts";
 import { CHART } from "@/components/charts/echart";
@@ -25,6 +25,7 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { AiStatus } from "@/components/dashboard/ai-status";
 import { LiveActivityFeed } from "@/components/dashboard/live-activity";
 import { MorningBrief } from "@/components/dashboard/morning-brief";
+import { RoleCommandCenter } from "@/components/dashboard/role-command-center";
 import { SourceStatus } from "@/components/dashboard/source-status";
 import { Reveal } from "@/components/intel/reveal";
 import {
@@ -173,6 +174,8 @@ function CommandCenterView({
 
       <MorningBrief overview={overview} risk={risk} timeline={timeline} onLaunch={onLaunch} />
 
+      <RoleCommandCenter />
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <KpiCard href="/tenders" label="Tenders" value={formatNumber(totals.tenders)} tone="accent" icon={<FileText className="h-4 w-4" />} spark={spark(totals.tenders)} />
         <KpiCard href="/awards" label="Awarded value" value={formatCompactMoney(totals.total_awarded_value)} tone="success" icon={<Award className="h-4 w-4" />} spark={spark(9)} />
@@ -260,136 +263,50 @@ function CommandCenterView({
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-border bg-bg-2 text-success text-[10px] font-semibold tabular">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-text">{supplier.name}</span>
-                  <span className="shrink-0 tabular text-xs font-semibold text-text">{formatCompactMoney(supplier.total_value)}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-text">{supplier.company}</span>
+                  <span className="shrink-0 tabular text-xs text-muted">{formatCompactMoney(String(supplier.total_value))}</span>
                 </Link>
               ))}
             </div>
           )}
         </Section>
 
-        <Section eyebrow="Activity" title="Recent procurement activity">
-          <LiveActivityFeed timeline={timeline.events} recent={recent} />
+        <Section eyebrow="Activity" title="Recent investigation signals">
+          <LiveActivityFeed timeline={timeline} />
         </Section>
       </Reveal>
 
-      <Reveal className="grid grid-cols-1 gap-5 lg:grid-cols-[1.55fr_1fr]">
-        <Section eyebrow="Trend" title="Procurement value over time" action={<Link href="/reports" className="text-xs font-medium text-accent hover:underline">Open reports →</Link>}>
-          {trend.length === 0 ? (
-            <EmptyState message="No dated procurement records are available to chart." />
-          ) : (
-            <AreaTrend
-              categories={trend.map((month) => month.month.slice(2))}
-              values={trend.map((month) => Number(month.value) || 0)}
-              color={CHART.accent}
-              height={220}
-              valueFormatter={(value) => formatCompactMoney(String(value))}
-            />
-          )}
+      <Reveal className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Section eyebrow="Trend" title="Award activity">
+          <AreaTrend
+            labels={trend.map((point) => point.month)}
+            series={[{ name: "Awarded value", data: trend.map((point) => Number(point.total_awarded_value) || 0), color: CHART.success }]}
+            height={240}
+            valueFormatter={(value) => formatCompactMoney(String(value))}
+          />
         </Section>
-
-        <Section eyebrow="Data coverage" title="Source coverage">
+        <Section eyebrow="Sources" title="Data source status">
           <SourceStatus sources={overview.sources} />
         </Section>
       </Reveal>
-
-      <Reveal>
-        <Section eyebrow="Records" title="Recent tender records" action={<Link href="/tenders" className="text-xs font-medium text-accent hover:underline">View all →</Link>}>
-          <div className="divide-y divide-border">
-            {recent.latest_tenders.length === 0 ? (
-              <EmptyState message="No recent tender records are available." />
-            ) : (
-              recent.latest_tenders.map((tender) => (
-                <Link key={tender.id} href={`/tenders/${tender.id}`} className="group flex items-center justify-between gap-4 py-3 transition hover:opacity-90">
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border bg-bg-2 text-info">
-                      <FileText className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-medium text-text">{tender.title}</span>
-                      <span className="mt-0.5 block truncate text-[11px] text-faint">
-                        {tender.procuring_entity ?? "Procuring entity not available"} · {formatDate(tender.published_date)}
-                      </span>
-                    </span>
-                  </span>
-                  <span className="shrink-0 tabular text-xs font-semibold text-text">{formatCompactMoney(tender.estimated_value, tender.currency)}</span>
-                </Link>
-              ))
-            )}
-          </div>
-        </Section>
-      </Reveal>
     </div>
-  );
-}
-
-function ActionLink({ href, icon, title, detail }: { href: string; icon: ReactNode; title: string; detail: string }) {
-  return (
-    <Link href={href} className="group flex items-center gap-3 px-5 py-4 transition-colors hover:bg-surface-2/50">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border bg-bg-2 text-accent">{icon}</span>
-      <span className="min-w-0">
-        <span className="block text-xs font-semibold text-text">{title}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-faint">{detail}</span>
-      </span>
-    </Link>
   );
 }
 
 function QuickStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-bg-2/40 px-3.5 py-3">
-      <div className="t-label truncate">{label}</div>
-      <div className="mt-1.5 tabular text-xl font-semibold tracking-[-0.02em] text-text">{value}</div>
+    <div className="rounded-xl border border-border bg-bg-2/50 px-3.5 py-3">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-faint">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular text-text">{value}</div>
     </div>
   );
 }
 
-function QueueMetric({ label, value, tone }: { label: string; value: number; tone: "danger" | "warning" | "success" }) {
-  const colors = { danger: "text-danger", warning: "text-warning", success: "text-success" } as const;
+function ActionLink({ href, icon, title, detail }: { href: string; icon: React.ReactNode; title: string; detail: string }) {
   return (
-    <div className="rounded-lg border border-border bg-bg-2/40 px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-[0.12em] text-faint">{label}</div>
-      <div className={`mt-1 tabular text-lg font-semibold ${colors[tone]}`}>{formatNumber(value)}</div>
-    </div>
-  );
-}
-
-function truncate(value: string | null, length: number): string {
-  if (!value) return "Not available";
-  return value.length > length ? `${value.slice(0, length)}…` : value;
-}
-
-function spark(seed: number): number[] {
-  const points: number[] = [];
-  let value = 36 + (seed % 9) * 5;
-  for (let index = 0; index < 12; index += 1) {
-    value += ((index * 11 + seed * 7) % 13) - 5;
-    points.push(Math.max(10, value));
-  }
-  return points;
-}
-
-function CommandCenterSkeleton() {
-  return (
-    <div className="space-y-5" aria-hidden="true">
-      <div className="rounded-2xl border border-border bg-surface p-7">
-        <div className="h-3 w-28 animate-pulse rounded bg-bg-2" />
-        <div className="mt-4 h-10 max-w-2xl animate-pulse rounded bg-bg-2" />
-        <div className="mt-3 h-4 max-w-xl animate-pulse rounded bg-bg-2" />
-        <div className="mt-7 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-20 animate-pulse rounded-xl bg-bg-2" />)}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl border border-border bg-surface" />)}
-      </div>
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <div className="h-[490px] animate-pulse rounded-2xl border border-border bg-surface" />
-        <div className="space-y-5">
-          <div className="h-[320px] animate-pulse rounded-2xl border border-border bg-surface" />
-          <div className="h-[170px] animate-pulse rounded-2xl border border-border bg-surface" />
-        </div>
-      </div>
-    </div>
+    <Link href={href} className="group flex items-center gap-3 border-r border-border p-4 transition hover:bg-surface-2 last:border-r-0">
+      <span className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-accent transition group-hover:border-accent/30">{icon}</span>
+      <span className="min-w-0"><span className="block text-sm font-medium text-text">{title}</span><span className="mt-0.5 block text-xs text-faint">{detail}</span></span>
+    </Link>
   );
 }
