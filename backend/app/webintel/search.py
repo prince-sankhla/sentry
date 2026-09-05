@@ -4,8 +4,10 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from datetime import datetime
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, unquote, urlparse
+from xml.etree import ElementTree
 
 import httpx
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -37,6 +39,69 @@ class SearXNGSearchProvider(SearchProvider):
         raise NotImplementedError("SearXNG support is an extension point and requires a configured instance.")
 
 
+class BingRSSSearchProvider(SearchProvider):
+    """Keyless public web search using Bing's RSS result feed.
+
+    RSS is deliberately used instead of scraping the interactive Bing page so
+    server-side deployments can retrieve results without browser JavaScript.
+    """
+
+    search_url = "https://www.bing.com/search"
+
+    def __init__(self, timeout: float = 20.0) -> None:
+        self.timeout = httpx.Timeout(timeout)
+
+    def search(self, query: str, limit: int = 10) -> list[SearchResult]:
+        xml = self._fetch(query)
+        try:
+            root = ElementTree.fromstring(xml)
+        except ElementTree.ParseError:
+            logger.warning("Bing RSS returned non-XML content for query=%s", query)
+            return []
+
+        results: list[SearchResult] = []
+        for item in root.findall(".//item"):
+            title = clean_whitespace(item.findtext("title") or "")
+            url = clean_whitespace(item.findtext("link") or "")
+            snippet = clean_whitespace(item.findtext("description") or "") or None
+            if not title or not url:
+                continue
+            canonical_url = canonicalize_url(url)
+            domain = domain_from_url(canonical_url)
+            published_date = _parse_date(item.findtext("pubDate"))
+            results.append(
+                SearchResult(
+                    title=title,
+                    url=canonical_url,
+                    snippet=snippet,
+                    source=domain,
+                    provider="bing_rss",
+                    domain=domain,
+                    published_date=published_date,
+                )
+            )
+            if len(results) >= limit:
+                break
+        return results
+
+    @retry(
+        retry=retry_if_exception_type(httpx.HTTPError),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        stop=stop_after_attempt(2),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    def _fetch(self, query: str) -> str:
+        headers = {
+            "User-Agent": "SENTRY-WebIntel/1.0 (+public contextual research)",
+            "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        }
+        with httpx.Client(timeout=self.timeout, follow_redirects=True, headers=headers) as client:
+            response = client.get(self.search_url, params={"q": query, "format": "rss", "setlang": "en-IN"})
+            response.raise_for_status()
+            return response.text
+
+
 class DuckDuckGoSearchProvider(SearchProvider):
     search_url = "https://duckduckgo.com/html/"
 
@@ -57,7 +122,7 @@ class DuckDuckGoSearchProvider(SearchProvider):
     )
     def _fetch(self, query: str) -> str:
         headers = {
-            "User-Agent": "SENTRY-WebIntel/0.1 (+public evidence collection; contact: local)",
+            "User-Agent": "SENTRY-WebIntel/1.0 (+public contextual research)",
             "Accept": "text/html,application/xhtml+xml",
         }
         with httpx.Client(timeout=self.timeout, follow_redirects=True, headers=headers) as client:
@@ -149,5 +214,35 @@ def _extract_date(text: str) -> datetime | None:
         return None
 
 
+def _parse_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = parsedate_to_datetime(value)
+        return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+    except (TypeError, ValueError, OverflowError):
+        return _extract_date(value)
+
+
 def get_default_search_provider() -> SearchProvider:
-    return DuckDuckGoSearchProvider()
+    """Return a real public-web provider with a deterministic fallback."""
+    return _FallbackSearchProvider(BingRSSSearchProvider(), DuckDuckGoSearchProvider())
+
+
+class _FallbackSearchProvider(SearchProvider):
+    def __init__(self, primary: SearchProvider, fallback: SearchProvider) -> None:
+        self.primary = primary
+        self.fallback = fallback
+
+    def search(self, query: str, limit: int = 10) -> list[SearchResult]:
+        try:
+            primary_results = self.primary.search(query, limit=limit)
+            if primary_results:
+                return primary_results
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Primary web search failed; using fallback error=%s", exc)
+        try:
+            return self.fallback.search(query, limit=limit)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("All web search providers failed error=%s", exc)
+            return []
