@@ -36,6 +36,14 @@ type ContextItem = {
   retrieved_at: string;
 };
 
+type SearchResult = {
+  title: string;
+  url: string;
+  snippet?: string | null;
+  source: string;
+  published_date?: string | null;
+};
+
 type FocusState = {
   status: "queued" | "searching" | "complete" | "error";
   detail?: string;
@@ -85,10 +93,10 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
 
       const collect = async (focus: (typeof FOCUSES)[number], index: number) => {
         const detail = [
-          "Searching indexed procurement pages…",
+          "Searching the public web and procurement index…",
           "Collecting source pages and historical context…",
-          "Classifying records, reporting and legal context…",
-          "Preserving a stable SENTRY snapshot for review…",
+          "Cross-checking reporting, legal and regulatory context…",
+          "Preserving source snapshots for analyst review…",
         ][index];
         setFocusState((prev) => ({
           ...prev,
@@ -101,9 +109,18 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
             body: JSON.stringify({ query: initialQuery, focus: focus.label, limit: 8 }),
             signal: controller.signal,
           });
-          const payload = (await response.json()) as { stored_pages?: ContextItem[]; detail?: string };
+          const payload = (await response.json()) as {
+            stored_pages?: ContextItem[];
+            context_items?: ContextItem[];
+            search_results?: SearchResult[];
+            detail?: string;
+          };
           if (!response.ok) throw new Error(payload.detail || "Web search failed");
-          const next = payload.stored_pages ?? [];
+          const next = payload.context_items?.length
+            ? payload.context_items
+            : payload.stored_pages?.length
+              ? payload.stored_pages
+              : (payload.search_results ?? []).map((result, resultIndex) => searchResultToContext(result, focus.key, resultIndex));
           if (!alive) return;
           setFocusState((prev) => ({ ...prev, [focus.key]: { status: "complete", items: next } }));
           setItems((prev) => mergeItems(prev, next));
@@ -169,7 +186,7 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold text-text">SENTRY is researching beyond the procurement record</div>
             <p className="mt-1 text-[11px] leading-5 text-muted">
-              Web results are contextual intelligence only. Procurement evidence and deterministic risk calculations remain separate.
+              SENTRY searches the public web automatically across procurement, reporting, legal and compliance context. Web context is not treated as proof or allowed to change deterministic risk.
             </p>
           </div>
           <Sparkles className="hidden h-4 w-4 shrink-0 text-accent sm:block" />
@@ -198,7 +215,7 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
           <EmptyState title="No web context found" message="No contextual web records were returned for this investigation query." />
         ) : (
           <AnimatePresence initial={false}>
-            {items.slice(0, 12).map((item) => (
+            {items.slice(0, 16).map((item) => (
               <motion.article key={item.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-border p-3">
                 <div className="flex items-start gap-3">
                   <Archive className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
@@ -210,7 +227,7 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
                     </div>
                     <p className="mt-1 text-[11px] leading-5 text-muted">{item.evidence_summary}</p>
                     <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-faint">
-                      <span className="inline-flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> SENTRY snapshot preserved</span>
+                      {item.id.startsWith("search-") ? null : <span className="inline-flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> SENTRY snapshot preserved</span>}
                       <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline"><Link2 className="h-3 w-3" /> Original source</a>
                     </div>
                   </div>
@@ -222,6 +239,22 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
       </div>
     </Section>
   );
+}
+
+function searchResultToContext(result: SearchResult, focus: FocusKey, index: number): ContextItem {
+  return {
+    id: `search-${focus}-${index}-${result.url}`,
+    source: result.source,
+    source_type: "public_web_search",
+    evidence_type: "Web Context",
+    cluster: focus,
+    confidence: 0.5,
+    confidence_tier: "SEARCH RESULT",
+    publication_date: result.published_date ?? null,
+    url: result.url,
+    evidence_summary: result.snippet || result.title,
+    retrieved_at: new Date().toISOString(),
+  };
 }
 
 function mergeItems(current: ContextItem[], incoming: ContextItem[]) {
