@@ -1,0 +1,25 @@
+name: Live procurement monitor
+
+on:
+  schedule:
+    # CPPP/ePublishing and GeM publish updates are surfaced on roughly a
+    # 15-minute cadence, so poll at the same resolution.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll official Indian procurement sources
+        env:
+          MONITOR_URL: https://sentry-platform-evaluation.vercel.app/api/monitoring/poll
+          SENTRY_MONITOR_TOKEN: ${{ secrets.SENTRY_MONITOR_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$SENTRY_MONITOR_TOKEN"
+          curl --fail-with-body --silent --show-error \
+            --request POST "$MONITOR_URL" \
+            --header "Authorization: Bearer $SENTRY_MONITOR_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data '{}'
