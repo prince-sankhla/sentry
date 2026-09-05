@@ -1,3 +1,4 @@
+import { Network, Search } from "lucide-react";
 import Link from "next/link";
 
 import { PageHeader, PageShell } from "@/components/ui/page";
@@ -24,38 +25,73 @@ export default async function GraphPage({ searchParams }: PageProps) {
     depth
   });
 
+  const focusedLabel = params.company_id
+    ? "Focused on supplier"
+    : params.tender_id
+      ? "Focused on tender"
+      : "Portfolio relationship view";
+
   return (
     <PageShell>
       <PageHeader
-        eyebrow="SENTRY Graph Engine"
-        title="Graph Investigation"
-        subtitle="Explore companies, tenders, awards, buyers, evidence, and procurement indicators as an interactive investigation graph."
-        breadcrumb={[{ label: "Dashboard", href: "/" }, { label: "Investigation Graph" }]}
+        eyebrow="Relationships"
+        title="Relationship Investigation"
+        subtitle="Trace buyers, suppliers, tenders, awards, indicators, documents and evidence as one connected investigation surface."
+        breadcrumb={[{ label: "Dashboard", href: "/" }, { label: "Relationship Investigation" }]}
         actions={
-          <Link
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong"
-            href="/tenders"
-          >
-            Search tenders
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-bg-2/50 px-3 text-xs text-muted">
+              <Network className="h-3.5 w-3.5 text-accent" />
+              {focusedLabel}
+            </span>
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:border-border-strong hover:bg-surface-2"
+              href="/tenders"
+            >
+              <Search className="h-4 w-4" />
+              Find a tender
+            </Link>
+          </div>
         }
       />
+
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <ContextStat label="Nodes" value={graph.nodes.length} detail="Entities in view" />
+        <ContextStat label="Relationships" value={graph.edges.length} detail="Connected records" />
+        <ContextStat label="Depth" value={depth} detail="Investigation radius" />
+        <ContextStat label="Indicators" value={graph.nodes.filter((node) => node.type === "indicator").length} detail="Screening nodes" />
+      </div>
+
       <section className="w-full">
         {graph.nodes.length === 0 ? (
           <EmptyState
-            title="No relationships yet"
-            message="Import tenders and awards to populate the investigation graph."
+            title="No relationships in scope"
+            message="SENTRY could not find connected procurement records for this view. Start from a verified supplier or tender to build a focused investigation graph."
             suggestions={[
-              "Run an investigation from the Workspace to build a graph automatically",
-              "Import tenders — awards linking buyers to suppliers generate edges",
+              "Open the Investigation Workspace and select a canonical entity",
+              "Search tender records and open a relationship view",
               "Connect the CPPP or GeM source connector in Settings"
             ]}
           />
         ) : (
-          <RelationshipGraphExplorer graph={graph} />
+          <RelationshipGraphExplorer
+            graph={graph}
+            title="Connected procurement evidence"
+            subtitle="Select a node or relationship to inspect the underlying record and provenance."
+          />
         )}
       </section>
     </PageShell>
+  );
+}
+
+function ContextStat({ label, value, detail }: { label: string; value: number; detail: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface/70 px-4 py-3 elevate">
+      <div className="t-label">{label}</div>
+      <div className="mt-1 text-xl font-semibold tabular text-text">{value.toLocaleString("en-IN")}</div>
+      <div className="mt-1 text-[11px] text-faint">{detail}</div>
+    </div>
   );
 }
 
