@@ -12,7 +12,7 @@ export default async function VerificationPage({ searchParams }: PageProps) {
 
   return (
     <PageShell>
-      <EvidenceVerification initialQuery={(params.q ?? "").trim()} />
+      <EvidenceVerification data={null} initialQuery={(params.q ?? "").trim()} />
     </PageShell>
   );
 }
