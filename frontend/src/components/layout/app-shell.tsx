@@ -34,7 +34,6 @@ import { CommandPalette } from "./command-palette";
 import { PageTransition } from "./page-transition";
 import {
   getStoredWorkspaceRole,
-  persistWorkspaceRole,
   WorkspaceRoleSwitcher,
   WORKSPACE_ROLES,
   type WorkspaceRole
