@@ -1,6 +1,6 @@
 # SENTRY — Phase 5 Complete Checkpoint
 
-**Phase:** 5 — Anomaly / Red-Flag Engine  
+**Phase:** 5 — Evidence Verification & Reasoning 2.0  
 **Status:** COMPLETE (implementation checkpoint)  
 **Repository:** `prince-sankhla/sentry`  
 **Branch:** `main`
@@ -8,7 +8,7 @@
 ## Delivered
 
 ### 1. Deterministic integrity screening
-The investigation pipeline now carries the deterministic Risk Engine V2 assessment as the authoritative integrity-screening output. It separates indicator detection, context interpretation, evidence validation, named pattern classification, confidence, and explainability rather than using an opaque aggregate score.
+The investigation pipeline carries the deterministic Risk Engine V2 assessment as the authoritative integrity-screening output. It separates indicator detection, context interpretation, evidence validation, named pattern classification, confidence, and explainability rather than using an opaque aggregate score.
 
 ### 2. Current data-supported indicator catalogue
 The Phase 5 registry includes the currently executable / package-supported signals:
@@ -31,17 +31,7 @@ The Phase 5 registry includes the currently executable / package-supported signa
 The registry also declares bidder/entity-overlap indicators where the underlying data may become available later.
 
 ### 3. Evidence and provenance contract
-Each V2 indicator carries:
-
-- stable identifier and human-readable name
-- base and final severity
-- deterministic score
-- evidence status (`verified`, `probable`, `unknown`)
-- confidence independent from risk severity
-- supporting record references
-- required evidence still needed for confirmation
-- deterministic context notes
-- mandatory investigator-review status
+Each V2 indicator carries a stable identifier, human-readable name, base and final severity, deterministic score, evidence status, independent confidence, supporting record references, required evidence, deterministic context notes, and mandatory investigator-review status.
 
 Missing evidence never becomes a positive finding. Unsupported bidder-level claims are gated instead of inferred from winner/award records.
 
@@ -51,25 +41,23 @@ The engine applies explicit deterministic context rules for emergency/disaster p
 ### 5. Named multi-signal patterns
 Risk classification uses explicit rule combinations such as rapid-repeat + repeated supplier, related-party overlap combinations, award-timing patterns, buyer-supplier identity, and value anomalies. Patterns are named findings, not arithmetic additions of indicator points.
 
-### 6. Dedicated Phase 5 UI
-`/red-flags` provides:
+### 6. Existing deterministic screening UI
+`/red-flags` continues to provide the deterministic V2 assessment, evidence completeness/confidence summary, named pattern cards, indicator drill-down, evidence status, supporting records, context adjustments, confirmation requirements, explainability tree, and investigator-review disclaimer.
 
-- screening launcher
-- overall deterministic V2 assessment
-- evidence-completeness/confidence summary
-- named pattern cards
-- expandable indicator cards
-- evidence status
-- supporting records
-- context adjustments
-- confirmation requirements
-- explainability tree
-- investigator-review disclaimer
+### 7. Dedicated human Evidence Verification workspace
+`/verification` now adds the explicit human-in-the-loop verification layer on top of the grounded investigation output:
 
-### 7. Phase 5 contract tests
-Added `backend/tests/test_phase5_registry_contract.py` to lock the Phase 5 registry, explicit bidder-data gating, deterministic empty-package behaviour, and investigator-review contract.
+- loads the existing investigation pipeline for a verified procurement subject
+- presents each reasoning citation with source, record, quality and support metadata
+- review states: `Corroborated`, `Requires verification`, `Insufficient data`, `Contradictory`
+- reviewer notes and evidence-backed alternative explanations
+- direct original-source links
+- case-level review counts and completion state
+- local review-draft persistence without mutating source records or deterministic risk calculations
+- explicit evidence → finding integrity boundary
 
-The existing `backend/tests/test_risk_engine.py` already covers explainability, timing anomalies, abnormal values, clustering, duplicate descriptions, high-value direct awards, contract fragmentation, buyer/supplier identity, award-vs-estimate anomalies, named patterns, and severity bounds.
+### 8. Phase 5 contract tests
+Existing Phase 5 risk-engine registry tests remain the contract for deterministic screening. The new verification layer is additive and does not replace the backend risk or reasoning source of truth.
 
 ## Integrity boundaries retained
 
@@ -78,8 +66,10 @@ The existing `backend/tests/test_risk_engine.py` already covers explainability, 
 3. Historical benchmarks remain contextual, not statutory thresholds.
 4. Bidder-count, bid-price, bid-rotation, and competitor-conditioned claims remain unavailable when reliable bidder-level evidence is absent.
 5. Single red flags do not constitute proof of wrongdoing.
-6. Source provenance remains attached to the evidence chain.
+6. Reviewer annotations cannot override deterministic risk calculations.
+7. `Insufficient data` and `Contradictory` remain explicit review outcomes rather than silent risk changes.
+8. Source provenance remains attached to the evidence chain.
 
 ## Validation note
 
-The Phase 5 implementation and test contracts are committed to `main`. CI/runtime execution for this exact checkpoint was not independently run from this chat session; deployment status must be verified separately in Vercel before claiming production readiness.
+The implementation is committed to `main`. CI/runtime execution for this exact checkpoint was not independently run from this chat session; deployment status is intentionally not used as a Phase 5 completion criterion.
