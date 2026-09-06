@@ -7,6 +7,7 @@ import cv2
 import torch
 from ultralytics import YOLO
 
+from ..evidence import EvidenceWriter
 from .config import DEFAULT_CONFIG, VisionConfig
 
 
@@ -47,8 +48,12 @@ def resolve_device() -> str:
     return "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
+def _box_as_ints(box) -> list[int]:
+    return [int(round(float(value))) for value in box]
+
+
 def run_pothole_demo(config: VisionConfig = DEFAULT_CONFIG) -> None:
-    """Run the validated pothole detector against the newest live frame."""
+    """Run the validated pothole detector and persist traceable observations."""
     model_path = Path(config.pothole_model)
     if not model_path.exists():
         raise FileNotFoundError(
@@ -58,12 +63,15 @@ def run_pothole_demo(config: VisionConfig = DEFAULT_CONFIG) -> None:
 
     model = YOLO(str(model_path))
     device = resolve_device()
+    evidence_writer = EvidenceWriter(config.evidence_dir)
     print(f"SENTRY FIELD device: {device}")
+    print(f"SENTRY FIELD evidence: {config.evidence_dir}")
 
     reader = LatestFrameReader(config.source)
     reader.start()
     frame_count = 0
     last_annotated = None
+    last_evidence_at = 0.0
 
     try:
         while True:
@@ -81,6 +89,33 @@ def run_pothole_demo(config: VisionConfig = DEFAULT_CONFIG) -> None:
                     verbose=False,
                 )[0]
                 last_annotated = result.plot()
+
+                now = time.monotonic()
+                if result.boxes is not None and len(result.boxes) > 0:
+                    if now - last_evidence_at >= config.evidence_cooldown_seconds:
+                        names = result.names
+                        for index in range(len(result.boxes)):
+                            box = _box_as_ints(result.boxes.xyxy[index].tolist())
+                            confidence = float(result.boxes.conf[index].item())
+                            class_id = int(result.boxes.cls[index].item())
+                            class_name = str(names.get(class_id, class_id)) if isinstance(names, dict) else str(class_id)
+
+                            event = evidence_writer.record_detection(
+                                last_annotated,
+                                capability="pothole_detection",
+                                observation=f"{class_name} detected in field camera frame",
+                                confidence=confidence,
+                                bbox=box,
+                                gps=None,
+                                mission_id=config.mission_id,
+                                requirement_id=config.requirement_id,
+                                source=config.source,
+                            )
+                            print(
+                                f"FIELD EVIDENCE: {event.event_id} | "
+                                f"{class_name} | confidence={confidence:.2f}"
+                            )
+                        last_evidence_at = now
 
             display = last_annotated if last_annotated is not None else frame
             cv2.imshow("SENTRY FIELD - Live Vision", display)
