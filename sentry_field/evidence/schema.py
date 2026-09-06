@@ -18,6 +18,10 @@ class EvidenceEvent:
     requirement_id: Optional[str] = None
     source: Optional[str] = None
     verification_state: str = "observed"
+    detector: Optional[str] = None
+    track_id: Optional[str] = None
+    evidence_quality: str = "raw_detection"
+    metadata: Optional[dict[str, Any]] = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
