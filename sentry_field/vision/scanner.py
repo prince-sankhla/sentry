@@ -99,8 +99,7 @@ def _overlaps_person(box: list[int], context: list[Detection]) -> bool:
     for item in context:
         if item.label.lower() != "person" or item.confidence < 0.45:
             continue
-        overlap = SimpleTrackStore.iou(box, item.bbox)
-        if overlap >= 0.15:
+        if SimpleTrackStore.iou(box, item.bbox) >= 0.15:
             return True
     return False
 
@@ -113,10 +112,14 @@ class FieldScanner:
         self.pothole_model = self._load_required(config.pothole_model)
         self.context_model = self._load_required(config.context_model)
         self.world_model = self._load_world(config.world_model)
+        if self.world_model is not None:
+            self.world_model.set_classes(list(config.world_prompts))
+
         self.qr_detector = cv2.QRCodeDetector()
         self.writer = EvidenceWriter(config.evidence_dir)
         self.tracker = SimpleTrackStore(config.track_iou_threshold, config.track_ttl_seconds)
         self.last_evidence_at: dict[str, float] = {}
+
         self.ocr_available = False
         self.pytesseract = None
         if config.ocr_enabled:
@@ -128,6 +131,16 @@ class FieldScanner:
             except ImportError:
                 pass
 
+        self.barcode_available = False
+        self.barcode_decode = None
+        try:
+            from pyzbar.pyzbar import decode as barcode_decode  # type: ignore
+
+            self.barcode_decode = barcode_decode
+            self.barcode_available = True
+        except ImportError:
+            pass
+
     @staticmethod
     def _load_required(path: Path):
         if not Path(path).exists():
@@ -138,8 +151,7 @@ class FieldScanner:
     def _load_world(path: Path):
         if YOLOWorld is None or not Path(path).exists():
             return None
-        model = YOLOWorld(str(path))
-        return model
+        return YOLOWorld(str(path))
 
     def _save_detection(self, frame, detection: Detection, track_id: str, quality: str) -> None:
         now = time.monotonic()
@@ -171,10 +183,21 @@ class FieldScanner:
         if not self.config.qr_enabled:
             return None
         try:
-            value, points, _ = self.qr_detector.detectAndDecode(frame)
-            if value:
-                return str(value)
+            value, _, _ = self.qr_detector.detectAndDecode(frame)
+            return str(value) if value else None
         except cv2.error:
+            return None
+
+    def _barcode_scan(self, frame) -> str | None:
+        if not self.barcode_available or self.barcode_decode is None:
+            return None
+        try:
+            results = self.barcode_decode(frame)
+            for item in results:
+                value = item.data.decode("utf-8", errors="replace").strip()
+                if value:
+                    return value
+        except Exception:
             return None
         return None
 
@@ -182,28 +205,16 @@ class FieldScanner:
         if not self.config.ocr_enabled or not self.ocr_available or self.pytesseract is None:
             return None
         try:
-            # OCR is intentionally sparse: it runs less often than object detection.
             text = self.pytesseract.image_to_string(frame, config="--psm 11")
             cleaned = " ".join(text.split())
             return cleaned[:160] if cleaned else None
         except Exception:
             return None
 
-    def scan(self, frame, frame_index: int) -> tuple[Any, list[Detection], list[Detection], str | None, str | None]:
-        all_detections: list[Detection] = []
+    def scan(self, frame, frame_index: int) -> tuple[list[Detection], list[Detection], str | None, str | None, str | None]:
+        context: list[Detection] = []
+        accepted: list[Detection] = []
 
-        if frame_index % max(1, self.config.every_n_frames) == 0:
-            result = self.pothole_model(
-                frame,
-                imgsz=self.config.inference_size,
-                conf=self.config.confidence,
-                verbose=False,
-            )[0]
-            potholes = _parse_result(result, "pothole_model")
-        else:
-            potholes = []
-
-        context = []
         if frame_index % max(1, self.config.context_every_n_frames) == 0:
             result = self.context_model(
                 frame,
@@ -213,29 +224,31 @@ class FieldScanner:
             )[0]
             context = _parse_result(result, "context_model")
 
-        accepted: list[Detection] = []
-        for detection in potholes:
-            if _overlaps_person(detection.bbox, context):
-                continue
-            accepted.append(detection)
-            track_id, _ = self.tracker.assign(detection.label, detection.bbox, time.monotonic())
-            detection.track_id = track_id
-            if self.config.tracking_enabled:
+        if frame_index % max(1, self.config.every_n_frames) == 0:
+            result = self.pothole_model(
+                frame,
+                imgsz=self.config.inference_size,
+                conf=self.config.confidence,
+                verbose=False,
+            )[0]
+            for detection in _parse_result(result, "pothole_model"):
+                if _overlaps_person(detection.bbox, context):
+                    continue
+                track_id, _ = self.tracker.assign(detection.label, detection.bbox, time.monotonic())
+                detection.track_id = track_id
+                accepted.append(detection)
                 self._save_detection(frame, detection, track_id, "context_filtered")
 
-        all_detections.extend(accepted)
-        all_detections.extend(item for item in context if item.label.lower() != "person")
-
         if self.world_model is not None and frame_index % max(1, self.config.world_every_n_frames) == 0:
-            self.world_model.set_classes(list(self.config.world_prompts))
             result = self.world_model.predict(
                 frame,
                 imgsz=self.config.world_inference_size,
                 conf=self.config.world_confidence,
                 verbose=False,
             )[0]
+            allowed = {item.lower() for item in WORLD_EVIDENCE_CLASSES}
             for detection in _parse_result(result, "open_vocabulary"):
-                if detection.label.lower() not in {item.lower() for item in WORLD_EVIDENCE_CLASSES}:
+                if detection.label.lower() not in allowed:
                     continue
                 track_id, is_new = self.tracker.assign(detection.label, detection.bbox, time.monotonic())
                 detection.track_id = track_id
@@ -244,10 +257,14 @@ class FieldScanner:
                     self._save_detection(frame, detection, track_id, "open_vocabulary")
 
         qr_value = None
+        barcode_value = None
         if frame_index % max(1, self.config.qr_every_n_frames) == 0:
             qr_value = self._qr_scan(frame)
+            barcode_value = self._barcode_scan(frame)
             if qr_value:
                 print(f"FIELD IDENTITY: QR={qr_value[:100]}")
+            if barcode_value:
+                print(f"FIELD IDENTITY: BARCODE={barcode_value[:100]}")
 
         ocr_text = None
         if frame_index % max(1, self.config.ocr_every_n_frames) == 0:
@@ -255,7 +272,7 @@ class FieldScanner:
             if ocr_text:
                 print(f"FIELD IDENTITY: OCR={ocr_text}")
 
-        return frame, accepted, context, qr_value, ocr_text
+        return accepted, context, qr_value, barcode_value, ocr_text
 
 
 def run_field_scanner(config: VisionConfig = DEFAULT_CONFIG) -> None:
@@ -266,15 +283,16 @@ def run_field_scanner(config: VisionConfig = DEFAULT_CONFIG) -> None:
         raise RuntimeError(f"Could not open video source: {config.source}")
 
     print("SENTRY FIELD unified scanner")
-    print(f"  device: CPU/CUDA selected by Ultralytics")
     print(f"  world detector: {'enabled' if scanner.world_model is not None else 'not bootstrapped'}")
     print(f"  OCR: {'enabled' if scanner.ocr_available else 'optional/unavailable'}")
+    print(f"  Barcode: {'enabled' if scanner.barcode_available else 'optional/unavailable'}")
     print("  QR: enabled")
     print("Press Q to stop")
 
     frame_index = 0
     previous_time = time.monotonic()
     fps = 0.0
+    last_identity = ""
     try:
         while True:
             ok, frame = capture.read()
@@ -283,7 +301,7 @@ def run_field_scanner(config: VisionConfig = DEFAULT_CONFIG) -> None:
                 continue
 
             frame_index += 1
-            _, detections, context, qr_value, ocr_text = scanner.scan(frame, frame_index)
+            detections, context, qr_value, barcode_value, ocr_text = scanner.scan(frame, frame_index)
             display = frame.copy()
 
             for detection in detections:
@@ -300,14 +318,14 @@ def run_field_scanner(config: VisionConfig = DEFAULT_CONFIG) -> None:
             if dt > 0:
                 fps = 0.9 * fps + 0.1 * (1.0 / dt)
 
-            hud = f"SENTRY FIELD | FPS {fps:.1f} | detections {len(detections)}"
-            if context:
-                hud += f" | context {len(context)}"
+            hud = f"SENTRY FIELD | FPS {fps:.1f} | findings {len(detections)} | context {len(context)}"
             cv2.putText(display, hud, (14, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
-            if qr_value:
-                cv2.putText(display, f"QR: {qr_value[:70]}", (14, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 255, 0), 2)
-            if ocr_text:
-                cv2.putText(display, f"OCR: {ocr_text[:70]}", (14, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (0, 255, 0), 2)
+
+            identity_parts = [value for value in (qr_value, barcode_value, ocr_text) if value]
+            if identity_parts:
+                last_identity = " | ".join(identity_parts)[:120]
+            if last_identity:
+                cv2.putText(display, f"ID: {last_identity}", (14, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 255, 0), 2)
 
             cv2.imshow("SENTRY FIELD - Unified Scanner", display)
             if cv2.waitKey(1) & 0xFF == ord("q"):
