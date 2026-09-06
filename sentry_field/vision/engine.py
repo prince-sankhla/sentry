@@ -63,7 +63,7 @@ def _intersection_over_area(box_a: list[int], box_b: list[float]) -> float:
 
 
 def _person_overlaps(pothole_box: list[int], context_result, threshold: float) -> bool:
-    if context_result.boxes is None or len(context_result.boxes) == 0:
+    if context_result is None or context_result.boxes is None or len(context_result.boxes) == 0:
         return False
 
     names = context_result.names
@@ -81,8 +81,46 @@ def _person_overlaps(pothole_box: list[int], context_result, threshold: float) -
     return False
 
 
+def _render_filtered_result(frame, result, safe_indexes: list[int]):
+    """Render only accepted potholes; suppressed candidates remain visible as warnings."""
+    output = frame.copy()
+    names = result.names
+    safe_set = set(safe_indexes)
+    for index in range(len(result.boxes)) if result.boxes is not None else []:
+        box = _box_as_ints(result.boxes.xyxy[index].tolist())
+        confidence = float(result.boxes.conf[index].item())
+        class_id = int(result.boxes.cls[index].item())
+        class_name = str(names.get(class_id, class_id)) if isinstance(names, dict) else str(class_id)
+
+        if index in safe_set:
+            cv2.rectangle(output, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
+            cv2.putText(
+                output,
+                f"{class_name} {confidence:.2f}",
+                (box[0], max(22, box[1] - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.65,
+                (255, 0, 0),
+                2,
+                cv2.LINE_AA,
+            )
+        else:
+            cv2.rectangle(output, (box[0], box[1]), (box[2], box[3]), (0, 140, 255), 2)
+            cv2.putText(
+                output,
+                "suppressed: person overlap",
+                (box[0], max(22, box[1] - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 140, 255),
+                2,
+                cv2.LINE_AA,
+            )
+    return output
+
+
 def run_pothole_demo(config: VisionConfig = DEFAULT_CONFIG) -> None:
-    """Run the validated pothole detector and persist traceable observations."""
+    """Run pothole detection with person-context suppression and evidence capture."""
     model_path = Path(config.pothole_model)
     if not model_path.exists():
         raise FileNotFoundError(
@@ -90,17 +128,18 @@ def run_pothole_demo(config: VisionConfig = DEFAULT_CONFIG) -> None:
             "Place yolo26_best.pt there before starting the demo."
         )
 
-    model = YOLO(str(model_path))
     context_path = Path(config.context_model)
     if not context_path.exists():
         raise FileNotFoundError(
             f"Context model not found: {context_path}. "
             "Run: python sentry_field/scripts/bootstrap_context_model.py"
         )
-    context_model = YOLO(str(context_path))
 
+    model = YOLO(str(model_path))
+    context_model = YOLO(str(context_path))
     device = resolve_device()
     evidence_writer = EvidenceWriter(config.evidence_dir)
+
     print(f"SENTRY FIELD device: {device}")
     print(f"SENTRY FIELD evidence: {config.evidence_dir}")
     print("SENTRY FIELD context gate: person suppression enabled")
@@ -139,36 +178,14 @@ def run_pothole_demo(config: VisionConfig = DEFAULT_CONFIG) -> None:
                         verbose=False,
                     )[0]
 
-                # Only display and persist detections that are not strongly
-                # explained by a person occupying the proposed pothole box.
                 safe_boxes = []
                 if result.boxes is not None and len(result.boxes) > 0:
                     for index in range(len(result.boxes)):
                         box = _box_as_ints(result.boxes.xyxy[index].tolist())
-                        blocked = last_context is not None and _person_overlaps(
-                            box, last_context, config.person_overlap_threshold
-                        )
-                        if not blocked:
+                        if not _person_overlaps(box, last_context, config.person_overlap_threshold):
                             safe_boxes.append(index)
 
-                plotted = result.plot()
-                if safe_boxes and len(safe_boxes) != len(result.boxes):
-                    for index in range(len(result.boxes)):
-                        if index in safe_boxes:
-                            continue
-                        box = _box_as_ints(result.boxes.xyxy[index].tolist())
-                        cv2.rectangle(plotted, (box[0], box[1]), (box[2], box[3]), (0, 140, 255), 2)
-                        cv2.putText(
-                            plotted,
-                            "suppressed: person overlap",
-                            (box[0], max(20, box[1] - 8)),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.55,
-                            (0, 140, 255),
-                            2,
-                            cv2.LINE_AA,
-                        )
-                last_annotated = plotted
+                last_annotated = _render_filtered_result(frame, result, safe_boxes)
 
                 now = time.monotonic()
                 if safe_boxes and now - last_evidence_at >= config.evidence_cooldown_seconds:
@@ -180,7 +197,7 @@ def run_pothole_demo(config: VisionConfig = DEFAULT_CONFIG) -> None:
                         class_name = str(names.get(class_id, class_id)) if isinstance(names, dict) else str(class_id)
 
                         event = evidence_writer.record_detection(
-                            last_annotated,
+                            frame,
                             capability="pothole_detection",
                             observation=f"{class_name} detected in field camera frame",
                             confidence=confidence,
