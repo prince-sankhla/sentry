@@ -27,6 +27,10 @@ class EvidenceWriter:
         mission_id: str | None = None,
         requirement_id: str | None = None,
         source: str | None = None,
+        detector: str | None = None,
+        track_id: str | None = None,
+        evidence_quality: str = "raw_detection",
+        metadata: dict | None = None,
     ) -> EvidenceEvent:
         event_id = f"field-{datetime.now(timezone.utc):%Y%m%dT%H%M%S%fZ}-{uuid4().hex[:8]}"
         event_dir = self.root / event_id
@@ -48,6 +52,10 @@ class EvidenceWriter:
             mission_id=mission_id,
             requirement_id=requirement_id,
             source=source,
+            detector=detector,
+            track_id=track_id,
+            evidence_quality=evidence_quality,
+            metadata=metadata,
         )
 
         with (event_dir / "evidence.json").open("w", encoding="utf-8") as handle:
