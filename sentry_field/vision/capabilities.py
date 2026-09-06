@@ -21,6 +21,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
     CapabilitySpec("manhole_cover", "Detect visible manhole/drain covers.", "asset", "open_vocabulary"),
     CapabilitySpec("asset_text", "Read visible asset numbers or labels.", "identity", "ocr"),
     CapabilitySpec("asset_qr", "Decode visible QR codes or asset codes.", "identity", "qr"),
+    CapabilitySpec("asset_barcode", "Decode visible 1D barcodes when a barcode backend is installed.", "identity", "barcode"),
 )
 
 CAPABILITY_NAMES = tuple(item.name for item in CAPABILITIES)
@@ -39,6 +40,7 @@ WORLD_EVIDENCE_CLASSES = {
     "traffic cone",
     "guardrail",
     "utility pole",
+    "road crack",
 }
 
 # Context-only classes help suppress obvious false positives but are not field findings.
