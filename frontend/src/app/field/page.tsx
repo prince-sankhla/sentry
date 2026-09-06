@@ -1,12 +1,12 @@
 import { PageShell } from "@/components/ui/page";
-import { FieldWorkspace } from "@/components/field/workspace";
+import { FieldWorkspaceFast } from "@/components/field/workspace_fast";
 
 export const dynamic = "force-dynamic";
 
 export default function FieldPage() {
   return (
     <PageShell>
-      <FieldWorkspace />
+      <FieldWorkspaceFast />
     </PageShell>
   );
 }
