@@ -36,6 +36,9 @@ htmlcov/
 # Runtime data (investigation memory grows on every run)
 backend/data/memory/
 
+# SENTRY FIELD runtime evidence (generated locally, not source-controlled)
+field_evidence/
+
 # Logs & temp
 *.log
 *.tmp
