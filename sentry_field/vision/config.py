@@ -20,6 +20,10 @@ class VisionConfig:
     requirement_id: str | None = os.getenv("SENTRY_REQUIREMENT_ID") or None
     pothole_model: Path = MODEL_DIR / "pothole" / "yolo26_best.pt"
     road_distress_model: Path = MODEL_DIR / "road_distress" / "best.pt"
+    context_model: Path = MODEL_DIR / "context" / "yolo11n.pt"
+    context_confidence: float = 0.45
+    context_every_n_frames: int = 6
+    person_overlap_threshold: float = 0.15
 
 
 DEFAULT_CONFIG = VisionConfig()
