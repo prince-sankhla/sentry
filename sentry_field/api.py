@@ -24,6 +24,7 @@ DEMO_TENDER_FILE = ROOT / "sentry_field" / "data" / "demo_tenders.json"
 EVIDENCE_DIR = ROOT / "field_evidence"
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_CAMERA_URL = os.getenv("SENTRY_CAMERA_URL", DEFAULT_CONFIG.source)
+FIELD_API_PORT = int(os.getenv("SENTRY_FIELD_API_PORT", "8001"))
 
 app = FastAPI(title="SENTRY FIELD Local Gateway", version="0.5.0")
 app.add_middleware(
@@ -133,11 +134,11 @@ def _set(**updates):
 
 def _snap():
     with _lock:
-        s = dict(_state)
-        s["gps"] = dict(_state["gps"])
-    s.pop("stop_token", None)
-    s["recent_events"] = list(_events)
-    return s
+        snapshot = dict(_state)
+        snapshot["gps"] = dict(_state["gps"])
+    snapshot.pop("stop_token", None)
+    snapshot["recent_events"] = list(_events)
+    return snapshot
 
 
 def _frame_url(event: dict) -> str | None:
@@ -331,6 +332,7 @@ def _stream(
                 _events.appendleft(
                     {
                         "type": d.label,
+                        "capability": d.label.lower().replace(" ", "_"),
                         "confidence": round(d.confidence, 3),
                         "bbox": d.bbox,
                         "detector": d.detector,
@@ -344,8 +346,11 @@ def _stream(
                 event = dict(item)
                 event["type"] = "evidence"
                 event["frame_url"] = _frame_url(event)
+                event["tender_id"] = _state.get("tender_id")
+                event["machine_id"] = _state.get("machine_id")
+                event["gps"] = _state.get("gps")
                 _events.appendleft(event)
-            ids = [v for v in (qr, barcode, ocr) if v]
+            ids = [value for value in (qr, barcode, ocr) if value]
             if ids:
                 _events.appendleft(
                     {
