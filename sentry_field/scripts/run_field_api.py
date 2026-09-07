@@ -2,7 +2,7 @@ import os
 
 import uvicorn
 
-from ..api import FIELD_API_PORT
+from sentry_field.api import FIELD_API_PORT
 
 
 if __name__ == "__main__":
