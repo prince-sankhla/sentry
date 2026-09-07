@@ -7,15 +7,17 @@ available in the existing procurement database as well.
 from __future__ import annotations
 
 import json
-from datetime import date
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "backend"))
 
 from sqlalchemy import select
 
 from app.db.session import SessionLocal
 from app.models.tender import Tender
 
-ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "sentry_field" / "data" / "demo_tenders.json"
 
 
@@ -46,7 +48,6 @@ def main() -> None:
             tender.source_name = row["source_name"]
             tender.source_record_id = row["tender_id"]
             tender.source_url = row["source_url"]
-            tender.published_date = date.fromisoformat(row["source_verified_on"])
             tender.currency = "INR"
         db.commit()
     print(f"Seeded SENTRY FIELD demo tenders: created={created}, updated={updated}")
