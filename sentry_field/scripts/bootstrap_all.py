@@ -3,38 +3,46 @@ from __future__ import annotations
 import importlib.util
 import subprocess
 import sys
+import time
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "models" / "field"
 
-# Small, public model set used by the current SENTRY FIELD prototype.
-# Large weights stay out of git; this script downloads them locally when needed.
+# Public prototype weights. Large binaries stay out of git and are fetched locally.
 MODELS = {
     "pothole": (
         MODEL_DIR / "pothole" / "yolo26_best.pt",
         "https://huggingface.co/DanielsStulpe/pothole-detection/resolve/main/yolo26_best.pt?download=true",
+        False,
     ),
     "context": (
         MODEL_DIR / "context" / "yolo11n.pt",
         "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt",
+        False,
     ),
     "open_vocabulary": (
         MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt",
         "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8s-worldv2.pt",
+        False,
     ),
-    "streetlight": (
+    "streetlight_specialized": (
         MODEL_DIR / "streetlight" / "yolor-streetlights-last.pt",
         "https://huggingface.co/cpnlab/YOLOR-Streetlights/resolve/main/last.pt?download=true",
+        True,
     ),
-    "road_crack": (
+    "road_crack_specialized": (
         MODEL_DIR / "road_distress" / "best.pt",
         "https://huggingface.co/cazzz307/yolov8-crack-detection/resolve/main/best.pt?download=true",
+        True,
     ),
 }
 
 REQUIRED_PACKAGES = {
+    "torch": "torch",
+    "torchvision": "torchvision",
     "ultralytics": "ultralytics",
     "cv2": "opencv-python",
     "numpy": "numpy",
@@ -52,51 +60,63 @@ def ensure_package(module: str, package: str) -> None:
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
 
-def download(url: str, destination: Path) -> None:
+def download(url: str, destination: Path, retries: int = 3) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists() and destination.stat().st_size > 1_000_000:
         print(f"OK model: {destination.relative_to(ROOT)}")
         return
 
     temp = destination.with_suffix(destination.suffix + ".part")
-    request = Request(url, headers={"User-Agent": "SENTRY-Field/1.0"})
-    print(f"Downloading {destination.name} ...")
-    try:
-        with urlopen(request, timeout=300) as response, temp.open("wb") as output:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                output.write(chunk)
-        size = temp.stat().st_size
-        if size < 1_000_000:
-            raise RuntimeError(f"Downloaded file is unexpectedly small: {size} bytes")
-        temp.replace(destination)
-        print(f"OK model: {destination.relative_to(ROOT)} ({size / 1024 / 1024:.1f} MB)")
-    finally:
-        temp.unlink(missing_ok=True)
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            request = Request(url, headers={"User-Agent": "SENTRY-Field/1.0"})
+            print(f"Downloading {destination.name} (attempt {attempt}/{retries}) ...")
+            with urlopen(request, timeout=300) as response, temp.open("wb") as output:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    output.write(chunk)
+            size = temp.stat().st_size
+            if size < 1_000_000:
+                raise RuntimeError(f"Downloaded file is unexpectedly small: {size} bytes")
+            temp.replace(destination)
+            print(f"OK model: {destination.relative_to(ROOT)} ({size / 1024 / 1024:.1f} MB)")
+            return
+        except (HTTPError, URLError, OSError, RuntimeError) as exc:
+            last_error = exc
+            temp.unlink(missing_ok=True)
+            if attempt < retries:
+                time.sleep(2 * attempt)
+    raise RuntimeError(f"Could not download {url}: {last_error}")
 
 
 def main() -> None:
     print("SENTRY FIELD bootstrap")
     print(f"Project root: {ROOT}")
+
     print("\n[1/2] Python dependencies")
     for module, package in REQUIRED_PACKAGES.items():
         ensure_package(module, package)
 
     print("\n[2/2] Field model weights")
-    for name, (destination, url) in MODELS.items():
+    warnings: list[str] = []
+    for name, (destination, url, optional) in MODELS.items():
         try:
             download(url, destination)
         except Exception as exc:
-            # The specialized crack/streetlight weights are additive; do not block
-            # pothole/context/world setup if a third-party host is temporarily down.
-            if name in {"road_crack", "streetlight"}:
-                print(f"WARN optional model unavailable ({name}): {exc}")
+            if optional:
+                warnings.append(f"{name}: {exc}")
+                print(f"WARN optional model unavailable: {name}: {exc}")
             else:
                 raise
 
     print("\nBootstrap complete.")
+    if warnings:
+        print("Optional model warnings:")
+        for warning in warnings:
+            print(f"  - {warning}")
     print("Run: python sentry_field\\scripts\\test_vision_setup.py")
 
 
