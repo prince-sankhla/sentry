@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import os
 
@@ -11,33 +11,27 @@ EVIDENCE_DIR = ROOT / "field_evidence"
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
-    # Keep the specialized pothole model at the proven 256px balance.
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "256"))
-    confidence: float = 0.65
+    confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
     every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "3"))
-    evidence_cooldown_seconds: float = 3.0
+    evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
     mission_id: str | None = os.getenv("SENTRY_MISSION_ID") or None
     requirement_id: str | None = os.getenv("SENTRY_REQUIREMENT_ID") or None
+    selected_capabilities: tuple[str, ...] = field(default_factory=tuple)
 
-    # Specialized field models.
     pothole_model: Path = MODEL_DIR / "pothole" / "yolo26_best.pt"
     road_distress_model: Path = MODEL_DIR / "road_distress" / "best.pt"
-
-    # General scene/context model used for suppression and scene understanding.
-    # Run less often during live preview so inference does not stall the stream.
     context_model: Path = MODEL_DIR / "context" / "yolo11n.pt"
-    context_confidence: float = 0.45
+    context_confidence: float = float(os.getenv("SENTRY_CONTEXT_CONFIDENCE", "0.45"))
     context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "12"))
     person_overlap_threshold: float = 0.15
 
-    # Open-vocabulary asset discovery model. Optional at runtime until bootstrapped.
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
-    world_confidence: float = 0.30
+    world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.30"))
     world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "24"))
     world_inference_size: int = 320
 
-    # Scene-aware prompts. Kept narrow enough for useful field inspection.
     world_prompts: tuple[str, ...] = (
         "streetlight",
         "solar streetlight",
@@ -53,19 +47,73 @@ class VisionConfig:
         "utility pole",
         "vehicle",
         "person",
+        "road crack",
     )
 
-    # Machine-readable identity scans are intentionally sparse in live preview.
     qr_enabled: bool = True
     ocr_enabled: bool = True
     qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "20"))
     ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "60"))
     ocr_min_confidence: float = 0.55
 
-    # Basic temporal filtering so the same object is not repeatedly emitted.
     tracking_enabled: bool = True
     track_iou_threshold: float = 0.35
     track_ttl_seconds: float = 2.5
 
 
 DEFAULT_CONFIG = VisionConfig()
+
+CAPABILITY_ALIASES = {
+    "Pothole": "pothole",
+    "Road crack": "road_crack",
+    "Streetlight": "streetlight",
+    "CCTV": "cctv_camera",
+    "Signboard": "signboard",
+    "Drain / manhole": "drain",
+    "Solar panel": "solar_panel",
+    "QR / asset ID": "asset_qr",
+    "OCR": "asset_text",
+}
+
+
+def build_config(
+    *,
+    source: str | None = None,
+    confidence: float | None = None,
+    every_n_frames: int | None = None,
+    mission_id: str | None = None,
+    requirement_id: str | None = None,
+    capabilities: list[str] | tuple[str, ...] | None = None,
+) -> VisionConfig:
+    """Build a request-scoped immutable config controlled by the FIELD UI/API."""
+    selected = tuple(capabilities or CAPABILITY_ALIASES.values())
+    return VisionConfig(
+        source=source or DEFAULT_CONFIG.source,
+        inference_size=DEFAULT_CONFIG.inference_size,
+        confidence=DEFAULT_CONFIG.confidence if confidence is None else max(0.05, min(0.99, confidence)),
+        every_n_frames=DEFAULT_CONFIG.every_n_frames if every_n_frames is None else max(1, every_n_frames),
+        evidence_cooldown_seconds=DEFAULT_CONFIG.evidence_cooldown_seconds,
+        evidence_dir=DEFAULT_CONFIG.evidence_dir,
+        mission_id=mission_id or DEFAULT_CONFIG.mission_id,
+        requirement_id=requirement_id or DEFAULT_CONFIG.requirement_id,
+        selected_capabilities=selected,
+        pothole_model=DEFAULT_CONFIG.pothole_model,
+        road_distress_model=DEFAULT_CONFIG.road_distress_model,
+        context_model=DEFAULT_CONFIG.context_model,
+        context_confidence=DEFAULT_CONFIG.context_confidence,
+        context_every_n_frames=DEFAULT_CONFIG.context_every_n_frames,
+        person_overlap_threshold=DEFAULT_CONFIG.person_overlap_threshold,
+        world_model=DEFAULT_CONFIG.world_model,
+        world_confidence=DEFAULT_CONFIG.world_confidence,
+        world_every_n_frames=DEFAULT_CONFIG.world_every_n_frames,
+        world_inference_size=DEFAULT_CONFIG.world_inference_size,
+        world_prompts=DEFAULT_CONFIG.world_prompts,
+        qr_enabled="asset_qr" in selected,
+        ocr_enabled="asset_text" in selected,
+        qr_every_n_frames=DEFAULT_CONFIG.qr_every_n_frames,
+        ocr_every_n_frames=DEFAULT_CONFIG.ocr_every_n_frames,
+        ocr_min_confidence=DEFAULT_CONFIG.ocr_min_confidence,
+        tracking_enabled=DEFAULT_CONFIG.tracking_enabled,
+        track_iou_threshold=DEFAULT_CONFIG.track_iou_threshold,
+        track_ttl_seconds=DEFAULT_CONFIG.track_ttl_seconds,
+    )
