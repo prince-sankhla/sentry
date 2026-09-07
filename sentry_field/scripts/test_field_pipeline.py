@@ -20,7 +20,7 @@ def main() -> None:
     rows = json.loads(CATALOG.read_text(encoding="utf-8"))
     assert len(rows) >= 8, f"Expected demo tender catalog, got {len(rows)}"
 
-    known_capabilities = set(CAPABILITIES)
+    known_capabilities = {item.name for item in CAPABILITIES}
     known_values = set(CAPABILITY_ALIASES.values())
     assert known_values <= known_capabilities, "Capability alias drift detected"
     for tender in rows:
