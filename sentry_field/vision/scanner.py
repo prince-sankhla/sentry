@@ -16,6 +16,23 @@ from .capabilities import WORLD_EVIDENCE_CLASSES
 from .config import CAPABILITY_ALIASES, DEFAULT_CONFIG, VisionConfig
 
 
+WORLD_CANONICAL = {
+    "streetlight": "streetlight",
+    "solar streetlight": "streetlight",
+    "cctv camera": "cctv_camera",
+    "road sign": "signboard",
+    "signboard": "signboard",
+    "road barrier": "road_barrier",
+    "drain": "drain",
+    "manhole cover": "drain",
+    "solar panel": "solar_panel",
+    "traffic cone": "road_barrier",
+    "guardrail": "road_barrier",
+    "utility pole": "utility_pole",
+    "road crack": "road_crack",
+}
+
+
 @dataclass
 class Detection:
     label: str
@@ -159,7 +176,7 @@ class FieldScanner:
             "solar panel": "solar_panel",
             "traffic cone": "road_barrier",
             "guardrail": "road_barrier",
-            "utility pole": "streetlight",
+            "utility pole": "utility_pole",
             "road crack": "road_crack",
             "vehicle": "__context__",
             "person": "__context__",
@@ -287,9 +304,12 @@ class FieldScanner:
             )[0]
             allowed = {x.lower() for x in WORLD_EVIDENCE_CLASSES}
             for d in _parse_result(result, "open_vocabulary"):
-                if d.label.lower() not in allowed:
+                raw_label = d.label.lower()
+                if raw_label not in allowed:
                     continue
-                tid, new = self.tracker.assign(d.label, d.bbox, time.monotonic())
+                canonical = WORLD_CANONICAL.get(raw_label, raw_label)
+                d.label = canonical.replace("_", " ")
+                tid, new = self.tracker.assign(canonical, d.bbox, time.monotonic())
                 d.track_id = tid
                 accepted.append(d)
                 if new:
