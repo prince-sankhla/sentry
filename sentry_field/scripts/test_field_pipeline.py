@@ -7,6 +7,9 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from sentry_field.api import app
+from sentry_field.api_fast import app as fast_app
+from sentry_field.vision.capabilities import CAPABILITIES
+from sentry_field.vision.config import CAPABILITY_ALIASES
 from sentry_field.vision.scanner import FieldScanner
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,15 +19,20 @@ CATALOG = ROOT / "sentry_field" / "data" / "demo_tenders.json"
 def main() -> None:
     rows = json.loads(CATALOG.read_text(encoding="utf-8"))
     assert len(rows) >= 8, f"Expected demo tender catalog, got {len(rows)}"
+
+    known_capabilities = set(CAPABILITIES)
+    known_values = set(CAPABILITY_ALIASES.values())
+    assert known_values <= known_capabilities, "Capability alias drift detected"
     for tender in rows:
         assert tender["requirements"], tender["id"]
         for requirement in tender["requirements"]:
-            assert requirement["capability"], requirement["id"]
+            assert requirement["capability"] in known_capabilities, requirement["id"]
 
     source = inspect.getsource(FieldScanner.__init__)
     scan_source = inspect.getsource(FieldScanner.scan)
     assert "self.context_model" in source, "FieldScanner context model is not initialized"
     assert "self.context_model" in scan_source, "FieldScanner context path is not wired"
+    assert fast_app is app, "api_fast must stay a compatibility alias to the canonical gateway"
 
     client = TestClient(app)
     health = client.get("/health")
@@ -69,6 +77,20 @@ def main() -> None:
     assert status["authorized"] is True
     assert status["tender_id"] == first["id"]
     assert status["requirement_id"] == requirement["id"]
+
+    telemetry = client.post(
+        "/telemetry",
+        json={
+            "machine_id": "ROVER-TEST",
+            "battery": 87,
+            "speed": 0.4,
+            "lat": 26.9124,
+            "lon": 75.7873,
+        },
+    )
+    assert telemetry.status_code == 200
+    assert telemetry.json()["gps"]["status"] == "live"
+    assert client.get("/status").json()["machine_id"] == "ROVER-TEST"
 
     stop = client.post("/stop")
     assert stop.status_code == 200
