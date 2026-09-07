@@ -2,9 +2,7 @@
 
 Physical-world verification layer for SENTRY procurement investigations.
 
-## Current runtime
-
-The field stack is designed as a capability-based inspection pipeline rather than one monolithic detector:
+## Architecture
 
 ```text
 Tender → Requirement → Capability → Machine → Mission
@@ -14,7 +12,7 @@ Tender → Requirement → Capability → Machine → Mission
                 ┌─────────────────────┼─────────────────────┐
                 │                     │                     │
           Specialized CV       Open-vocabulary       Identity signals
-          pothole/road         public assets         QR / OCR
+          pothole/crack        public assets          QR / OCR / barcode
                 │                     │                     │
                 └─────────────────────┼─────────────────────┘
                                       ↓
@@ -27,52 +25,50 @@ Tender → Requirement → Capability → Machine → Mission
                          Contract-vs-reality layer
 ```
 
-## Implemented
+## One-command field setup
 
-- Live phone/DroidCam stream input
-- Latest-frame low-latency capture in the validated pothole demo
-- Specialized pothole detector
-- General context detector for person-aware false-positive suppression
-- Open-vocabulary asset discovery using YOLO-World when its optional model is bootstrapped
-- QR decoding through OpenCV
-- Optional OCR through `pytesseract` when available on the machine
-- IoU-based lightweight tracking/de-duplication for field evidence
-- Structured evidence records with frame, timestamp, detector, confidence, bbox, track ID, mission/requirement hooks and verification state
-- CPU/CUDA-compatible Ultralytics inference
-
-## Target visual capabilities
-
-- pothole
-- road crack / surface distress
-- streetlight / solar streetlight
-- CCTV camera
-- signboard / road sign
-- drain / manhole cover
-- road barrier / guardrail / traffic cone
-- solar panel
-- utility pole
-- asset text / OCR
-- asset QR / barcode
-
-## Important accuracy rule
-
-The general detector is an exploration and coverage layer. It must not be treated as proof of a contractual violation by itself. Specialized models, contextual filtering, repeated observation, asset identity and physical/sensor measurements are progressively stronger verification signals.
-
-The vision layer reports observations. It does not declare legal guilt or contractor fraud.
-
-## Running the unified scanner
-
-Bootstrap the optional open-vocabulary model:
+From the repository root:
 
 ```powershell
-python sentry_field/scripts/bootstrap_world_model.py
+python sentry_field/scripts/bootstrap_all.py
+python sentry_field/scripts/test_vision_setup.py
 ```
 
-Then run:
+`bootstrap_all.py` installs missing Python packages and downloads the configured field-model weights into `models/field/`. Large weights are intentionally not committed to the web repository. The setup checker loads every configured model and reports optional third-party model failures separately.
+
+## Current capabilities
+
+- pothole detection
+- road crack / surface distress detection
+- streetlight / solar streetlight discovery
+- CCTV camera discovery
+- signboard / road-sign discovery
+- drain / manhole-cover discovery
+- barrier / guardrail / traffic-cone discovery
+- solar-panel discovery
+- utility-pole discovery
+- asset OCR/text
+- asset QR
+- asset barcode when the barcode backend is available
+- person-aware context filtering
+- lightweight IoU tracking and evidence de-duplication
+- structured field evidence with detector, confidence, bbox, timestamp, mission and requirement hooks
+
+## Live scanner
 
 ```powershell
 $env:SENTRY_CAMERA_URL="http://PHONE-IP:4747/video"
 python sentry_field/scripts/run_field_scanner.py
 ```
 
-Press `Q` to stop.
+The scanner can use one camera feed for multiple capabilities. It should schedule expensive detectors at different frame intervals rather than running every model on every frame.
+
+## Model policy
+
+The open-vocabulary detector is a coverage/exploration layer and is not, by itself, proof of a contractual violation. Critical asset verification should combine specialized detection, context, repeated observation, identity, GPS and/or physical measurements.
+
+Some public Hugging Face model repositories may require a user to accept repository access terms. The bootstrap script reports such a model as an optional warning instead of silently pretending it was installed.
+
+## Accuracy rule
+
+SENTRY FIELD reports observations and evidence. It does not declare legal guilt or contractor fraud from a detector score alone.
