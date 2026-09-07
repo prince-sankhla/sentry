@@ -1,0 +1,27 @@
+name: SENTRY FIELD model check
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "sentry_field/**"
+      - "models/field/**"
+      - ".github/workflows/field-model-check.yml"
+
+jobs:
+  verify-field-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bootstrap field dependencies and models
+        run: python sentry_field/scripts/bootstrap_all.py
+
+      - name: Validate field model inventory
+        run: python sentry_field/scripts/test_vision_setup.py
