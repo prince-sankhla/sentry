@@ -2,11 +2,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import os
 
-
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "models" / "field"
 EVIDENCE_DIR = ROOT / "field_evidence"
-
 
 @dataclass(frozen=True)
 class VisionConfig:
@@ -19,74 +17,31 @@ class VisionConfig:
     mission_id: str | None = os.getenv("SENTRY_MISSION_ID") or None
     requirement_id: str | None = os.getenv("SENTRY_REQUIREMENT_ID") or None
     selected_capabilities: tuple[str, ...] = field(default_factory=tuple)
-
     pothole_model: Path = MODEL_DIR / "pothole" / "yolo26_best.pt"
     road_distress_model: Path = MODEL_DIR / "road_distress" / "best.pt"
     context_model: Path = MODEL_DIR / "context" / "yolo11n.pt"
     context_confidence: float = float(os.getenv("SENTRY_CONTEXT_CONFIDENCE", "0.45"))
     context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "12"))
     person_overlap_threshold: float = 0.15
-
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
     world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.30"))
     world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "24"))
     world_inference_size: int = 320
-
-    world_prompts: tuple[str, ...] = (
-        "streetlight",
-        "solar streetlight",
-        "CCTV camera",
-        "road sign",
-        "signboard",
-        "road barrier",
-        "drain",
-        "manhole cover",
-        "solar panel",
-        "traffic cone",
-        "guardrail",
-        "utility pole",
-        "vehicle",
-        "person",
-        "road crack",
-    )
-
+    world_prompts: tuple[str, ...] = ("streetlight","solar streetlight","CCTV camera","road sign","signboard","road barrier","drain","manhole cover","solar panel","traffic cone","guardrail","utility pole","vehicle","person","road crack")
     qr_enabled: bool = True
     ocr_enabled: bool = True
     qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "20"))
     ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "60"))
     ocr_min_confidence: float = 0.55
-
     tracking_enabled: bool = True
     track_iou_threshold: float = 0.35
     track_ttl_seconds: float = 2.5
 
-
 DEFAULT_CONFIG = VisionConfig()
+CAPABILITY_ALIASES = {"Pothole":"pothole","Road crack":"road_crack","Streetlight":"streetlight","CCTV":"cctv_camera","Signboard":"signboard","Drain / manhole":"drain","Solar panel":"solar_panel","QR / asset ID":"asset_qr","OCR":"asset_text"}
 
-CAPABILITY_ALIASES = {
-    "Pothole": "pothole",
-    "Road crack": "road_crack",
-    "Streetlight": "streetlight",
-    "CCTV": "cctv_camera",
-    "Signboard": "signboard",
-    "Drain / manhole": "drain",
-    "Solar panel": "solar_panel",
-    "QR / asset ID": "asset_qr",
-    "OCR": "asset_text",
-}
-
-
-def build_config(
-    *,
-    source: str | None = None,
-    confidence: float | None = None,
-    every_n_frames: int | None = None,
-    mission_id: str | None = None,
-    requirement_id: str | None = None,
-    capabilities: list[str] | tuple[str, ...] | None = None,
-) -> VisionConfig:
-    """Build a request-scoped immutable config controlled by the FIELD UI/API."""
-    selected = tuple(capabilities or CAPABILITY_ALIASES.values())
+def build_config(*, source=None, confidence=None, every_n_frames=None, mission_id=None, requirement_id=None, capabilities=None) -> VisionConfig:
+    selected = tuple(capabilities if capabilities is not None else CAPABILITY_ALIASES.values())
     return VisionConfig(
         source=source or DEFAULT_CONFIG.source,
         inference_size=DEFAULT_CONFIG.inference_size,
