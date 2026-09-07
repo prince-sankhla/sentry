@@ -1,211 +1,40 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Activity,
-  Camera,
-  CheckCircle2,
-  FileText,
-  Gauge,
-  MapPin,
-  Maximize2,
-  Minimize2,
-  Radar,
-  Siren,
-  Wifi,
-  XCircle,
-} from "lucide-react";
+import { Activity, Camera, CheckCircle2, FileText, Gauge, MapPin, Maximize2, Minimize2, Radar, Siren, SlidersHorizontal, Wifi, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/page";
 
-const capabilities = ["Pothole", "Road crack", "Streetlight", "CCTV", "Signboard", "Drain / manhole", "Solar panel", "QR / asset ID", "OCR"];
+const CAPABILITIES = [["Pothole","pothole"],["Road crack","road_crack"],["Streetlight","streetlight"],["CCTV","cctv_camera"],["Signboard","signboard"],["Drain / manhole","drain"],["Solar panel","solar_panel"],["QR / asset ID","asset_qr"],["OCR","asset_text"]] as const;
 const apiBase = process.env.NEXT_PUBLIC_FIELD_API_URL?.trim() || "http://127.0.0.1:8001";
-const defaultCamera = process.env.NEXT_PUBLIC_SENTRY_CAMERA_URL?.trim() || "http://10.91.92.137:4747/video";
-
-type EventItem = { type: string; confidence: number; track_id?: string | null; detector?: string };
-type FieldStatus = {
-  running: boolean;
-  camera_url: string;
-  fps: number;
-  findings: number;
-  evidence: number;
-  last_detection: { type: string; confidence: number; track_id?: string | null } | null;
-  last_error: string | null;
-  recent_events: EventItem[];
-};
-
-const emptyStatus: FieldStatus = {
-  running: false,
-  camera_url: defaultCamera,
-  fps: 0,
-  findings: 0,
-  evidence: 0,
-  last_detection: null,
-  last_error: null,
-  recent_events: [],
-};
-
-export function FieldWorkspaceFast() {
-  const [tab, setTab] = useState<"live" | "evidence" | "contract">("live");
-  const [cameraUrl, setCameraUrl] = useState(defaultCamera);
-  const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState<FieldStatus>(emptyStatus);
-  const [gatewayOnline, setGatewayOnline] = useState(false);
-  const [streamError, setStreamError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const viewerRef = useRef<HTMLDivElement>(null);
-
-  const cameraActive = Boolean(streamUrl);
-
-  const startCamera = () => {
-    const source = cameraUrl.trim();
-    if (!source) return;
-    setStreamError(null);
-    setStreamUrl(`${apiBase}/stream?camera_url=${encodeURIComponent(source)}&t=${Date.now()}`);
-  };
-
-  const stopCamera = () => {
-    setStreamUrl(null);
-    setStatus((current) => ({ ...current, running: false }));
-  };
-
-  const toggleFullscreen = async () => {
-    if (!viewerRef.current) return;
-    if (!document.fullscreenElement) {
-      await viewerRef.current.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  };
-
-  useEffect(() => {
-    const onFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
-    document.addEventListener("fullscreenchange", onFullscreen);
-    return () => document.removeEventListener("fullscreenchange", onFullscreen);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const poll = async () => {
-      try {
-        const response = await fetch(`${apiBase}/status`, { cache: "no-store" });
-        if (!response.ok) throw new Error();
-        const payload = (await response.json()) as FieldStatus;
-        if (!active) return;
-        setStatus(payload);
-        setGatewayOnline(true);
-      } catch {
-        if (active) setGatewayOnline(false);
-      }
-    };
-    void poll();
-    const timer = window.setInterval(() => void poll(), 500);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  const latestEvidence = useMemo(
-    () => status.recent_events.slice(0, 10).map((event, index) => ({
-      id: event.track_id || `EV-${String(index + 1).padStart(4, "0")}`,
-      type: event.type,
-      confidence: `${Math.round(event.confidence * 100)}%`,
-      detector: event.detector || "vision",
-    })),
-    [status.recent_events],
-  );
-
-  return (
-    <main className="mx-auto w-full max-w-[1900px] space-y-5">
-      <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
-              <Radar className="h-3.5 w-3.5" /> SENTRY FIELD <span className="text-faint">/</span> <span className="text-muted">Physical Verification Console</span>
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-text md:text-5xl">Field mission control</h1>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-muted">Low-latency field video, on-device vision findings and evidence capture in one inspection console.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={gatewayOnline ? "success" : "muted"}><span className="h-1.5 w-1.5 rounded-full bg-current" /> {gatewayOnline ? "Gateway online" : "Gateway offline"}</Badge>
-            <Badge tone={cameraActive ? "info" : "muted"}><Wifi className="h-3 w-3" /> {cameraActive ? "Camera live" : "Camera stopped"}</Badge>
-            <button onClick={() => (cameraActive ? stopCamera() : startCamera())} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-text hover:border-accent/40">
-              {cameraActive ? "Stop camera" : "Start camera"}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_auto]">
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">DroidCam source</span>
-            <input value={cameraUrl} onChange={(event) => setCameraUrl(event.target.value)} className="h-11 w-full rounded-xl border border-border bg-bg/40 px-3 text-xs text-text outline-none focus:border-accent/50" />
-          </label>
-          <div className="flex items-end gap-2">
-            <button onClick={startCamera} className="h-11 rounded-xl bg-accent px-5 text-xs font-semibold text-bg hover:bg-accent-hi">Start field feed</button>
-            <button onClick={stopCamera} disabled={!cameraActive} className="h-11 rounded-xl border border-border px-5 text-xs font-semibold text-text disabled:opacity-40">Disconnect</button>
-          </div>
-        </div>
-
-        {streamError && <div className="mt-3 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger"><XCircle className="h-3.5 w-3.5" /> {streamError}</div>}
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Mission coverage", "47 / 50", "94% inspected", Radar],
-          ["Field findings", String(status.findings), "Live detections", Siren],
-          ["Evidence captured", String(status.evidence), "Recent traceable events", FileText],
-          ["Live inference", `${status.fps.toFixed(1)} FPS`, cameraActive ? "Low-latency gateway" : "Waiting for camera", Gauge],
-        ].map(([a, b, c, Icon]) => (
-          <div key={a as string} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
-            <div className="flex items-start justify-between"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{a as string}</div><div className="mt-2 text-2xl font-semibold text-text">{b as string}</div><div className="mt-1 text-xs text-muted">{c as string}</div></div><Icon className="h-4 w-4 text-accent" /></div>
-          </div>
-        ))}
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-[210px_minmax(0,1fr)] xl:grid-cols-[230px_minmax(0,1fr)_285px]">
-        <aside className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Mission #ST-2048</div>
-          <div className="mt-3 rounded-xl border border-accent/20 bg-accent/5 p-3"><div className="text-sm font-semibold text-text">Urban road & asset verification</div><div className="mt-1 text-xs leading-5 text-muted">Verify road defects, streetlights, cameras and asset identity.</div></div>
-          <div className="my-4 h-px bg-border" />
-          <div className="flex justify-between text-xs"><span className="text-muted">Coverage</span><span className="text-text">94%</span></div>
-          <div className="mt-2 h-1.5 rounded-full bg-bg-2"><div className="h-full w-[94%] rounded-full bg-accent" /></div>
-          <div className="mt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Capabilities</div>
-          <div className="mt-3 space-y-2">{capabilities.map((item) => <div key={item} className="flex items-center gap-2 text-xs text-text"><CheckCircle2 className="h-3.5 w-3.5 text-success" />{item}</div>)}</div>
-        </aside>
-
-        <div ref={viewerRef} className={`min-w-0 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm ${isFullscreen ? "bg-black p-3" : ""}`}>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-            <div className="flex gap-1 rounded-lg bg-surface-2 p-1">{(["live", "evidence", "contract"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${tab === item ? "bg-surface text-text shadow-sm" : "text-muted"}`}>{item}</button>)}</div>
-            <div className="flex items-center gap-2"><Badge tone={status.running ? "success" : "muted"}><Activity className="h-3 w-3" /> {status.running ? "INFERENCE ACTIVE" : "IDLE"}</Badge><button onClick={toggleFullscreen} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text hover:border-accent/40"><span className="inline-flex items-center gap-1.5">{isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />} {isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span></button></div>
-          </div>
-
-          {tab === "live" && <div className={`p-3 md:p-4 ${isFullscreen ? "h-[calc(100vh-58px)]" : ""}`}>
-            <div className={`relative overflow-hidden rounded-xl bg-[#0b0e13] ${isFullscreen ? "h-full" : "min-h-[58vh] xl:min-h-[68vh]"}`}>
-              {streamUrl ? <img src={streamUrl} alt="SENTRY FIELD annotated live camera" className="h-full w-full object-contain" onError={() => { setStreamError("Could not read the local field gateway stream. Check the gateway terminal and DroidCam URL."); setGatewayOnline(false); stopCamera(); }} /> : <div className="absolute inset-0 grid place-items-center p-8 text-center"><div><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-border bg-surface-2 text-accent"><Camera className="h-7 w-7" /></div><div className="mt-4 text-base font-semibold text-text">Field camera is stopped</div><div className="mt-1 text-xs text-muted">Set the DroidCam URL and press “Start field feed”.</div></div></div>}
-              <div className="absolute left-4 top-4 flex gap-2"><Badge tone={cameraActive ? "success" : "muted"}><Activity className="h-3 w-3" /> {cameraActive ? "LIVE" : "OFFLINE"}</Badge><Badge tone="muted"><Camera className="h-3 w-3" /> Front camera</Badge></div>
-              <div className="absolute bottom-4 left-4 rounded-md bg-black/50 px-2 py-1 text-[10px] text-white/75"><MapPin className="mr-1 inline h-3 w-3" /> Local field gateway</div>
-            </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <div className="rounded-xl border border-border bg-surface-2 p-3"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Current finding</div><div className="mt-1 text-sm font-semibold text-text">{status.last_detection?.type || "None"}</div><div className="mt-1 text-xs text-muted">{status.last_detection ? `Confidence ${Math.round(status.last_detection.confidence * 100)}%` : "No accepted detection"}</div></div>
-              <div className="rounded-xl border border-border bg-surface-2 p-3"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Inference</div><div className="mt-1 text-sm font-semibold text-text">{status.fps.toFixed(1)} FPS</div><div className="mt-1 text-xs text-muted">Specialized + context models</div></div>
-              <div className="rounded-xl border border-border bg-surface-2 p-3"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Evidence</div><div className="mt-1 text-sm font-semibold text-text">{status.evidence > 0 ? "Events preserved" : "Waiting"}</div><div className="mt-1 text-xs text-muted">Writer stays on the local gateway</div></div>
-            </div>
-          </div>}
-
-          {tab === "evidence" && <div className="divide-y divide-border">{latestEvidence.length === 0 ? <div className="p-10 text-center text-sm text-muted">No live evidence yet. Start the field feed first.</div> : latestEvidence.map((item) => <div key={`${item.id}-${item.type}-${item.confidence}`} className="grid gap-3 p-4 md:grid-cols-[64px_1fr_auto] md:items-center"><div className="flex aspect-square items-center justify-center rounded-xl border border-border bg-surface-2"><FileText className="h-5 w-5 text-accent" /></div><div><div className="text-sm font-semibold text-text">{item.type} · {item.id}</div><div className="mt-1 text-xs text-muted">Detector: {item.detector}</div><div className="mt-1 text-xs text-faint">Confidence {item.confidence}</div></div><Badge tone="success">Observed</Badge></div>)}</div>}
-
-          {tab === "contract" && <div className="p-4"><div className="rounded-xl border border-border bg-surface-2 p-4"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Requirement R-01</div><div className="mt-1 text-lg font-semibold text-text">Install and maintain 50 streetlights</div><div className="mt-5 grid gap-3 sm:grid-cols-3">{[["Expected", "50"], ["Observed", "47"], ["Unverified", "3"]].map(([label, value]) => <div key={label} className="rounded-xl border border-border bg-surface p-3"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">{label}</div><div className="mt-1 text-xl font-semibold text-text">{value}</div></div>)}</div></div><div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 p-4 text-xs leading-5 text-muted">Field evidence should verify the contracted quantity, location and asset identity before any discrepancy is treated as an investigation lead.</div></div>}
-        </div>
-
-        <aside className="hidden rounded-2xl border border-border bg-surface p-4 shadow-sm xl:block">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Field signal</div>
-          <div className="mt-3 text-sm font-semibold text-text">{status.findings > 0 ? "Active detections in view" : "Watching field scene"}</div>
-          <div className="mt-4 space-y-3 text-xs"><div className="flex items-center justify-between"><span className="text-muted">Gateway</span><span className="text-text">{gatewayOnline ? "Online" : "Offline"}</span></div><div className="flex items-center justify-between"><span className="text-muted">Stream</span><span className="text-text">{cameraActive ? "Live" : "Stopped"}</span></div><div className="flex items-center justify-between"><span className="text-muted">Inference</span><span className="text-text">{status.fps.toFixed(1)} FPS</span></div><div className="flex items-center justify-between"><span className="text-muted">Evidence</span><span className="text-text">{status.evidence}</span></div></div>
-          <div className="my-5 h-px bg-border" />
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Investigator attention</div>
-          <div className="mt-3 rounded-xl border border-warning/20 bg-warning/5 p-3 text-xs leading-5 text-muted">A field detection is an observation signal. Contract variance, site variation and identity checks should be verified before escalation.</div>
-        </aside>
-      </section>
-    </main>
-  );
+const defaultCamera = process.env.NEXT_PUBLIC_SENTRY_CAMERA_URL?.trim() || "http://127.0.0.1:4747/video";
+type EventItem = { type:string; confidence?:number; value?:string; track_id?:string|null; detector?:string; mission_id?:string|null; requirement_id?:string|null; observed_at?:number };
+type FieldStatus = { running:boolean; camera_url:string; fps:number; inference_ms:number; findings:number; evidence:number; last_detection:{type:string;confidence:number;track_id?:string|null}|null; last_identity:string|null; last_error:string|null; mission_id:string|null; requirement_id:string|null; capabilities:string[]; confidence:number; every_n_frames:number; gps:{status:string;source:string|null;lat:number|null;lon:number|null}; recent_events:EventItem[] };
+const emptyStatus:FieldStatus={running:false,camera_url:defaultCamera,fps:0,inference_ms:0,findings:0,evidence:0,last_detection:null,last_identity:null,last_error:null,mission_id:null,requirement_id:null,capabilities:[],confidence:.65,every_n_frames:3,gps:{status:"unavailable",source:null,lat:null,lon:null},recent_events:[]};
+function Toggle({checked,onChange}:{checked:boolean;onChange:(v:boolean)=>void}){return <button type="button" aria-pressed={checked} onClick={()=>onChange(!checked)} className={`relative h-5 w-9 rounded-full ${checked?"bg-accent":"bg-bg-2"}`}><span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white ${checked?"left-[18px]":"left-0.5"}`}/></button>}
+export function FieldWorkspaceFast(){
+ const [tab,setTab]=useState<"live"|"evidence"|"contract">("live"),[cameraUrl,setCameraUrl]=useState(defaultCamera),[missionId,setMissionId]=useState("ST-2048"),[requirementId,setRequirementId]=useState("R-01"),[confidence,setConfidence]=useState(.65),[everyNFrames,setEveryNFrames]=useState(3),[selected,setSelected]=useState<Record<string,boolean>>(()=>Object.fromEntries(CAPABILITIES.map(([,k])=>[k,true]))),[streamUrl,setStreamUrl]=useState<string|null>(null),[status,setStatus]=useState<FieldStatus>(emptyStatus),[gatewayOnline,setGatewayOnline]=useState(false),[streamError,setStreamError]=useState<string|null>(null),[full,setFull]=useState(false);
+ const viewerRef=useRef<HTMLDivElement>(null),active=Boolean(streamUrl),selectedCaps=useMemo(()=>CAPABILITIES.map(([,k])=>selected[k]?k:null).filter(Boolean) as string[],[selected]);
+ const start=()=>{const source=cameraUrl.trim();if(!source||!selectedCaps.length)return;setStreamError(null);const p=new URLSearchParams({camera_url:source,confidence:String(confidence),every_n_frames:String(everyNFrames),mission_id:missionId.trim(),requirement_id:requirementId.trim(),capabilities:selectedCaps.join(",")});setStreamUrl(`${apiBase}/stream?${p.toString()}&t=${Date.now()}`)};
+ const stop=()=>{setStreamUrl(null);setStatus(s=>({...s,running:false}))};
+ useEffect(()=>{const f=()=>setFull(Boolean(document.fullscreenElement));document.addEventListener("fullscreenchange",f);return()=>document.removeEventListener("fullscreenchange",f)},[]);
+ useEffect(()=>{let on=true;const poll=async()=>{try{const r=await fetch(`${apiBase}/status`,{cache:"no-store"});if(!r.ok)throw new Error();const p=await r.json() as FieldStatus;if(on){setStatus(p);setGatewayOnline(true)}}catch{if(on)setGatewayOnline(false)}};void poll();const id=window.setInterval(()=>void poll(),700);return()=>{on=false;window.clearInterval(id)}},[]);
+ const evidence=status.recent_events.slice(0,14),streetlights=status.recent_events.filter(e=>e.type.toLowerCase().includes("streetlight")).length,expected=50,observed=Math.min(expected,streetlights),discrepancy=Math.max(0,expected-observed);
+ return <main className="mx-auto w-full max-w-[1900px] space-y-5">
+  <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm md:p-6"><div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><div><div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent"><Radar className="h-3.5 w-3.5"/>SENTRY FIELD <span className="text-faint">/</span><span className="text-muted">Frontend Command Center</span></div><h1 className="text-3xl font-semibold tracking-tight text-text md:text-5xl">Field mission control</h1><p className="mt-2 text-sm text-muted">Mission → capability → machine → inspection → evidence → contract comparison.</p></div><div className="flex flex-wrap gap-2"><Badge tone={gatewayOnline?"success":"muted"}>{gatewayOnline?"Gateway online":"Gateway offline"}</Badge><Badge tone={active?"success":"muted"}>{active?"Inspection live":"Inspection stopped"}</Badge><button onClick={()=>active?stop():start()} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-text">{active?"Stop inspection":"Start inspection"}</button></div></div>
+   <div className="mt-5 grid gap-3 xl:grid-cols-[1.5fr_1fr_1fr]"><label><span className="mb-1.5 block text-[10px] uppercase tracking-[0.14em] text-faint">Camera URL</span><input value={cameraUrl} onChange={e=>setCameraUrl(e.target.value)} className="h-11 w-full rounded-xl border border-border bg-bg/40 px-3 text-xs text-text" placeholder="http://127.0.0.1:4747/video"/></label><label><span className="mb-1.5 block text-[10px] uppercase tracking-[0.14em] text-faint">Mission ID</span><input value={missionId} onChange={e=>setMissionId(e.target.value)} className="h-11 w-full rounded-xl border border-border bg-bg/40 px-3 text-xs text-text"/></label><label><span className="mb-1.5 block text-[10px] uppercase tracking-[0.14em] text-faint">Requirement ID</span><input value={requirementId} onChange={e=>setRequirementId(e.target.value)} className="h-11 w-full rounded-xl border border-border bg-bg/40 px-3 text-xs text-text"/></label></div>
+   <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1fr_auto]"><div className="rounded-xl border border-border bg-surface-2 p-3"><div className="flex justify-between text-[10px] uppercase tracking-[0.14em] text-faint"><span>Confidence threshold</span><b className="text-text">{Math.round(confidence*100)}%</b></div><input type="range" min=".05" max=".99" step=".01" value={confidence} onChange={e=>setConfidence(Number(e.target.value))} className="mt-3 w-full"/></div><div className="rounded-xl border border-border bg-surface-2 p-3"><div className="flex justify-between text-[10px] uppercase tracking-[0.14em] text-faint"><span>Detection frequency</span><b className="text-text">Every {everyNFrames} frames</b></div><input type="range" min="1" max="12" value={everyNFrames} onChange={e=>setEveryNFrames(Number(e.target.value))} className="mt-3 w-full"/></div><button onClick={start} className="rounded-xl bg-accent px-6 text-xs font-semibold text-bg"><SlidersHorizontal className="mr-2 inline h-4 w-4"/>Apply & start</button></div>
+   {streamError&&<div className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger"><XCircle className="mr-2 inline h-3.5 w-3.5"/>{streamError}</div>}
+  </section>
+  <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{[["Inspection state",status.running?"ACTIVE":"IDLE",`${status.fps.toFixed(1)} FPS`,Activity],["Inference",`${status.inference_ms.toFixed(0)} ms`,"frame processing",Gauge],["Live findings",String(status.findings),"current frame",Siren],["Evidence stream",String(status.evidence),"traceable events",FileText]].map(([a,b,c,I])=><div key={String(a)} className="rounded-2xl border border-border bg-surface p-4 shadow-sm"><I className="float-right h-4 w-4 text-accent"/><div className="text-[10px] uppercase tracking-[0.14em] text-faint">{String(a)}</div><div className="mt-2 text-2xl font-semibold text-text">{String(b)}</div><div className="mt-1 text-xs text-muted">{String(c)}</div></div>)}</section>
+  <section className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_320px]">
+   <aside className="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div className="text-[10px] uppercase tracking-[0.16em] text-faint">Capability ON / OFF</div><div className="mt-3 rounded-xl border border-accent/20 bg-accent/5 p-3"><div className="text-sm font-semibold text-text">Mission #{missionId||"—"}</div><div className="mt-1 text-xs text-muted">Requirement {requirementId||"—"}</div></div><div className="mt-4 space-y-2">{CAPABILITIES.map(([label,key])=><div key={key} className="flex items-center justify-between rounded-lg py-1.5"><span className={`text-xs ${selected[key]?"text-text":"text-muted"}`}>{label}</span><Toggle checked={!!selected[key]} onChange={v=>setSelected(s=>({...s,[key]:v}))}/></div>)}</div><div className="mt-4 rounded-xl border border-border bg-surface-2 p-3 text-xs"><b className="text-text">Machine / capability routing</b><p className="mt-1 leading-5 text-muted">Camera-verifiable capabilities run through the local vision gateway. Specialist measurement remains a specialist/lab path.</p></div></aside>
+   <div ref={viewerRef} className={`min-w-0 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm ${full?"bg-black p-3":""}`}><div className="flex items-center justify-between border-b border-border px-4 py-3"><div className="flex gap-1 rounded-lg bg-surface-2 p-1">{(["live","evidence","contract"] as const).map(x=><button key={x} onClick={()=>setTab(x)} className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${tab===x?"bg-surface text-text":"text-muted"}`}>{x}</button>)}</div><button onClick={async()=>{if(!document.fullscreenElement)await viewerRef.current?.requestFullscreen();else await document.exitFullscreen()}} className="rounded-lg border border-border px-3 py-1.5 text-xs text-text">{full?<Minimize2 className="inline h-3.5 w-3.5"/>:<Maximize2 className="inline h-3.5 w-3.5"/>} Fullscreen</button></div>
+    {tab==="live"&&<div className={`p-3 ${full?"h-[calc(100vh-58px)]":""}`}><div className={`relative overflow-hidden rounded-xl bg-[#0b0e13] ${full?"h-full":"min-h-[55vh] xl:min-h-[68vh]"}`}>{streamUrl?<img src={streamUrl} alt="SENTRY FIELD annotated live camera" className="h-full w-full object-contain" onError={()=>{setStreamError("Could not read the local field gateway stream. Check the gateway and camera URL.");setGatewayOnline(false);stop()}}/>:<div className="absolute inset-0 grid place-items-center text-center"><div><Camera className="mx-auto h-10 w-10 text-accent"/><div className="mt-3 font-semibold text-text">Inspection stopped</div><div className="mt-1 text-xs text-muted">Configure controls above, then start inspection.</div></div></div>}<div className="absolute left-4 top-4 flex gap-2"><Badge tone={active?"success":"muted"}>{active?"LIVE":"OFFLINE"}</Badge>{status.mission_id&&<Badge tone="muted">Mission {status.mission_id}</Badge>}</div><div className="absolute bottom-4 left-4 flex gap-2"><Badge tone="muted"><MapPin className="inline h-3 w-3"/>GPS {status.gps.status}</Badge>{status.last_identity&&<Badge tone="success">ID {status.last_identity.slice(0,45)}</Badge>}</div></div></div>}
+    {tab==="evidence"&&<div className="divide-y divide-border">{evidence.length?evidence.map((e,i)=><div key={`${e.type}-${i}`} className="grid gap-3 p-4 md:grid-cols-[56px_1fr_auto] md:items-center"><div className="flex aspect-square items-center justify-center rounded-xl border border-border bg-surface-2"><FileText className="h-5 w-5 text-accent"/></div><div><div className="text-sm font-semibold text-text">{e.type}{e.track_id?` · ${e.track_id}`:""}</div><div className="mt-1 text-xs text-muted">{e.value||`Detector: ${e.detector||"vision"}`}</div><div className="mt-1 text-xs text-faint">Mission {e.mission_id||missionId} · Requirement {e.requirement_id||requirementId}</div></div><Badge tone="success">{e.type==="identity"?"Identity":"Observed"}</Badge></div>):<div className="p-10 text-center text-sm text-muted">No evidence yet.</div>}</div>}
+    {tab==="contract"&&<div className="space-y-4 p-4"><div className="rounded-xl border border-border bg-surface-2 p-4"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Requirement {requirementId||"R-01"}</div><div className="mt-1 text-lg font-semibold text-text">Install and maintain 50 streetlights</div><div className="mt-5 grid gap-3 sm:grid-cols-3">{[["Expected",expected],["Observed",observed],["Discrepancy",discrepancy]].map(([a,b])=><div key={String(a)} className="rounded-xl border border-border bg-surface p-3"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">{String(a)}</div><div className="mt-1 text-xl font-semibold text-text">{String(b)}</div></div>)}</div></div><div className="rounded-xl border border-border bg-surface-2 p-4"><div className="text-[10px] uppercase tracking-[0.14em] text-faint">Investigator explanation</div><p className="mt-2 text-sm leading-6 text-text">{discrepancy>0?`Field evidence currently supports ${observed} streetlight observations against ${expected} expected. Treat this as a discrepancy signal, not a fraud finding. Verify approved variation, maintenance/outage, work-in-progress records and survey coverage.`:"No discrepancy is currently derived from the visible evidence stream."}</p><div className="mt-3 rounded-lg border border-border bg-surface p-3 text-xs text-muted">Next verification: reconcile expected asset IDs using QR/OCR/GPS and approved contract records.</div></div></div>}
+   </div>
+   <aside className="space-y-5"><div className="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">Field telemetry</div><div className="mt-3 grid grid-cols-2 gap-2">{[["FPS",status.fps.toFixed(1)],["Inference",`${status.inference_ms.toFixed(0)}ms`],["Findings",String(status.findings)],["Events",String(status.evidence)]].map(([a,b])=><div key={a} className="rounded-lg border border-border bg-surface-2 p-3"><div className="text-[10px] text-faint">{a}</div><div className="mt-1 text-sm font-semibold text-text">{b}</div></div>)}</div></div><div className="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">End-to-end flow</div><div className="mt-3 space-y-2">{["Tender requirement","Capability selection","Machine / gateway","Live inspection","Evidence capture","Contract comparison","Investigator review"].map((x,i)=><div key={x} className="flex items-center gap-2 text-xs"><span className="grid h-6 w-6 place-items-center rounded-full border border-border bg-surface-2 text-[10px] font-semibold">{i+1}</span><span>{x}</span>{i<6&&<CheckCircle2 className="ml-auto h-3.5 w-3.5 text-success"/>}</div>)}</div></div></aside>
+  </section>
+  {status.last_error&&<div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-xs text-danger">Gateway error: {status.last_error}</div>}
+ </main>
 }
