@@ -33,7 +33,17 @@ def _parse_result(result: Any, detector: str) -> list[Detection]:
     if result is None or result.boxes is None or len(result.boxes) == 0:
         return []
     names = result.names
-    return [Detection(label=str(names.get(int(result.boxes.cls[i].item()), int(result.boxes.cls[i].item()))) if isinstance(names, dict) else str(int(result.boxes.cls[i].item())), confidence=float(result.boxes.conf[i].item()), bbox=_box(result.boxes.xyxy[i].tolist()), detector=detector) for i in range(len(result.boxes))]
+    return [
+        Detection(
+            label=str(names.get(int(result.boxes.cls[i].item()), int(result.boxes.cls[i].item())))
+            if isinstance(names, dict)
+            else str(int(result.boxes.cls[i].item())),
+            confidence=float(result.boxes.conf[i].item()),
+            bbox=_box(result.boxes.xyxy[i].tolist()),
+            detector=detector,
+        )
+        for i in range(len(result.boxes))
+    ]
 
 
 class SimpleTrackStore:
@@ -78,7 +88,12 @@ class SimpleTrackStore:
 
 
 def _overlaps_person(box: list[int], context: list[Detection]) -> bool:
-    return any(item.label.lower() == "person" and item.confidence >= 0.45 and SimpleTrackStore.iou(box, item.bbox) >= 0.15 for item in context)
+    return any(
+        item.label.lower() == "person"
+        and item.confidence >= 0.45
+        and SimpleTrackStore.iou(box, item.bbox) >= 0.15
+        for item in context
+    )
 
 
 class FieldScanner:
@@ -87,9 +102,23 @@ class FieldScanner:
     def __init__(self, config: VisionConfig = DEFAULT_CONFIG) -> None:
         self.config = config
         self.selected = set(config.selected_capabilities or CAPABILITY_ALIASES.values())
+        self.context_model = self._load_optional(config.context_model)
         self.pothole_model = self._load_required(config.pothole_model) if "pothole" in self.selected else None
         self.road_distress_model = self._load_optional(config.road_distress_model) if "road_crack" in self.selected else None
-        needs_world = bool(self.selected.intersection({"streetlight", "cctv_camera", "signboard", "drain", "solar_panel", "manhole_cover", "road_barrier", "road_crack"}))
+        needs_world = bool(
+            self.selected.intersection(
+                {
+                    "streetlight",
+                    "cctv_camera",
+                    "signboard",
+                    "drain",
+                    "solar_panel",
+                    "manhole_cover",
+                    "road_barrier",
+                    "road_crack",
+                }
+            )
+        )
         self.world_model = self._load_world(config.world_model) if needs_world else None
         if self.world_model is not None:
             prompts = [p for p in config.world_prompts if self._prompt_enabled(p)]
@@ -104,6 +133,7 @@ class FieldScanner:
         if config.ocr_enabled:
             try:
                 import pytesseract  # type: ignore
+
                 self.pytesseract = pytesseract
                 self.ocr_available = True
             except ImportError:
@@ -111,12 +141,29 @@ class FieldScanner:
         self.barcode_decode = None
         try:
             from pyzbar.pyzbar import decode as barcode_decode  # type: ignore
+
             self.barcode_decode = barcode_decode
         except ImportError:
             pass
 
     def _prompt_enabled(self, prompt: str) -> bool:
-        mapping = {"streetlight":"streetlight","solar streetlight":"streetlight","cctv camera":"cctv_camera","road sign":"signboard","signboard":"signboard","road barrier":"road_barrier","drain":"drain","manhole cover":"drain","solar panel":"solar_panel","traffic cone":"road_barrier","guardrail":"road_barrier","utility pole":"streetlight","road crack":"road_crack","vehicle":"__context__","person":"__context__"}
+        mapping = {
+            "streetlight": "streetlight",
+            "solar streetlight": "streetlight",
+            "cctv camera": "cctv_camera",
+            "road sign": "signboard",
+            "signboard": "signboard",
+            "road barrier": "road_barrier",
+            "drain": "drain",
+            "manhole cover": "drain",
+            "solar panel": "solar_panel",
+            "traffic cone": "road_barrier",
+            "guardrail": "road_barrier",
+            "utility pole": "streetlight",
+            "road crack": "road_crack",
+            "vehicle": "__context__",
+            "person": "__context__",
+        }
         target = mapping.get(prompt.lower(), prompt.lower())
         return target in self.selected or target == "__context__"
 
@@ -140,7 +187,20 @@ class FieldScanner:
         now = time.monotonic()
         if now - self.last_evidence_at.get(track_id, 0.0) < self.config.evidence_cooldown_seconds:
             return {}
-        event = self.writer.record_detection(frame, capability=detection.label.lower().replace(" ", "_"), observation=f"{detection.label} observed in field camera frame", confidence=detection.confidence, bbox=detection.bbox, gps=None, mission_id=self.config.mission_id, requirement_id=self.config.requirement_id, source=self.config.source, detector=detection.detector, track_id=track_id, evidence_quality=quality)
+        event = self.writer.record_detection(
+            frame,
+            capability=detection.label.lower().replace(" ", "_"),
+            observation=f"{detection.label} observed in field camera frame",
+            confidence=detection.confidence,
+            bbox=detection.bbox,
+            gps=None,
+            mission_id=self.config.mission_id,
+            requirement_id=self.config.requirement_id,
+            source=self.config.source,
+            detector=detection.detector,
+            track_id=track_id,
+            evidence_quality=quality,
+        )
         self.last_evidence_at[track_id] = now
         return event.to_dict()
 
@@ -177,35 +237,84 @@ class FieldScanner:
         context: list[Detection] = []
         accepted: list[Detection] = []
         evidence: list[dict] = []
-        if frame_index % max(1, self.config.context_every_n_frames) == 0:
-            context = _parse_result(self.context_model(frame, imgsz=320, conf=self.config.context_confidence, verbose=False)[0], "context_model")
-        if "pothole" in self.selected and self.pothole_model is not None and frame_index % max(1, self.config.every_n_frames) == 0:
-            result = self.pothole_model(frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False)[0]
+
+        if (
+            self.context_model is not None
+            and frame_index % max(1, self.config.context_every_n_frames) == 0
+        ):
+            context = _parse_result(
+                self.context_model(frame, imgsz=320, conf=self.config.context_confidence, verbose=False)[0],
+                "context_model",
+            )
+
+        if (
+            "pothole" in self.selected
+            and self.pothole_model is not None
+            and frame_index % max(1, self.config.every_n_frames) == 0
+        ):
+            result = self.pothole_model(
+                frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False
+            )[0]
             for d in _parse_result(result, "pothole_model"):
                 if _overlaps_person(d.bbox, context):
                     continue
-                tid, _ = self.tracker.assign(d.label, d.bbox, time.monotonic()); d.track_id = tid; accepted.append(d)
+                tid, _ = self.tracker.assign(d.label, d.bbox, time.monotonic())
+                d.track_id = tid
+                accepted.append(d)
                 event = self._save_detection(frame, d, tid, "context_filtered")
-                if event: evidence.append(event)
-        if "road_crack" in self.selected and self.road_distress_model is not None and frame_index % max(1, self.config.every_n_frames) == 0:
-            result = self.road_distress_model(frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False)[0]
+                if event:
+                    evidence.append(event)
+
+        if (
+            "road_crack" in self.selected
+            and self.road_distress_model is not None
+            and frame_index % max(1, self.config.every_n_frames) == 0
+        ):
+            result = self.road_distress_model(
+                frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False
+            )[0]
             for d in _parse_result(result, "road_distress_model"):
-                tid, _ = self.tracker.assign(d.label, d.bbox, time.monotonic()); d.track_id = tid; accepted.append(d)
+                tid, _ = self.tracker.assign(d.label, d.bbox, time.monotonic())
+                d.track_id = tid
+                accepted.append(d)
                 event = self._save_detection(frame, d, tid, "specialized")
-                if event: evidence.append(event)
+                if event:
+                    evidence.append(event)
+
         if self.world_model is not None and frame_index % max(1, self.config.world_every_n_frames) == 0:
-            result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False)[0]
+            result = self.world_model.predict(
+                frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False
+            )[0]
             allowed = {x.lower() for x in WORLD_EVIDENCE_CLASSES}
             for d in _parse_result(result, "open_vocabulary"):
                 if d.label.lower() not in allowed:
                     continue
-                tid, new = self.tracker.assign(d.label, d.bbox, time.monotonic()); d.track_id = tid; accepted.append(d)
+                tid, new = self.tracker.assign(d.label, d.bbox, time.monotonic())
+                d.track_id = tid
+                accepted.append(d)
                 if new:
                     event = self._save_detection(frame, d, tid, "open_vocabulary")
-                    if event: evidence.append(event)
-        qr = self._qr_scan(frame) if "asset_qr" in self.selected and frame_index % max(1, self.config.qr_every_n_frames) == 0 else None
-        barcode = self._barcode_scan(frame) if "asset_qr" in self.selected and frame_index % max(1, self.config.qr_every_n_frames) == 0 else None
-        ocr = self._ocr_scan(frame) if "asset_text" in self.selected and frame_index % max(1, self.config.ocr_every_n_frames) == 0 else None
+                    if event:
+                        evidence.append(event)
+
+        qr = (
+            self._qr_scan(frame)
+            if "asset_qr" in self.selected
+            and frame_index % max(1, self.config.qr_every_n_frames) == 0
+            else None
+        )
+        barcode = (
+            self._barcode_scan(frame)
+            if "asset_qr" in self.selected
+            and frame_index % max(1, self.config.qr_every_n_frames) == 0
+            else None
+        )
+        ocr = (
+            self._ocr_scan(frame)
+            if "asset_text" in self.selected
+            and frame_index % max(1, self.config.ocr_every_n_frames) == 0
+            else None
+        )
         return accepted, context, qr, barcode, ocr, evidence
 
 
@@ -229,13 +338,43 @@ def run_field_scanner(config: VisionConfig = DEFAULT_CONFIG) -> None:
             for d in detections:
                 x1, y1, x2, y2 = d.bbox
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                cv2.putText(frame, f"{d.label} {d.confidence:.2f}", (x1, max(22, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 0, 0), 2)
-            now = time.monotonic(); dt = now - previous_time; previous_time = now
-            if dt > 0: fps = 0.9 * fps + 0.1 * (1.0 / dt)
-            cv2.putText(frame, f"SENTRY FIELD | FPS {fps:.1f} | findings {len(detections)} | context {len(context)}", (14, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+                cv2.putText(
+                    frame,
+                    f"{d.label} {d.confidence:.2f}",
+                    (x1, max(22, y1 - 8)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (255, 0, 0),
+                    2,
+                )
+            now = time.monotonic()
+            dt = now - previous_time
+            previous_time = now
+            if dt > 0:
+                fps = 0.9 * fps + 0.1 * (1.0 / dt)
+            cv2.putText(
+                frame,
+                f"SENTRY FIELD | FPS {fps:.1f} | findings {len(detections)} | context {len(context)}",
+                (14, 28),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.65,
+                (255, 255, 255),
+                2,
+            )
             identity = " | ".join(v for v in (qr_value, barcode_value, ocr_text) if v)
-            if identity: cv2.putText(frame, f"ID: {identity[:120]}", (14, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 255, 0), 2)
+            if identity:
+                cv2.putText(
+                    frame,
+                    f"ID: {identity[:120]}",
+                    (14, 56),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.48,
+                    (0, 255, 0),
+                    2,
+                )
             cv2.imshow("SENTRY FIELD - Unified Scanner", frame)
-            if cv2.waitKey(1) & 0xFF == ord("q"): break
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
     finally:
-        capture.release(); cv2.destroyAllWindows()
+        capture.release()
+        cv2.destroyAllWindows()
