@@ -20,8 +20,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install backend test dependencies
+        run: python -m pip install -r backend/requirements.txt
+
       - name: Bootstrap field dependencies and models
         run: python sentry_field/scripts/bootstrap_all.py
 
       - name: Validate field model inventory
         run: python sentry_field/scripts/test_vision_setup.py
+
+      - name: Run field end-to-end smoke test
+        run: PYTHONPATH=. python sentry_field/scripts/test_field_pipeline.py
