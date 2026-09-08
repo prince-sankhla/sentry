@@ -113,7 +113,7 @@ const EMPTY: Status = {
   tender_id: null,
   capabilities: [],
   confidence: 0.65,
-  every_n_frames: 3,
+  every_n_frames: 2,
   machine: null,
   demo_site: null,
   dispatch_at: null,
@@ -186,7 +186,7 @@ export function FieldWorkspaceCommandCenter() {
   const [mission, setMission] = useState("ST-2048");
   const [req, setReq] = useState("R-01");
   const [confidence, setConfidence] = useState(0.65);
-  const [freq, setFreq] = useState(3);
+  const [freq, setFreq] = useState(2);
   const [selected, setSelected] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(CAPS.map(([, key]) => [key, true])),
   );
@@ -460,68 +460,41 @@ export function FieldWorkspaceCommandCenter() {
 
           {tab === "evidence" && (
             <div className="divide-y divide-border">
-              {status.recent_events.filter((event) => event.type === "evidence" || event.type === "identity" || event.type === "dispatch").length ? status.recent_events.filter((event) => event.type === "evidence" || event.type === "identity" || event.type === "dispatch").slice(0, 25).map((event, index) => (
-                <div key={`${event.type}-${event.observed_at || index}`} className="grid gap-4 p-4 md:grid-cols-[120px_1fr_auto] md:items-center">
-                  <div className="overflow-hidden rounded-xl border border-border bg-surface-2 aspect-video">
-                    {event.frame_url ? <a href={`${API}${event.frame_url}`} target="_blank" rel="noreferrer"><img src={`${API}${event.frame_url}`} alt="Captured field evidence" className="h-full w-full object-cover" /></a> : <div className="grid h-full place-items-center"><FileText className="h-5 w-5 text-accent" /></div>}
+              {status.recent_events.filter((event) => event.type === "evidence" || event.type === "identity" || event.type === "dispatch").length ? status.recent_events.filter((event) => event.type === "evidence" || event.type === "identity" || event.type === "dispatch").map((event, index) => (
+                <div key={`${event.observed_at || index}`} className="grid gap-3 p-4 md:grid-cols-[110px_1fr]">
+                  {event.frame_url ? <a href={`${API}${event.frame_url}`} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-border bg-bg-2"><img src={`${API}${event.frame_url}`} alt="SENTRY evidence frame" className="aspect-video h-full w-full object-cover" /></a> : <div className="grid aspect-video place-items-center rounded-lg border border-border bg-bg-2 text-[10px] text-faint">No frame</div>}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-text">{event.capability || event.type}</span>{typeof event.confidence === "number" && <Badge tone="muted">{Math.round(event.confidence * 100)}% confidence</Badge>}</div>
+                    <div className="mt-1 text-xs text-muted">{event.detector || "field pipeline"} · {event.track_id || "no track"}</div>
+                    <div className="mt-2 text-[11px] text-faint">{event.mission_id || "No mission"} · {event.requirement_id || "No requirement"}</div>
                   </div>
-                  <div><div className="text-sm font-semibold text-text">{event.type}{event.track_id ? ` · ${event.track_id}` : ""}</div><div className="mt-1 text-xs text-muted">{event.value || `Detector: ${event.detector || "field"}`}</div><div className="mt-1 text-xs text-faint">Mission {event.mission_id || mission} · Requirement {event.requirement_id || req}</div></div>
-                  <Badge tone="success">{event.type === "identity" ? "Identity" : event.type === "dispatch" ? "Dispatched" : "Captured"}</Badge>
                 </div>
-              )) : <div className="p-10 text-center text-sm text-muted">No evidence captured yet.</div>}
+              )) : <div className="p-10 text-center text-sm text-muted">Evidence will appear here when an accepted finding is persisted.</div>}
             </div>
           )}
 
           {tab === "contract" && (
-            <div className="space-y-4 p-4">
-              <div className="rounded-xl border border-border bg-surface-2 p-4">
-                <div className="text-[10px] uppercase tracking-[.14em] text-faint">Requirement {selectedReq?.id || req}</div>
-                <div className="mt-1 text-lg font-semibold text-text">{selectedReq?.label || selectedTender?.title || "Inspection requirement"}</div>
-                <div className="mt-1 text-xs text-muted">{selectedTender?.contract_location || "—"} · Source verified {selectedTender?.source_verified_on || "—"}</div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-border bg-surface p-3"><span className="text-[10px] uppercase tracking-[.14em] text-faint">Expected</span><div className="mt-1 text-xl font-semibold text-text">{selectedReq?.expected_quantity ?? "—"}</div></div>
-                  <div className="rounded-xl border border-border bg-surface p-3"><span className="text-[10px] uppercase tracking-[.14em] text-faint">Observed</span><div className="mt-1 text-xl font-semibold text-text">{hasFieldEvidence ? observed : "Awaiting evidence"}</div></div>
-                  <div className="rounded-xl border border-border bg-surface p-3"><span className="text-[10px] uppercase tracking-[.14em] text-faint">Discrepancy</span><div className="mt-1 text-xl font-semibold text-text">{discrepancy === null ? "—" : discrepancy}</div></div>
-                </div>
-              </div>
-              <div className="rounded-xl border border-border bg-surface-2 p-4">
-                <div className="text-[10px] uppercase tracking-[.14em] text-faint">Investigator explanation</div>
-                <p className="mt-2 text-sm leading-6 text-text">{discrepancy === null ? "No field conclusion is drawn until evidence is captured." : discrepancy > 0 ? `Field evidence currently supports ${observed} observed item(s) against ${selectedReq?.expected_quantity ?? 0} expected. This is a discrepancy signal, not a fraud finding.` : "No positive quantity discrepancy is currently derived from the visible evidence stream."}</p>
-                <div className="mt-3 rounded-lg border border-border bg-surface p-3 text-xs leading-5 text-muted"><b className="text-text">Next verification:</b> reconcile asset identity, GPS/telemetry, approved variation, maintenance/outage, work-in-progress and contract records.</div>
-              </div>
+            <div className="grid gap-4 p-5 md:grid-cols-3">
+              <div className="rounded-xl border border-border bg-surface-2 p-4"><div className="text-[10px] uppercase tracking-[.14em] text-faint">Expected</div><div className="mt-2 text-3xl font-semibold text-text">{selectedReq?.expected_quantity ?? "—"}</div><div className="mt-1 text-xs text-muted">contract requirement</div></div>
+              <div className="rounded-xl border border-border bg-surface-2 p-4"><div className="text-[10px] uppercase tracking-[.14em] text-faint">Observed</div><div className="mt-2 text-3xl font-semibold text-text">{hasFieldEvidence ? observed : "—"}</div><div className="mt-1 text-xs text-muted">mission-scoped tracks</div></div>
+              <div className="rounded-xl border border-border bg-surface-2 p-4"><div className="text-[10px] uppercase tracking-[.14em] text-faint">Discrepancy</div><div className="mt-2 text-3xl font-semibold text-text">{discrepancy === null ? "—" : discrepancy}</div><div className="mt-1 text-xs text-muted">needs investigation if non-zero</div></div>
+              <div className="md:col-span-3 rounded-xl border border-accent/20 bg-accent/5 p-4 text-xs leading-6 text-muted"><Target className="mr-2 inline h-4 w-4 text-accent" /><b className="text-text">Interpretation:</b> A discrepancy is a verification trigger, not a finding of misconduct. Validate variations, outages, maintenance, survey error and other legitimate explanations before escalation.</div>
             </div>
           )}
         </div>
 
-        <aside className="space-y-5">
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
-            <div className="text-[10px] font-semibold uppercase tracking-[.16em] text-faint">Mission chain</div>
-            <div className="mt-3 space-y-2 text-xs">
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-muted">Tender</span><span className="max-w-[58%] truncate font-semibold text-text">{selectedTender?.tender_id || "—"}</span></div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-muted">Requirement</span><span className="max-w-[58%] truncate font-semibold text-text">{selectedReq?.id || "—"}</span></div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-muted">Capability</span><span className="max-w-[58%] truncate font-semibold text-text">{selectedReq?.capability || "—"}</span></div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-muted">Machine</span><span className="max-w-[58%] truncate font-semibold text-text">{selectedTender?.machine || "—"}</span></div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-muted">Inspection</span><span className="max-w-[58%] truncate font-semibold text-text">{status.running ? "RUNNING" : status.authorized ? "AUTHORISED" : "READY"}</span></div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-muted">Evidence</span><span className="font-semibold text-text">{status.evidence}</span></div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-muted">Comparison</span><span className="font-semibold text-text">{discrepancy === null ? "PENDING" : discrepancy ? `${discrepancy} discrepancy` : "MATCH"}</span></div>
-            </div>
+        <aside className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+          <div className="text-[10px] font-semibold uppercase tracking-[.16em] text-faint">Mission chain</div>
+          <div className="mt-3 space-y-2 text-xs text-muted">
+            {[
+              ["Tender", selectedTender?.tender_id || "—"],
+              ["Requirement", selectedReq?.label || "—"],
+              ["Machine", selectedTender?.machine || "—"],
+              ["Mission", mission || "—"],
+              ["Camera", camera || "—"],
+            ].map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2"><span className="text-faint">{label}</span><span className="max-w-[190px] text-right text-text">{value}</span></div>)}
           </div>
-
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
-            <div className="text-[10px] font-semibold uppercase tracking-[.16em] text-faint">Camera / GPS / IoT</div>
-            <div className="mt-3"><Field label="Camera URL" value={camera} onChange={setCamera} /></div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="rounded-lg border border-border bg-surface-2 p-3"><div className="text-[10px] text-faint">GPS</div><div className="mt-1 text-sm font-semibold text-text">{status.gps.status}</div></div>
-              <div className="rounded-lg border border-border bg-surface-2 p-3"><div className="text-[10px] text-faint">Battery</div><div className="mt-1 text-sm font-semibold text-text">{status.battery == null ? "—" : `${status.battery}%`}</div></div>
-              <div className="rounded-lg border border-border bg-surface-2 p-3"><div className="text-[10px] text-faint">Speed</div><div className="mt-1 text-sm font-semibold text-text">{status.speed == null ? "—" : status.speed.toFixed(2)}</div></div>
-              <div className="rounded-lg border border-border bg-surface-2 p-3"><div className="text-[10px] text-faint">Machine</div><div className="mt-1 truncate text-sm font-semibold text-text">{status.machine_id || "—"}</div></div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-faint"><Target className="h-3.5 w-3.5" /> Contract source</div>
-            <div className="mt-2 text-xs leading-5 text-muted">{selectedTender?.verification_notes || "Choose a tender to load its inspection policy."}</div>
-          </div>
+          <div className="mt-4 rounded-xl border border-border bg-surface-2 p-3 text-xs text-muted"><b className="text-text">Ground truth</b><br />Camera evidence is linked to the selected tender, requirement and mission. GPS becomes live only when telemetry supplies coordinates.</div>
         </aside>
       </section>
     </main>
