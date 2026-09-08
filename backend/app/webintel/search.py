@@ -31,7 +31,7 @@ class TavilySearchProvider(SearchProvider):
 
 class BraveSearchProvider(SearchProvider):
     def search(self, query: str, limit: int = 10) -> list[SearchResult]:
-        raise NotImplementedError("Brave Search support is an extension point and requires an API key.")
+        raise NotImplementedError("Brave Search support is an extension point and requires a configured instance.")
 
 
 class SearXNGSearchProvider(SearchProvider):
@@ -40,15 +40,11 @@ class SearXNGSearchProvider(SearchProvider):
 
 
 class BingRSSSearchProvider(SearchProvider):
-    """Keyless public web search using Bing's RSS result feed.
-
-    RSS is deliberately used instead of scraping the interactive Bing page so
-    server-side deployments can retrieve results without browser JavaScript.
-    """
+    """Keyless public web search using Bing's RSS result feed."""
 
     search_url = "https://www.bing.com/search"
 
-    def __init__(self, timeout: float = 20.0) -> None:
+    def __init__(self, timeout: float = 4.0) -> None:
         self.timeout = httpx.Timeout(timeout)
 
     def search(self, query: str, limit: int = 10) -> list[SearchResult]:
@@ -69,25 +65,15 @@ class BingRSSSearchProvider(SearchProvider):
             canonical_url = canonicalize_url(url)
             domain = domain_from_url(canonical_url)
             published_date = _parse_date(item.findtext("pubDate"))
-            results.append(
-                SearchResult(
-                    title=title,
-                    url=canonical_url,
-                    snippet=snippet,
-                    source=domain,
-                    provider="bing_rss",
-                    domain=domain,
-                    published_date=published_date,
-                )
-            )
+            results.append(SearchResult(title=title, url=canonical_url, snippet=snippet, source=domain, provider="bing_rss", domain=domain, published_date=published_date))
             if len(results) >= limit:
                 break
         return results
 
     @retry(
         retry=retry_if_exception_type(httpx.HTTPError),
-        wait=wait_exponential(multiplier=1, min=1, max=8),
-        stop=stop_after_attempt(2),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=1),
+        stop=stop_after_attempt(1),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
@@ -105,7 +91,7 @@ class BingRSSSearchProvider(SearchProvider):
 class DuckDuckGoSearchProvider(SearchProvider):
     search_url = "https://duckduckgo.com/html/"
 
-    def __init__(self, timeout: float = 20.0) -> None:
+    def __init__(self, timeout: float = 4.0) -> None:
         self.timeout = httpx.Timeout(timeout)
 
     def search(self, query: str, limit: int = 10) -> list[SearchResult]:
@@ -115,8 +101,8 @@ class DuckDuckGoSearchProvider(SearchProvider):
 
     @retry(
         retry=retry_if_exception_type(httpx.HTTPError),
-        wait=wait_exponential(multiplier=1, min=1, max=8),
-        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=1),
+        stop=stop_after_attempt(1),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
@@ -163,26 +149,14 @@ class _DuckDuckGoHTMLParser(HTMLParser):
             if title and url:
                 canonical_url = canonicalize_url(url)
                 domain = domain_from_url(canonical_url)
-                self.results.append(
-                    SearchResult(
-                        title=title,
-                        url=canonical_url,
-                        snippet=None,
-                        source=domain,
-                        provider="duckduckgo",
-                        domain=domain,
-                        published_date=_extract_date(title),
-                    )
-                )
+                self.results.append(SearchResult(title=title, url=canonical_url, snippet=None, source=domain, provider="duckduckgo", domain=domain, published_date=_extract_date(title)))
             self._in_link = False
             self._current_href = None
         elif tag in {"a", "div"} and self._in_snippet:
             snippet = clean_whitespace(" ".join(self._current_snippet))
             if snippet and self.results:
                 latest = self.results[-1]
-                self.results[-1] = latest.model_copy(
-                    update={"snippet": snippet, "published_date": latest.published_date or _extract_date(snippet)}
-                )
+                self.results[-1] = latest.model_copy(update={"snippet": snippet, "published_date": latest.published_date or _extract_date(snippet)})
             self._in_snippet = False
 
     def handle_data(self, data: str) -> None:
@@ -225,8 +199,8 @@ def _parse_date(value: str | None) -> datetime | None:
 
 
 def get_default_search_provider() -> SearchProvider:
-    """Return a real public-web provider with a deterministic fallback."""
-    return _FallbackSearchProvider(BingRSSSearchProvider(), DuckDuckGoSearchProvider())
+    """Return a public-web provider with a tight local-dev latency budget."""
+    return _FallbackSearchProvider(BingRSSSearchProvider(timeout=4.0), DuckDuckGoSearchProvider(timeout=4.0))
 
 
 class _FallbackSearchProvider(SearchProvider):
@@ -239,10 +213,10 @@ class _FallbackSearchProvider(SearchProvider):
             primary_results = self.primary.search(query, limit=limit)
             if primary_results:
                 return primary_results
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Primary web search failed; using fallback error=%s", exc)
         try:
             return self.fallback.search(query, limit=limit)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("All web search providers failed error=%s", exc)
             return []
