@@ -1,5 +1,6 @@
 import { InvestigationWebResearch } from "@/components/intel/investigation-web-research";
 import { InvestigationPhases } from "@/components/intel/investigation-phases";
+import { RealAuditCaseLauncher } from "@/components/intel/real-audit-case-launcher";
 import { RealAuditCaseStudio } from "@/components/intel/real-audit-case-studio";
 import { InvestigationWorkspace } from "../investigation-workspace";
 
@@ -29,6 +30,7 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
   return (
     <>
       <InvestigationPhases active="intelligence" completed={[]} />
+      <RealAuditCaseLauncher />
       {initialQuery ? <InvestigationWebResearch initialQuery={initialQuery} /> : null}
       <InvestigationWorkspace initialQuery={initialQuery} />
     </>
