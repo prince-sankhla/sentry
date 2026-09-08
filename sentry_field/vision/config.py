@@ -11,9 +11,8 @@ class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "256"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
-    # Keep the live detector responsive. The previously relaxed value (5)
-    # could make small/short-lived objects appear to be missed in live video.
-    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "2"))
+    # Heavy detectors run every few frames so the live camera remains responsive.
+    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "3"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
     mission_id: str | None = os.getenv("SENTRY_MISSION_ID") or None
@@ -23,17 +22,17 @@ class VisionConfig:
     road_distress_model: Path = MODEL_DIR / "road_distress" / "best.pt"
     context_model: Path = MODEL_DIR / "context" / "yolo11n.pt"
     context_confidence: float = float(os.getenv("SENTRY_CONTEXT_CONFIDENCE", "0.45"))
-    context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "20"))
+    context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "60"))
     person_overlap_threshold: float = 0.15
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
     world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.30"))
-    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "48"))
+    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "90"))
     world_inference_size: int = 320
     world_prompts: tuple[str, ...] = ("streetlight","solar streetlight","CCTV camera","road sign","signboard","road barrier","drain","manhole cover","solar panel","traffic cone","guardrail","utility pole","vehicle","person","road crack")
     qr_enabled: bool = True
     ocr_enabled: bool = True
-    qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "30"))
-    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "90"))
+    qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "45"))
+    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "120"))
     ocr_min_confidence: float = 0.55
     tracking_enabled: bool = True
     track_iou_threshold: float = 0.35
