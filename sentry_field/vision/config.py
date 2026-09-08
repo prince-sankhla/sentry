@@ -11,8 +11,9 @@ class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "256"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
-    # Heavy detectors run every few frames so the live camera remains responsive.
-    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "3"))
+    # Primary task detectors run on every captured frame. Heavy secondary models
+    # keep their own lower cadences so they do not dominate the live loop.
+    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
     mission_id: str | None = os.getenv("SENTRY_MISSION_ID") or None
@@ -31,8 +32,8 @@ class VisionConfig:
     world_prompts: tuple[str, ...] = ("streetlight","solar streetlight","CCTV camera","road sign","signboard","road barrier","drain","manhole cover","solar panel","traffic cone","guardrail","utility pole","vehicle","person","road crack")
     qr_enabled: bool = True
     ocr_enabled: bool = True
-    qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "45"))
-    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "120"))
+    qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "30"))
+    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "90"))
     ocr_min_confidence: float = 0.55
     tracking_enabled: bool = True
     track_iou_threshold: float = 0.35
