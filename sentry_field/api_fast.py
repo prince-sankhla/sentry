@@ -28,7 +28,7 @@ FIELD_API_PORT = int(os.getenv("SENTRY_FIELD_API_PORT", "8001"))
 STREAM_FPS = float(os.getenv("SENTRY_STREAM_FPS", "60"))
 JPEG_QUALITY = int(os.getenv("SENTRY_STREAM_JPEG_QUALITY", "78"))
 
-app = FastAPI(title="SENTRY FIELD Low-Latency Gateway", version="0.6.0")
+app = FastAPI(title="SENTRY FIELD Low-Latency Gateway", version="0.6.1")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 app.mount("/evidence-files", StaticFiles(directory=str(EVIDENCE_DIR)), name="evidence-files")
 
@@ -214,7 +214,7 @@ def stop():
 
 
 class LatestFrame:
-    """Single-slot newest-frame buffer. Old frames are dropped to prevent latency buildup."""
+    """Single-slot newest-frame buffer; old frames are intentionally dropped."""
     def __init__(self):
         self.lock = Lock()
         self.frame = None
@@ -240,14 +240,8 @@ class LatestFrame:
 
 
 def _stream(camera_url: str, confidence: float, mission_id: str | None, requirement_id: str | None, capabilities: list[str]) -> Generator[bytes, None, None]:
-    config = build_config(
-        source=camera_url,
-        confidence=confidence,
-        every_n_frames=1,
-        mission_id=mission_id,
-        requirement_id=requirement_id,
-        capabilities=capabilities,
-    )
+    """Capture runs continuously; AI inference runs independently on the newest frame."""
+    config = build_config(source=camera_url, confidence=confidence, every_n_frames=1, mission_id=mission_id, requirement_id=requirement_id, capabilities=capabilities)
     scanner = FieldScanner(config)
     cap = cv2.VideoCapture(camera_url)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -261,8 +255,16 @@ def _stream(camera_url: str, confidence: float, mission_id: str | None, requirem
 
     latest = LatestFrame()
     stop_event = Event()
-    render_lock = Lock()
-    shared = {"frame": None, "frame_index": 0, "detections": [], "qr": None, "barcode": None, "ocr": None}
+    shared_lock = Lock()
+    shared = {
+        "frame": None,
+        "frame_index": 0,
+        "detections": [],
+        "qr": None,
+        "barcode": None,
+        "ocr": None,
+        "detection_frame_index": -1,
+    }
 
     with _lock:
         authorized = _state["authorized"]
@@ -289,6 +291,9 @@ def _stream(camera_url: str, confidence: float, mission_id: str | None, requirem
                     continue
                 index += 1
                 latest.put(frame, index)
+                with shared_lock:
+                    shared["frame"] = frame
+                    shared["frame_index"] = index
                 count += 1
                 now = time.monotonic()
                 if now - period_start >= 0.5:
@@ -316,13 +321,12 @@ def _stream(camera_url: str, confidence: float, mission_id: str | None, requirem
                 last_index = index
                 started = time.monotonic()
                 detections, _context, qr, barcode, ocr, persisted = scanner.scan(frame, index)
-                with render_lock:
-                    shared["frame"] = frame
-                    shared["frame_index"] = index
-                    shared["detections"] = detections
+                with shared_lock:
+                    shared["detections"] = list(detections)
                     shared["qr"] = qr
                     shared["barcode"] = barcode
                     shared["ocr"] = ocr
+                    shared["detection_frame_index"] = index
                 for detection in detections:
                     _events.appendleft({
                         "type": detection.label, "capability": detection.label.lower().replace(" ", "_"),
@@ -350,7 +354,8 @@ def _stream(camera_url: str, confidence: float, mission_id: str | None, requirem
                     infer_count = 0
                     period_start = now
                 _set(
-                    inference_ms=round(elapsed, 1), findings=len(detections),
+                    inference_ms=round(elapsed, 1),
+                    findings=len(detections),
                     evidence=sum(1 for event in _events if event.get("type") == "evidence"),
                     last_detection={"type": detections[0].label, "confidence": round(detections[0].confidence, 3), "track_id": detections[0].track_id} if detections else _state.get("last_detection"),
                     last_identity=" | ".join(ids)[:200] if ids else _state.get("last_identity"),
@@ -370,7 +375,7 @@ def _stream(camera_url: str, confidence: float, mission_id: str | None, requirem
                 if _state["stop_token"] != current_token or not _state["authorized"]:
                     break
             started = time.monotonic()
-            with render_lock:
+            with shared_lock:
                 frame = shared["frame"].copy() if shared["frame"] is not None else None
                 detections = list(shared["detections"])
                 ids = [value for value in (shared["qr"], shared["barcode"], shared["ocr"]) if value]
