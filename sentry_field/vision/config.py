@@ -11,9 +11,9 @@ class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "256"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
-    # Prioritize smooth live video: run heavy detectors less often while every
-    # camera frame is still displayed by the gateway.
-    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "5"))
+    # Keep the live detector responsive. The previously relaxed value (5)
+    # could make small/short-lived objects appear to be missed in live video.
+    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "2"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
     mission_id: str | None = os.getenv("SENTRY_MISSION_ID") or None
