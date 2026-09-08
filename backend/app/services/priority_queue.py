@@ -1,11 +1,15 @@
 """Priority Investigation Queue — built from the CURRENT procurement database.
 
 Answers "where should an investigator start today?" from the live imported data,
-NOT from past investigations. For each real procuring entity in the database it
-runs the EXISTING deterministic investigation engine (``build_indicators`` +
-``assess_risk_v2``) over that entity's tenders and ranks the results. Everything
-here is deterministic and explainable — no AI, no historical memory, no new
-scoring model: the ranking is a transparent ordering of the engine's own outputs.
+NOT from past investigations. For buyer-level leads it runs the EXISTING
+ deterministic investigation engine (``build_indicators`` + ``assess_risk_v2``)
+over the buyer's tenders and ranks the results.
+
+The queue also surfaces explicit field-ready tender records (``FIELD:`` records
+and CAG audit reconstruction records) as direct investigation leads. Those leads
+are not assigned an invented risk score: they are surfaced because the database
+contains a procurement/audit record that can be investigated and, where
+appropriate, handed to SENTRY FIELD for physical verification.
 """
 
 from __future__ import annotations
@@ -37,6 +41,10 @@ _INTERNATIONAL_SOURCES = ("world_bank", "adb", "un_procurement", "prozorro")
 # Minimum tenders for a buyer to be worth surfacing as an investigation lead.
 _MIN_CLUSTER = 2
 
+# Reserve room in the queue for direct tender leads so newly seeded field-ready
+# records are discoverable even when most buyers only have a single tender.
+_DEFAULT_LIMIT = 20
+
 # Deterministic ordering of the engine's own severity band.
 _RISK_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1, "insufficient": 0}
 _PRIORITY_LABEL = {"critical": "critical", "high": "high", "medium": "medium", "low": "review", "insufficient": "review"}
@@ -50,22 +58,16 @@ _PLACEHOLDER_BUYERS = {
 
 
 def _is_real_buyer(buyer: str | None) -> bool:
-    """Exclude test/placeholder/incomplete procuring entities.
-
-    A real buyer is a non-empty, non-placeholder name with enough substance to be
-    a genuine government entity (letters present, not a bare number or fragment).
-    """
+    """Exclude test/placeholder/incomplete procuring entities."""
     if not buyer:
         return False
     name = buyer.strip()
     normalized = name.casefold()
     if normalized in _PLACEHOLDER_BUYERS:
         return False
-    # Must contain letters and be more than a stray token.
     letters = sum(1 for ch in name if ch.isalpha())
     if letters < 3:
         return False
-    # A single very short word is treated as an incomplete subject.
     segments = [s for s in name.replace("||", " ").split() if s]
     if len(segments) == 1 and len(segments[0]) < 4:
         return False
@@ -157,8 +159,56 @@ def _explain(pkg: InvestigationPackage, record_count: int, has_recent: bool, evi
     return reasons
 
 
-def build_priority_queue(db: Session, *, limit: int = 8, candidate_pool: int = 40) -> PriorityQueueResponse:
-    """Rank real procuring entities in the current DB by attention needed."""
+def _field_ready_tender_items(db: Session) -> list[PriorityQueueItem]:
+    """Return explicit field/audit tender records as direct investigation leads.
+
+    Only records intentionally tagged by the field-seeding flow are included:
+    ``FIELD:`` references for current procurement demos and ``cag`` audit records.
+    This avoids turning arbitrary one-off database records into queue noise.
+    """
+    rows = db.execute(
+        select(Tender)
+        .where(Tender.source_name.notin_(_INTERNATIONAL_SOURCES))
+        .where((Tender.reference_number.ilike("FIELD:%")) | (Tender.source_name == "cag"))
+        .order_by(Tender.created_at.desc())
+    ).scalars().all()
+
+    items: list[PriorityQueueItem] = []
+    seen_source_records: set[str] = set()
+    for tender in rows:
+        source_record_id = (tender.source_record_id or "").strip()
+        if not source_record_id or source_record_id in seen_source_records:
+            continue
+        seen_source_records.add(source_record_id)
+
+        is_audit = (tender.source_name or "").casefold() == "cag"
+        label = "CAG audit record" if is_audit else "Field-verification-ready tender"
+        reasons = [
+            label + " in the current procurement database",
+            "Direct tender lead — investigate the record before any field escalation",
+        ]
+        if is_audit:
+            reasons.append("Historical audit evidence is preserved as source evidence; no new wrongdoing is inferred")
+        else:
+            reasons.append("Eligible for SENTRY FIELD capability planning after procurement review")
+
+        items.append(PriorityQueueItem(
+            subject=tender.title,
+            investigation_type="tender",
+            priority="review",
+            risk_level="insufficient",
+            typology_count=0,
+            linked_records=1,
+            evidence_strength="high" if tender.source_url else "limited",
+            evidence_completeness=1.0 if tender.source_url else 0.0,
+            primary_pattern="Field verification candidate" if not is_audit else "Audit reconstruction",
+            reasons=reasons,
+        ))
+    return items
+
+
+def build_priority_queue(db: Session, *, limit: int = _DEFAULT_LIMIT, candidate_pool: int = 40) -> PriorityQueueResponse:
+    """Rank buyer leads, then reserve queue capacity for explicit tender leads."""
     buyer_label = Tender.procuring_entity
     rows = db.execute(
         select(buyer_label, func.count(Tender.id).label("c"))
@@ -170,14 +220,12 @@ def build_priority_queue(db: Session, *, limit: int = 8, candidate_pool: int = 4
     ).all()
 
     source = DatabaseRecordSource(db)
-    items: list[PriorityQueueItem] = []
+    buyer_items: list[PriorityQueueItem] = []
 
     for buyer, tender_count in rows:
         if not _is_real_buyer(buyer) or tender_count < _MIN_CLUSTER:
             continue
 
-        # Retrieve this buyer's records via the existing precision path, then run
-        # the same deterministic engine an investigation would.
         records = source.search(buyer, precision=True, limit=60, indian_only=True)
         pkg_records = [_to_pkg_record(r) for r in records if r.tender.procuring_entity == buyer]
         if len(pkg_records) < _MIN_CLUSTER:
@@ -188,13 +236,10 @@ def build_priority_queue(db: Session, *, limit: int = 8, candidate_pool: int = 4
         risk_level = (rv2.overall_severity if rv2 else "insufficient") or "insufficient"
         typ = len(rv2.indicators) if rv2 else len(pkg.indicators)
 
-        # Evidence completeness = share of records carrying a primary source/document,
-        # computed by the existing evidence ledger. No new metric.
         ledger = build_evidence_ledger(pkg)
         primary = sum(1 for c in ledger if c.quality_tier == "primary")
         evidence_share = round(primary / len(ledger), 2) if ledger else 0.0
 
-        # Recency: any tender published/closing within the recorded window.
         dates = [r.tender.published_date for r in pkg_records if r.tender.published_date]
         has_recent = bool(dates)
 
@@ -204,7 +249,7 @@ def build_priority_queue(db: Session, *, limit: int = 8, candidate_pool: int = 4
         elif pkg.indicators:
             primary_pattern = pkg.indicators[0].title
 
-        items.append(PriorityQueueItem(
+        buyer_items.append(PriorityQueueItem(
             subject=buyer,
             investigation_type="buyer",
             priority=_PRIORITY_LABEL.get(risk_level.lower(), "review"),
@@ -217,7 +262,7 @@ def build_priority_queue(db: Session, *, limit: int = 8, candidate_pool: int = 4
             reasons=_explain(pkg, len(pkg_records), has_recent, evidence_share),
         ))
 
-    items.sort(
+    buyer_items.sort(
         key=lambda it: (
             _RISK_RANK.get(it.risk_level.lower(), 0),
             it.typology_count,
@@ -226,4 +271,12 @@ def build_priority_queue(db: Session, *, limit: int = 8, candidate_pool: int = 4
         ),
         reverse=True,
     )
-    return PriorityQueueResponse(items=items[:limit], total=len(items[:limit]))
+
+    tender_items = _field_ready_tender_items(db)
+
+    # Keep the established buyer-risk ordering, but guarantee that explicit
+    # field/audit tender records remain discoverable in the same queue. With the
+    # default 20-card queue this yields 10 buyer slots + the direct tender leads.
+    buyer_slots = max(0, limit - min(len(tender_items), 10))
+    selected = buyer_items[:buyer_slots] + tender_items[: max(0, limit - buyer_slots)]
+    return PriorityQueueResponse(items=selected, total=len(selected))
