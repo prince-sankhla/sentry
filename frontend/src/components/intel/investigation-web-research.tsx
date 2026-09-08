@@ -64,6 +64,8 @@ const FOCUSES: Array<{ key: FocusKey; label: string; icon: typeof FileSearch }> 
   { key: "compliance", label: "Audit / vigilance / debarment signals", icon: Siren },
 ];
 
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+
 function createEmptyFocusState(): Record<FocusKey, FocusState> {
   return {
     records: { status: "queued", items: [] },
@@ -103,7 +105,7 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
           [focus.key]: { status: "searching", detail, items: [] },
         }));
         try {
-          const response = await fetch("/api/web/context-search", {
+          const response = await fetch(`${backendUrl}/api/web/context-search`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query: initialQuery, focus: focus.label, limit: 8 }),
@@ -142,8 +144,9 @@ export function InvestigationWebResearch({ initialQuery }: { initialQuery: strin
 
       setRefreshing(true);
       try {
-        const response = await fetch(`/api/web/context?q=${encodeURIComponent(initialQuery)}`, {
+        const response = await fetch(`${backendUrl}/api/web/context?q=${encodeURIComponent(initialQuery)}`, {
           signal: controller.signal,
+          headers: { Accept: "application/json" },
         });
         if (response.ok) {
           const payload = (await response.json()) as IntelligenceResponse;
