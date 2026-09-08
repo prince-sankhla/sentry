@@ -39,12 +39,20 @@ class FirecrawlCrawler(Crawler):
 
 
 class HttpCrawler(Crawler):
-    def __init__(self, timeout: float = 20.0) -> None:
+    def __init__(self, timeout: float = 3.0) -> None:
         self.timeout = httpx.Timeout(timeout)
         self.user_agent = "SENTRY-WebIntel/0.1 (+public evidence collection; contact: local)"
         self._robots_cache: dict[str, urllib.robotparser.RobotFileParser] = {}
+        self._fetch_count = 0
+        self._max_fetches_per_request = 3
 
     def fetch(self, url: str) -> CrawledPage | None:
+        # The investigation pipeline is DB-first. Keep supplemental crawling
+        # bounded so a slow public website can never hold the whole investigation.
+        if self._fetch_count >= self._max_fetches_per_request:
+            return None
+        self._fetch_count += 1
+
         url = canonicalize_url(url)
         if not self._allowed_by_robots(url):
             logger.info("Skipping URL disallowed by robots.txt: %s", url)
@@ -76,8 +84,8 @@ class HttpCrawler(Crawler):
 
     @retry(
         retry=retry_if_exception_type(httpx.HTTPError),
-        wait=wait_exponential(multiplier=1, min=1, max=8),
-        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=1),
+        stop=stop_after_attempt(1),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
@@ -167,4 +175,5 @@ class _ContentHTMLParser(HTMLParser):
 
 
 def get_default_crawler() -> Crawler:
-    return HttpCrawler()
+    """Return a bounded crawler so supplemental web research stays non-blocking."""
+    return HttpCrawler(timeout=3.0)
