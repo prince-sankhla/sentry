@@ -1,6 +1,15 @@
 import os
+import sys
+from pathlib import Path
 
 import uvicorn
+
+# Running `python sentry_field\scripts\run_field_api.py` puts only the
+# `scripts` directory on sys.path. Add the repository root so the package
+# import works reliably from PowerShell and VS Code on Windows.
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from sentry_field.api_fast import FIELD_API_PORT
 
