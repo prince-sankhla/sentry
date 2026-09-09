@@ -30,11 +30,15 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
   return (
     <>
       <InvestigationPhases active="intelligence" completed={[]} />
+
+      {/* Keep the field escalation above the investigation workspace so it is always
+          the first actionable control on exact field-verification investigations. */}
+      {initialQuery ? <PhysicalVerificationHandoff initialQuery={physicalReference} /> : null}
+
       {landing ? <PhysicalTenderRecommendationsLoader /> : null}
       <RealAuditCaseLauncher />
       {initialQuery ? <InvestigationWebResearch initialQuery={initialQuery} /> : null}
       <InvestigationWorkspace initialQuery={initialQuery} />
-      {initialQuery ? <PhysicalVerificationHandoff initialQuery={physicalReference} /> : null}
     </>
   );
 }
