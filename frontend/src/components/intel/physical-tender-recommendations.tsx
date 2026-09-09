@@ -22,15 +22,8 @@ export type TenderRecommendation = {
 };
 
 const CAPABILITY_LABELS: Record<string, string> = {
-  pothole: "Pothole",
-  road_crack: "Road crack",
-  streetlight: "Streetlight",
-  cctv_camera: "CCTV",
-  signboard: "Signboard",
-  drain: "Drain / manhole",
-  solar_panel: "Solar panel",
-  asset_qr: "QR / asset ID",
-  asset_text: "OCR / asset text",
+  pothole: "Pothole", road_crack: "Road crack", streetlight: "Streetlight", cctv_camera: "CCTV",
+  signboard: "Signboard", drain: "Drain / manhole", solar_panel: "Solar panel", asset_qr: "QR / asset ID", asset_text: "OCR / asset text",
 };
 
 export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldReady: TenderRecommendation[]; pothole: TenderRecommendation[] }) {
@@ -38,21 +31,18 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
   const open = (item: TenderRecommendation) => {
     const target = item.reference_number?.trim() || item.tender_id?.trim();
     if (!target) return;
-    router.push(`/investigate?q=${encodeURIComponent(`TENDER:${target}`)}`);
+    const fieldProfile = item.field_ready && item.field_profile_id ? `&fieldProfile=${encodeURIComponent(item.field_profile_id)}` : "";
+    router.push(`/investigate?q=${encodeURIComponent(`TENDER:${target}`)}${fieldProfile}`);
   };
 
-  const potholeIds = new Set(
-    pothole.map((item) => item.tender_id).filter((id): id is string => Boolean(id)),
-  );
+  const potholeIds = new Set(pothole.map((item) => item.tender_id).filter((id): id is string => Boolean(id)));
   const fieldQueue = fieldReady.map((item) => ({
     ...item,
     pothole_relevant: item.pothole_relevant || Boolean(item.tender_id && potholeIds.has(item.tender_id)),
   }));
 
   const renderCards = (items: TenderRecommendation[], emptyLabel: string) => {
-    if (items.length === 0) {
-      return <div className="mt-4 rounded-xl border border-border bg-bg/20 p-4 text-sm text-muted">{emptyLabel}</div>;
-    }
+    if (items.length === 0) return <div className="mt-4 rounded-xl border border-border bg-bg/20 p-4 text-sm text-muted">{emptyLabel}</div>;
     return (
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {items.map((item) => {
@@ -75,7 +65,6 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
                 </div>
                 <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-accent transition-transform group-hover:translate-x-0.5" />
               </div>
-
               {capabilities.length > 0 ? (
                 <div className="mt-4 rounded-xl border border-accent/15 bg-accent/5 p-3">
                   <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.13em] text-accent"><Radar className="h-3.5 w-3.5" /> Auto-selected capabilities</div>
@@ -83,7 +72,6 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
                   <div className="mt-1.5 text-[10px] text-muted">SENTRY derives these from the registered field requirements. No manual detector choice.</div>
                 </div>
               ) : null}
-
               {item.reasons?.length ? <div className="mt-4 space-y-1 text-[11px] leading-5 text-muted">{item.reasons.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}</div> : null}
               <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-faint">
                 <span className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> field-capable</span>
