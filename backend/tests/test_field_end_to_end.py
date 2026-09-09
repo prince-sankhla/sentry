@@ -3,9 +3,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.api.routes.field_reanalysis import FieldReanalysisRequest, FieldRequirement, FieldObservation, field_reanalysis
+from app.api.routes.field_reanalysis import FieldObservation, FieldReanalysisRequest, FieldRequirement, field_reanalysis
 from app.services.field_verification_auto import build_auto_field_verification_plan
-from app.services.priority_queue_direct_tender import auto_capabilities_for_tender if False else _physical_capabilities
+from app.services.priority_queue_direct_tender import _physical_capabilities
 
 
 class FakeDb:
@@ -14,25 +14,6 @@ class FakeDb:
 
     def get(self, _model, _tender_id):
         return self.tender
-
-
-class ScalarResult:
-    def __init__(self, rows):
-        self.rows = rows
-
-    def scalars(self):
-        return self
-
-    def all(self):
-        return self.rows
-
-
-class QueueDb:
-    def __init__(self, rows):
-        self.rows = rows
-
-    def execute(self, _statement):
-        return ScalarResult(self.rows)
 
 
 def tender(**overrides):
@@ -86,10 +67,7 @@ def test_field_reanalysis_returns_discrepancy_and_guardrail():
     assert "not a fraud finding" in result["guardrail"]
 
 
-def test_physical_queue_prioritizes_dharmagarh():
-    rows = [
-        tender(title="Ordinary LED procurement", reference_number="LED/002", description="street light work"),
-        tender(title="Dharmagarh road and drain pothole repair", reference_number="DHARMA/001", description="pothole drain road repair"),
-    ]
-    # Exercise the classifier directly; queue integration is covered by the backend API smoke suite.
-    assert set(_physical_capabilities(rows[1])) >= {"pothole", "drain", "road_crack"}
+def test_physical_capability_classifier_covers_dharmagarh_case():
+    row = tender()
+    capabilities = set(_physical_capabilities(row))
+    assert {"pothole", "drain", "road_crack"}.issubset(capabilities)
