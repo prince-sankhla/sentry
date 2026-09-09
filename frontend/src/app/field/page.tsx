@@ -1,5 +1,5 @@
 import { PageShell } from "@/components/ui/page";
-import { FieldMissionConsole } from "@/components/field/field-mission-console";
+import { FieldMissionConsole } from "@/components/field/field_mission_console";
 import { FieldEvidenceMap } from "@/components/field/field_evidence_map";
 
 export const dynamic = "force-dynamic";
