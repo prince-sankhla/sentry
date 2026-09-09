@@ -5,33 +5,6 @@ import { ArrowRight, Camera, MapPin, Radar, ShieldCheck } from "lucide-react";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 
-type Requirement = {
-  id: string;
-  capability: string;
-  label: string;
-  expected_quantity: number;
-};
-
-type VerificationPlan = {
-  tender: {
-    id: string;
-    reference_number: string;
-    title: string;
-    source_record_id: string;
-    source_url: string | null;
-    procuring_entity: string | null;
-  };
-  verification_required: boolean;
-  profile_id: string;
-  field_tender_key: string;
-  machine: string;
-  demo_site: string | null;
-  category: string | null;
-  requirements: Requirement[];
-  verification_notes: string | null;
-  source_profile_verified_on: string | null;
-};
-
 const CAPABILITY_LABELS: Record<string, string> = {
   pothole: "Pothole",
   road_crack: "Road crack",
@@ -44,6 +17,20 @@ const CAPABILITY_LABELS: Record<string, string> = {
   asset_text: "OCR / asset text",
 };
 
+type Requirement = { id: string; capability: string; label: string; expected_quantity: number };
+type VerificationPlan = {
+  tender: { id: string; reference_number: string; title: string; source_record_id: string; source_url: string | null; procuring_entity: string | null };
+  verification_required: boolean;
+  profile_id: string;
+  field_tender_key: string;
+  machine: string;
+  demo_site: string | null;
+  category: string | null;
+  requirements: Requirement[];
+  verification_notes: string | null;
+  source_profile_verified_on: string | null;
+};
+
 export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: string }) {
   const [plan, setPlan] = useState<VerificationPlan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,18 +38,11 @@ export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: st
 
   useEffect(() => {
     const reference = initialQuery.trim();
-    if (!reference) {
-      setLoading(false);
-      setNotApplicable(true);
-      return;
-    }
+    if (!reference) { setLoading(false); setNotApplicable(true); return; }
     let alive = true;
     setLoading(true);
     setNotApplicable(false);
-    fetch(`${BACKEND_URL}/api/investigations/field-verification?reference_number=${encodeURIComponent(reference)}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
+    fetch(`${BACKEND_URL}/api/investigations/field-verification?reference_number=${encodeURIComponent(reference)}`, { cache: "no-store", headers: { Accept: "application/json" } })
       .then(async (response) => {
         if (response.status === 404 || response.status === 409) return null;
         if (!response.ok) throw new Error(`Field verification planning failed: ${response.status}`);
@@ -75,33 +55,27 @@ export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: st
         setLoading(false);
       })
       .catch(() => {
-        if (alive) {
-          setPlan(null);
-          setNotApplicable(true);
-          setLoading(false);
-        }
+        if (!alive) return;
+        setPlan(null);
+        setNotApplicable(true);
+        setLoading(false);
       });
     return () => { alive = false; };
   }, [initialQuery]);
 
   const capabilities = useMemo(() => {
-    const values: string[] = [];
-    for (const requirement of plan?.requirements ?? []) {
-      if (requirement.capability && !values.includes(requirement.capability)) values.push(requirement.capability);
-    }
-    return values;
+    const seen = new Set<string>();
+    return (plan?.requirements ?? []).map((item) => item.capability).filter((value) => { if (!value || seen.has(value)) return false; seen.add(value); return true; });
   }, [plan]);
 
   if (notApplicable) return null;
   if (loading || !plan || !plan.requirements.length) {
     return (
-      <section className="mt-8 overflow-hidden rounded-2xl border border-accent/20 bg-accent/[0.035] shadow-sm">
-        <div className="flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-          <div>
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-accent"><Radar className="h-3.5 w-3.5" /> SENTRY FIELD / VERIFICATION GATE</div>
-            <div className="mt-1 text-sm font-semibold text-text">Resolving physical-verification profile…</div>
-          </div>
-          <span className="text-[11px] text-muted">SENTRY will auto-select capabilities from the tender requirements.</span>
+      <section className="mt-3 overflow-hidden rounded-2xl border border-accent/20 bg-accent/[0.035] shadow-sm">
+        <div className="flex flex-col gap-2 px-5 py-4 md:px-6">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-accent"><Radar className="h-3.5 w-3.5 animate-pulse" /> SENTRY FIELD / VERIFICATION GATE</div>
+          <div className="text-sm font-semibold text-text">Resolving physical-verification profile…</div>
+          <div className="text-[11px] text-muted">SENTRY will auto-select capabilities from this tender's executable requirements.</div>
         </div>
       </section>
     );
@@ -111,7 +85,7 @@ export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: st
   const fieldUrl = `/field?tender=${encodeURIComponent(plan.field_tender_key)}&requirement=${encodeURIComponent(firstRequirement.id)}`;
 
   return (
-    <section className="mt-8 overflow-hidden rounded-2xl border border-accent/25 bg-accent/[0.045] shadow-sm">
+    <section className="mt-3 overflow-hidden rounded-2xl border border-accent/25 bg-accent/[0.045] shadow-sm">
       <div className="border-b border-accent/15 px-5 py-4 md:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -132,7 +106,7 @@ export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: st
         <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><ShieldCheck className="h-3.5 w-3.5 text-success" /> Exact tender</div><div className="mt-2 text-sm font-semibold text-text">{plan.tender.reference_number}</div><div className="mt-1 text-xs text-muted">DB record: {plan.tender.id}</div></div>
         <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><Radar className="h-3.5 w-3.5 text-accent" /> Machine</div><div className="mt-2 text-sm font-semibold text-text">{plan.machine}</div><div className="mt-1 text-xs text-muted">Profile: {plan.profile_id}</div></div>
         <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><MapPin className="h-3.5 w-3.5 text-accent" /> Field site</div><div className="mt-2 text-sm font-semibold text-text">{plan.demo_site || "Site supplied by operator"}</div><div className="mt-1 text-xs text-muted">{plan.category || "Physical procurement asset verification"}</div></div>
-        <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><Camera className="h-3.5 w-3.5 text-accent" /> Requirements</div><div className="mt-2 text-sm font-semibold text-text">{plan.requirements.length} executable</div><div className="mt-1 text-xs text-muted">All capabilities are derived automatically.</div></div>
+        <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><Camera className="h-3.5 w-3.5 text-accent" /> Requirements</div><div className="mt-2 text-sm font-semibold text-text">{plan.requirements.length} executable</div><div className="mt-1 text-xs text-muted">All capabilities derived automatically</div></div>
       </div>
 
       <div className="border-t border-accent/15 px-5 py-4 md:px-6">
