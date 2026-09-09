@@ -1,5 +1,6 @@
 import { InvestigationWebResearch } from "@/components/intel/investigation-web-research";
 import { InvestigationPhases } from "@/components/intel/investigation-phases";
+import { PhysicalVerificationHandoff } from "@/components/intel/physical-verification-handoff";
 import { RealAuditCaseLauncher } from "@/components/intel/real-audit-case-launcher";
 import { RealAuditCaseStudio } from "@/components/intel/real-audit-case-studio";
 import { InvestigationWorkspace } from "../investigation-workspace";
@@ -33,6 +34,7 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
       <RealAuditCaseLauncher />
       {initialQuery ? <InvestigationWebResearch initialQuery={initialQuery} /> : null}
       <InvestigationWorkspace initialQuery={initialQuery} />
+      {initialQuery ? <PhysicalVerificationHandoff initialQuery={initialQuery} /> : null}
     </>
   );
 }

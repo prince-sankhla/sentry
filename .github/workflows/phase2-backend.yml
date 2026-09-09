@@ -1,0 +1,27 @@
+name: Phase 2 Backend Tests
+
+on:
+  push:
+    branches:
+      - main
+      - phase-2-physical-verification-handoff
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  phase2-backend:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: backend:.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies and pytest
+        run: pip install -r backend/requirements.txt pytest
+      - name: Run Phase 2 contract tests
+        run: pytest -q backend/tests/test_phase2_field_verification.py sentry_field/tests/test_phase2_dispatch.py

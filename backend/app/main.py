@@ -8,9 +8,6 @@ from app.core.config import get_settings
 from app.db.connection import verify_database_connection
 from app.services.investigation_safety_patch import apply_safety_patch
 
-# Apply investigation guardrails before any route modules can import the risk
-# engine functions. This prevents historical winner-count proxies from reaching
-# production findings or risk output.
 apply_safety_patch()
 
 from app.api.routes import (  # noqa: E402
@@ -21,6 +18,7 @@ from app.api.routes import (  # noqa: E402
     dashboard,
     entities,
     ecosystem_graph,
+    field_verification,
     graph,
     investigations,
     investigation_field_leads,
@@ -55,10 +53,6 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.backend_cors_origins,
-    # The Next.js frontend can run from a Vercel preview deployment whose
-    # hostname changes on every deployment. Keep the explicit configured origins
-    # for local/custom deployments, and allow only SENTRY's own Vercel preview
-    # hostnames for browser-to-backend API calls.
     allow_origin_regex=r"https://sentry-platform-evaluation(?:-[a-z0-9]+)?-prince-sankhla-s-projects\.vercel\.app",
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -87,6 +81,7 @@ app.include_router(graph.router)
 app.include_router(ecosystem_graph.router)
 app.include_router(investigations.router)
 app.include_router(investigation_field_leads.router)
+app.include_router(field_verification.router)
 app.include_router(live_ingestion.router)
 app.include_router(monitoring.router)
 app.include_router(search.router)
