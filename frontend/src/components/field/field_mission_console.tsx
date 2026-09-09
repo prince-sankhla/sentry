@@ -252,7 +252,7 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
         <div className="flex flex-col gap-3 border-b border-border px-4 py-3 md:flex-row md:items-center md:justify-between">
           <div className="flex gap-1 rounded-lg bg-surface-2 p-1">
             <button type="button" onClick={() => setTab("live")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${tab === "live" ? "bg-surface text-text" : "text-muted"}`}>Live camera</button>
-            <button type="button" onClick={() => setTab("evidence")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${tab === "evidence" ? "bg-surface text-text" : "text-muted"}>Evidence ({evidenceEvents.length})</button>
+            <button type="button" onClick={() => setTab("evidence")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${tab === "evidence" ? "bg-surface text-text" : "text-muted"}`}>Evidence ({evidenceEvents.length})</button>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[.14em] text-faint"><span>Mission {status.mission_id || "—"}</span>{status.machine_id ? <span>· {status.machine_id}</span> : null}</div>
         </div>
