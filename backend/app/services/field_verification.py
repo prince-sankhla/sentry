@@ -12,6 +12,20 @@ from app.models.tender import Tender
 ROOT = Path(__file__).resolve().parents[3]
 PROFILE_FILE = ROOT / "sentry_field" / "data" / "demo_tenders.json"
 
+# Explicit aliases bridge historical/audit reconstruction DB identities to their
+# registered physical-verification profiles without relying on human-readable
+# title matching.
+PROFILE_DB_ALIASES: dict[str, tuple[str, ...]] = {
+    "FIELD-AUDIT-DELHI-CWG": (
+        "AUDIT:2026_CAG_DELHI_CWG_STREETLIGHT",
+        "CAG_CWG2010_DELHI_STREETLIGHT",
+    ),
+    "FIELD-AUDIT-DHANBAD-LED": (
+        "AUDIT:2026_CAG_DHANBAD_LED",
+        "CAG_JHARKHAND_DHANBAD_LED",
+    ),
+}
+
 
 def _load_profiles() -> list[dict]:
     try:
@@ -27,16 +41,26 @@ def _profile_key(value: str | None) -> str:
     return (value or "").strip().removeprefix("FIELD:")
 
 
-def _profile_for_tender(tender: Tender) -> dict:
-    source_key = _profile_key(tender.source_record_id)
+def _profile_matches_tender(profile: dict, tender: Tender) -> bool:
+    source_record_id = (tender.source_record_id or "").strip()
     reference = (tender.reference_number or "").strip()
+    profile_id = str(profile.get("id") or "").strip()
+    profile_tender_id = str(profile.get("tender_id") or "").strip()
+    profile_reference = str(profile.get("reference_number") or "").strip()
+    aliases = PROFILE_DB_ALIASES.get(profile_id, ())
+    return (
+        source_record_id in aliases
+        or reference in aliases
+        or _profile_key(profile_tender_id) == _profile_key(source_record_id)
+        or profile_reference == reference
+        or reference == f"FIELD:{profile_tender_id}"
+        or source_record_id == profile_tender_id
+    )
+
+
+def _profile_for_tender(tender: Tender) -> dict:
     profile = next(
-        (
-            row
-            for row in _load_profiles()
-            if _profile_key(str(row.get("tender_id"))) == source_key
-            or str(row.get("reference_number", "")).strip() == reference
-        ),
+        (row for row in _load_profiles() if _profile_matches_tender(row, tender)),
         None,
     )
     if profile is None:
