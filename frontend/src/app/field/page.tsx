@@ -1,6 +1,6 @@
 import { PageShell } from "@/components/ui/page";
-import { FieldHandoffConsole } from "@/components/field/field-handoff-console";
-import { MobileGpsSession } from "@/components/field/mobile-gps-session";
+import { FieldMissionConsole } from "@/components/field/field-mission-console";
+import { FieldEvidenceMap } from "@/components/field/field_evidence_map";
 
 export const dynamic = "force-dynamic";
 
@@ -18,18 +18,10 @@ export default async function FieldPage({ searchParams }: PageProps) {
 
   return (
     <PageShell>
-      {tenderKey && requirementId ? (
-        <div className="space-y-5">
-          <FieldHandoffConsole tenderKey={tenderKey} requirementId={requirementId} />
-          <MobileGpsSession tenderKey={tenderKey} requirementId={requirementId} />
-        </div>
-      ) : (
-        <section className="rounded-2xl border border-border bg-surface p-8 shadow-sm">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">SENTRY FIELD</div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text">No mission context supplied</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Open SENTRY FIELD from an authorised investigation handoff so the exact tender and inspection requirement remain linked to the mission.</p>
-        </section>
-      )}
+      <div className="space-y-5">
+        <FieldMissionConsole tenderKey={tenderKey || undefined} requirementId={requirementId || undefined} />
+        <FieldEvidenceMap />
+      </div>
     </PageShell>
   );
 }
