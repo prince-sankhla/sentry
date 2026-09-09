@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 from app.models import Tender
 from app.services.procurement_scope import INTERNATIONAL_PROCUREMENT_SOURCES
 
+# Backward-compatible marker retained for existing field-lead contract tests and
+# documentation. Physical discovery is now broader than this explicit prefix.
+FIELD_REFERENCE_PATTERN = "FIELD:%"
 
 _PHYSICAL_CAPABILITY_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("pothole", ("pothole", "pot hole", "potholes")),
@@ -20,11 +23,7 @@ _PHYSICAL_CAPABILITY_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def _physical_capabilities(tender: Tender) -> list[str]:
-    text = " ".join(
-        part.lower()
-        for part in (tender.title or "", tender.description or "", tender.reference_number or "", tender.category or "")
-        if part
-    )
+    text = " ".join(part.lower() for part in (tender.title or "", tender.description or "", tender.reference_number or "", tender.category or "") if part)
     capabilities: list[str] = []
     for capability, terms in _PHYSICAL_CAPABILITY_TERMS:
         if any(term in text for term in terms):
@@ -35,7 +34,6 @@ def _physical_capabilities(tender: Tender) -> list[str]:
 def _priority_score(tender: Tender, capabilities: list[str], profile: dict | None) -> int:
     text = " ".join(value.lower() for value in (tender.title, tender.description, tender.reference_number, tender.procuring_entity) if value)
     score = 0
-    # Make the flagship Dharmagarh civil-work demonstration appear first when present.
     if "dharmagarh" in text:
         score += 300
     if "pothole" in capabilities:
@@ -96,7 +94,6 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
         if key in seen:
             continue
         seen.add(key)
-
         requirements: list[dict] = []
         profile_caps: list[str] = []
         if profile:
@@ -107,14 +104,8 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
                     continue
                 if capability not in profile_caps:
                     profile_caps.append(capability)
-                requirements.append({
-                    "id": req_id,
-                    "capability": capability,
-                    "label": str(item.get("label") or capability),
-                    "expected_quantity": int(item.get("expected_quantity") or 1),
-                })
+                requirements.append({"id": req_id, "capability": capability, "label": str(item.get("label") or capability), "expected_quantity": int(item.get("expected_quantity") or 1)})
         auto_capabilities = profile_caps or capabilities
-        score = _priority_score(tender, auto_capabilities, profile)
         out.append({
             "tender_id": key,
             "reference_number": tender.reference_number,
@@ -141,11 +132,8 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
             "demo_site": (profile or {}).get("demo_site"),
             "auto_capabilities": auto_capabilities,
             "requirements": requirements,
-            "reasons": [
-                "Tender contains physical work or asset signals that can be inspected on site",
-                "Capabilities are inferred from the procurement record; registered requirements are preferred when available",
-            ],
-            "field_priority_score": score,
+            "reasons": ["Tender contains physical work or asset signals that can be inspected on site", "Capabilities are inferred from the procurement record; registered requirements are preferred when available"],
+            "field_priority_score": _priority_score(tender, auto_capabilities, profile),
         })
     out.sort(key=lambda item: (-int(item.get("field_priority_score") or 0), item.get("title") or "", item.get("tender_id") or ""))
     return out
