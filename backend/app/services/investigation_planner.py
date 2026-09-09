@@ -49,6 +49,7 @@ ACTION_BY_MODULE = {
 }
 
 CONNECTOR_MODULES = {"buyer_connectors", "company_connectors", "source_connectors", "tender_connectors"}
+_AUDIT_RECORD_CUES = ("cag ", "cag performance audit report", "annual technical inspection report", "comptroller and auditor general")
 
 
 class InvestigationPlanner:
@@ -56,36 +57,27 @@ class InvestigationPlanner:
         self.source_manager = source_manager or SourceManager()
 
     def build_plan(self, query: str, source_names: list[str] | None = None) -> InvestigationPlan:
-        # Intent detection V2: determine WHAT is being investigated and separate the
-        # entity from any aspect modifier ("… directors"), so the planner receives a
-        # clean entity query — never raw text that would contaminate retrieval.
         intent = detect_intent(query)
         entity_query = intent.entity_query or _clean_query(query)
         investigation_type = intent.investigation_type
-        confidence = intent.confidence
+        # Explicit audit case references are stable record identifiers in SENTRY's
+        # case launcher. Keep them in the tender/document workflow even if an older
+        # intent detector version classifies the prose as a company/authority name.
+        if any(cue in entity_query.casefold() for cue in _AUDIT_RECORD_CUES):
+            investigation_type = "tender"
+        confidence = max(intent.confidence, 0.97) if investigation_type == "tender" and any(cue in entity_query.casefold() for cue in _AUDIT_RECORD_CUES) else intent.confidence
         connectors = self._select_connectors(source_names)
         modules = MODULE_ORDER[investigation_type]
-        steps = self._build_steps(
-            query=entity_query,
-            investigation_type=investigation_type,
-            modules=modules,
-            connectors=connectors,
-        )
-        return InvestigationPlan(
-            query=entity_query,
-            investigation_type=investigation_type,
-            confidence=confidence,
-            connectors=connectors,
-            modules=modules,
-            steps=steps,
-        )
+        steps = self._build_steps(query=entity_query, investigation_type=investigation_type, modules=modules, connectors=connectors)
+        return InvestigationPlan(query=entity_query, investigation_type=investigation_type, confidence=confidence, connectors=connectors, modules=modules, steps=steps)
 
     def detect_type(self, query: str) -> tuple[InvestigationType, float]:
         lowered = query.casefold()
+        if any(cue in lowered for cue in _AUDIT_RECORD_CUES):
+            return "tender", 0.97
         scores: dict[InvestigationType, int] = {investigation_type: 0 for investigation_type in TYPE_KEYWORDS}
         for investigation_type, keywords in TYPE_KEYWORDS.items():
             scores[investigation_type] += sum(2 for keyword in keywords if keyword in lowered)
-
         if re.search(r"\b[A-Z]{2,8}[:/-][A-Z0-9][A-Z0-9./-]{4,}\b", query):
             scores["tender"] += 4
         if re.search(r"\b(contract|agreement|award)\s*(no\.?|number|id)?\s*[:#-]?\s*[A-Z0-9./-]{4,}\b", lowered):
@@ -94,7 +86,6 @@ class InvestigationPlanner:
             scores["ministry"] += 3
         if re.search(r"\b(district|province|state of|city of)\b", lowered):
             scores["location"] += 3
-
         best_type = max(scores, key=scores.get)
         best_score = scores[best_type]
         if best_score == 0:
@@ -105,38 +96,17 @@ class InvestigationPlanner:
     def _select_connectors(self, source_names: list[str] | None) -> list[str]:
         available = self.source_manager.connector_names()
         if not source_names:
-            # Indian procurement first — the plan queries Indian sources ahead of
-            # international ones (World Bank et al. become secondary).
             return prioritize_source_names(available)
         requested = {source_name.strip() for source_name in source_names if source_name.strip()}
         selected = [source_name for source_name in available if source_name in requested]
         return prioritize_source_names(selected)
 
-    def _build_steps(
-        self,
-        *,
-        query: str,
-        investigation_type: InvestigationType,
-        modules: list[str],
-        connectors: list[str],
-    ) -> list[InvestigationPlanStep]:
+    def _build_steps(self, *, query: str, investigation_type: InvestigationType, modules: list[str], connectors: list[str]) -> list[InvestigationPlanStep]:
         steps: list[InvestigationPlanStep] = []
         previous_module: str | None = None
         for index, module in enumerate(modules, start=1):
             step_connectors = connectors if module in CONNECTOR_MODULES else []
-            steps.append(
-                InvestigationPlanStep(
-                    order=index,
-                    module=module,
-                    action=ACTION_BY_MODULE[module],
-                    connectors=step_connectors,
-                    inputs={
-                        "query": query,
-                        "investigation_type": investigation_type,
-                    },
-                    depends_on=[previous_module] if previous_module else [],
-                )
-            )
+            steps.append(InvestigationPlanStep(order=index, module=module, action=ACTION_BY_MODULE[module], connectors=step_connectors, inputs={"query": query, "investigation_type": investigation_type}, depends_on=[previous_module] if previous_module else []))
             previous_module = module
         return steps
 
