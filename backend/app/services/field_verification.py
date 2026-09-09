@@ -24,29 +24,27 @@ def _load_profiles() -> list[dict]:
 
 
 def _profile_key(value: str | None) -> str:
-    value = (value or "").strip()
-    return value.removeprefix("FIELD:")
+    return (value or "").strip().removeprefix("FIELD:")
 
 
-def build_field_verification_plan(db: Session, tender_id: UUID) -> dict:
-    tender = db.get(Tender, tender_id)
-    if tender is None or tender.deleted_at is not None:
-        raise HTTPException(404, "Tender not found")
-
+def _profile_for_tender(tender: Tender) -> dict:
     source_key = _profile_key(tender.source_record_id)
-    candidates = _load_profiles()
+    reference = (tender.reference_number or "").strip()
     profile = next(
         (
             row
-            for row in candidates
+            for row in _load_profiles()
             if _profile_key(str(row.get("tender_id"))) == source_key
-            or str(row.get("reference_number", "")).strip() == (tender.reference_number or "").strip()
+            or str(row.get("reference_number", "")).strip() == reference
         ),
         None,
     )
     if profile is None:
         raise HTTPException(404, "No physical verification profile is registered for this tender")
+    return profile
 
+
+def _plan_payload(tender: Tender, profile: dict) -> dict:
     requirements = [
         {
             "id": str(item.get("id")),
@@ -59,7 +57,6 @@ def build_field_verification_plan(db: Session, tender_id: UUID) -> dict:
     ]
     if not requirements:
         raise HTTPException(422, "Physical verification profile has no executable requirements")
-
     return {
         "tender": {
             "id": str(tender.id),
@@ -71,6 +68,7 @@ def build_field_verification_plan(db: Session, tender_id: UUID) -> dict:
         },
         "verification_required": True,
         "profile_id": profile.get("id"),
+        "field_tender_key": profile.get("id"),
         "machine": profile.get("machine") or "Normal Vision Rover",
         "demo_site": profile.get("demo_site"),
         "category": profile.get("category"),
@@ -78,3 +76,29 @@ def build_field_verification_plan(db: Session, tender_id: UUID) -> dict:
         "verification_notes": profile.get("verification_notes"),
         "source_profile_verified_on": profile.get("source_verified_on"),
     }
+
+
+def build_field_verification_plan(db: Session, tender_id: UUID) -> dict:
+    tender = db.get(Tender, tender_id)
+    if tender is None or tender.deleted_at is not None:
+        raise HTTPException(404, "Tender not found")
+    return _plan_payload(tender, _profile_for_tender(tender))
+
+
+def build_field_verification_plan_by_reference(db: Session, reference_number: str) -> dict:
+    reference = reference_number.strip()
+    if not reference:
+        raise HTTPException(400, "reference_number is required")
+    rows = (
+        db.query(Tender)
+        .filter(Tender.reference_number == reference, Tender.deleted_at.is_(None))
+        .all()
+    )
+    if len(rows) == 0:
+        raise HTTPException(404, "Tender not found")
+    if len(rows) > 1:
+        rows = [row for row in rows if (row.source_record_id or "").startswith("FIELD:")]
+    if len(rows) != 1:
+        raise HTTPException(409, "Reference number does not uniquely identify a tender")
+    tender = rows[0]
+    return _plan_payload(tender, _profile_for_tender(tender))
