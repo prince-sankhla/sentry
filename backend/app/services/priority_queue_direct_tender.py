@@ -34,6 +34,10 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
             "source_record_id": tender.source_record_id,
             "tender_title": tender.title,
             "subject": tender.title,
+            "title": tender.title,
+            "procuring_entity": tender.procuring_entity,
+            "category": tender.category,
+            "source_name": tender.source_name,
             "source_url": tender.source_url,
             "investigation_type": "tender",
             "priority": "review",
@@ -45,7 +49,7 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
             "primary_pattern": "Field verification candidate",
             "reasons": [
                 "Field-verification-ready tender record in the current procurement database",
-                "Direct tender lead — investigate the procurement record before physical verification",
+                "Direct tender lead — investigate the record before physical verification",
             ],
         })
     return out
