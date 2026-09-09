@@ -1,8 +1,5 @@
 import { PageShell } from "@/components/ui/page";
-import { FieldEvidenceMap } from "@/components/field/field_evidence_map";
 import { FieldHandoffConsole } from "@/components/field/field-handoff-console";
-import { FieldWorkspaceCommandCenter } from "@/components/field/workspace_command_center";
-import { AuditFieldBootstrap } from "@/components/field/audit-field-bootstrap";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +17,15 @@ export default async function FieldPage({ searchParams }: PageProps) {
 
   return (
     <PageShell>
-      <AuditFieldBootstrap />
-      <div className="space-y-5">
-        {tenderKey && requirementId ? <FieldHandoffConsole tenderKey={tenderKey} requirementId={requirementId} /> : null}
-        <FieldEvidenceMap />
-        <FieldWorkspaceCommandCenter />
-      </div>
+      {tenderKey && requirementId ? (
+        <FieldHandoffConsole tenderKey={tenderKey} requirementId={requirementId} />
+      ) : (
+        <section className="rounded-2xl border border-border bg-surface p-8 shadow-sm">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">SENTRY FIELD</div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text">No mission context supplied</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Open SENTRY FIELD from an authorised investigation handoff so the exact tender and inspection requirement remain linked to the mission.</p>
+        </section>
+      )}
     </PageShell>
   );
 }
