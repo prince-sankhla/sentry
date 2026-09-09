@@ -22,12 +22,7 @@ _PHYSICAL_CAPABILITY_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
 def _physical_capabilities(tender: Tender) -> list[str]:
     text = " ".join(
         part.lower()
-        for part in (
-            tender.title or "",
-            tender.description or "",
-            tender.reference_number or "",
-            tender.category or "",
-        )
+        for part in (tender.title or "", tender.description or "", tender.reference_number or "", tender.category or "")
         if part
     )
     capabilities: list[str] = []
@@ -37,14 +32,27 @@ def _physical_capabilities(tender: Tender) -> list[str]:
     return capabilities
 
 
-def direct_field_tender_leads(db: Session) -> list[dict]:
-    """Return every current DB tender that is plausibly inspectable in the field.
+def _priority_score(tender: Tender, capabilities: list[str], profile: dict | None) -> int:
+    text = " ".join(value.lower() for value in (tender.title, tender.description, tender.reference_number, tender.procuring_entity) if value)
+    score = 0
+    # Make the flagship Dharmagarh civil-work demonstration appear first when present.
+    if "dharmagarh" in text:
+        score += 300
+    if "pothole" in capabilities:
+        score += 100
+    if "road_crack" in capabilities:
+        score += 80
+    if "drain" in capabilities:
+        score += 70
+    if profile is not None:
+        score += 40
+    if tender.source_url:
+        score += 5
+    return score
 
-    Registered SENTRY FIELD profiles remain authoritative for executable missions,
-    but discovery is broader: real procurement records mentioning physical assets,
-    road/drain works, lighting, CCTV and similar observable work are surfaced too.
-    This keeps the investigator queue comprehensive without inventing evidence.
-    """
+
+def direct_field_tender_leads(db: Session) -> list[dict]:
+    """Return every current DB tender that is plausibly inspectable in the field."""
     rows = db.execute(
         select(Tender)
         .where(Tender.deleted_at.is_(None))
@@ -52,8 +60,6 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
         .order_by(Tender.created_at.desc().nullslast(), Tender.id.desc())
     ).scalars().all()
 
-    # Import the profile catalog lazily so ordinary backend startup does not depend
-    # on the FIELD gateway package being installed.
     import json
     from pathlib import Path
 
@@ -101,46 +107,45 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
                     continue
                 if capability not in profile_caps:
                     profile_caps.append(capability)
-                requirements.append(
-                    {
-                        "id": req_id,
-                        "capability": capability,
-                        "label": str(item.get("label") or capability),
-                        "expected_quantity": int(item.get("expected_quantity") or 1),
-                    }
-                )
+                requirements.append({
+                    "id": req_id,
+                    "capability": capability,
+                    "label": str(item.get("label") or capability),
+                    "expected_quantity": int(item.get("expected_quantity") or 1),
+                })
         auto_capabilities = profile_caps or capabilities
-        out.append(
-            {
-                "tender_id": key,
-                "reference_number": tender.reference_number,
-                "source_record_id": tender.source_record_id,
-                "tender_title": tender.title,
-                "subject": tender.title,
-                "title": tender.title,
-                "procuring_entity": tender.procuring_entity,
-                "category": tender.category or (profile or {}).get("category"),
-                "source_name": tender.source_name,
-                "source_url": tender.source_url,
-                "investigation_type": "tender",
-                "priority": "review",
-                "risk_level": "insufficient",
-                "typology_count": 0,
-                "linked_records": 1,
-                "evidence_strength": "high" if tender.source_url else "limited",
-                "evidence_completeness": 1.0 if tender.source_url else 0.0,
-                "primary_pattern": "Field verification candidate",
-                "field_ready": True,
-                "field_profile_id": (profile or {}).get("id"),
-                "mission_ready": bool(profile),
-                "machine": (profile or {}).get("machine") or "Normal Vision Rover",
-                "demo_site": (profile or {}).get("demo_site"),
-                "auto_capabilities": auto_capabilities,
-                "requirements": requirements,
-                "reasons": [
-                    "Tender contains physical work or asset signals that can be inspected on site",
-                    "Capabilities are inferred from the procurement record; executable profile is shown when registered",
-                ],
-            }
-        )
+        score = _priority_score(tender, auto_capabilities, profile)
+        out.append({
+            "tender_id": key,
+            "reference_number": tender.reference_number,
+            "source_record_id": tender.source_record_id,
+            "tender_title": tender.title,
+            "subject": tender.title,
+            "title": tender.title,
+            "procuring_entity": tender.procuring_entity,
+            "category": tender.category or (profile or {}).get("category"),
+            "source_name": tender.source_name,
+            "source_url": tender.source_url,
+            "investigation_type": "tender",
+            "priority": "review",
+            "risk_level": "insufficient",
+            "typology_count": 0,
+            "linked_records": 1,
+            "evidence_strength": "high" if tender.source_url else "limited",
+            "evidence_completeness": 1.0 if tender.source_url else 0.0,
+            "primary_pattern": "Field verification candidate",
+            "field_ready": True,
+            "field_profile_id": (profile or {}).get("id"),
+            "mission_ready": True,
+            "machine": (profile or {}).get("machine") or "Normal Vision Rover",
+            "demo_site": (profile or {}).get("demo_site"),
+            "auto_capabilities": auto_capabilities,
+            "requirements": requirements,
+            "reasons": [
+                "Tender contains physical work or asset signals that can be inspected on site",
+                "Capabilities are inferred from the procurement record; registered requirements are preferred when available",
+            ],
+            "field_priority_score": score,
+        })
+    out.sort(key=lambda item: (-int(item.get("field_priority_score") or 0), item.get("title") or "", item.get("tender_id") or ""))
     return out
