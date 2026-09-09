@@ -28,6 +28,7 @@ type QueueItem = PriorityQueueItem & {
 
 type FieldTenderLead = {
   tender_id: string;
+  reference_number: string;
   source_record_id: string | null;
   tender_title: string;
   subject: string;
@@ -82,8 +83,6 @@ export function PriorityInvestigationQueue({ onOpen }: { onOpen: (subject: strin
 
         if (!alive) return;
 
-        // The dedicated endpoint is the stable-identity source for the demo
-        // entry. Keep the established risk-ranked queue below it.
         const directLeads: QueueItem[] = fieldResult.items.map((lead) => ({
           subject: lead.tender_title,
           investigation_type: "tender",
@@ -96,7 +95,7 @@ export function PriorityInvestigationQueue({ onOpen }: { onOpen: (subject: strin
           primary_pattern: lead.primary_pattern,
           reasons: lead.reasons,
           tender_id: lead.tender_id,
-          reference_number: lead.source_record_id,
+          reference_number: lead.reference_number,
           tender_title: lead.tender_title
         }));
 
@@ -108,9 +107,6 @@ export function PriorityInvestigationQueue({ onOpen }: { onOpen: (subject: strin
 
         setItems([...directLeads, ...existing]);
       } catch {
-        // Preserve the existing queue if the additive direct-lead endpoint is
-        // unavailable. This keeps the landing page usable while making the
-        // stable-identity path available whenever the backend is connected.
         getPriorityQueue(20)
           .then((res) => alive && setItems(res.items as QueueItem[]))
           .catch(() => alive && setFailed(true));

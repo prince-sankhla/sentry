@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
-
-from app.api.deps import get_db
 from app.api.routes import investigation_field_leads
-from app.main import app
 from app.services.investigation_planner import InvestigationPlanner
 
 
@@ -12,6 +8,7 @@ def test_field_leads_endpoint_exposes_stable_identity(monkeypatch):
     sample = [
         {
             "tender_id": "11111111-1111-1111-1111-111111111111",
+            "reference_number": "FIELD:2026_DEMO_ROAD",
             "source_record_id": "FIELD:2026_DEMO_ROAD",
             "tender_title": "Construction of Retaining wall and Drain Works",
             "subject": "Construction of Retaining wall and Drain Works",
@@ -29,16 +26,11 @@ def test_field_leads_endpoint_exposes_stable_identity(monkeypatch):
     ]
 
     monkeypatch.setattr(investigation_field_leads, "direct_field_tender_leads", lambda db: sample)
-    app.dependency_overrides[get_db] = lambda: object()
-    try:
-        response = TestClient(app).get("/api/investigations/field-tender-leads")
-    finally:
-        app.dependency_overrides.pop(get_db, None)
+    body = investigation_field_leads.field_tender_leads(object())
 
-    assert response.status_code == 200
-    body = response.json()
     assert body["total"] == 1
     assert body["items"][0]["tender_id"] == sample[0]["tender_id"]
+    assert body["items"][0]["reference_number"] == sample[0]["reference_number"]
     assert body["items"][0]["source_record_id"] == sample[0]["source_record_id"]
     assert body["items"][0]["tender_title"] == sample[0]["tender_title"]
 

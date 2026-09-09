@@ -8,6 +8,12 @@ from app.services.procurement_scope import INTERNATIONAL_PROCUREMENT_SOURCES
 
 
 def direct_field_tender_leads(db: Session) -> list[dict]:
+    """Return current field-ready tenders with stable identity fields.
+
+    ``reference_number`` is the investigation lookup key; ``tender_id`` is the
+    immutable database identity. Both are returned so the UI never has to use a
+    human-readable title as the lookup key.
+    """
     rows = db.execute(
         select(Tender)
         .where(Tender.deleted_at.is_(None))
@@ -18,12 +24,13 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
     seen: set[str] = set()
     out: list[dict] = []
     for tender in rows:
-        key = (tender.source_record_id or str(tender.id)).strip()
+        key = (tender.source_record_id or tender.reference_number or str(tender.id)).strip()
         if key in seen:
             continue
         seen.add(key)
         out.append({
             "tender_id": str(tender.id),
+            "reference_number": tender.reference_number,
             "source_record_id": tender.source_record_id,
             "tender_title": tender.title,
             "subject": tender.title,
