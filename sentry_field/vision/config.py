@@ -6,13 +6,12 @@ ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "models" / "field"
 EVIDENCE_DIR = ROOT / "field_evidence"
 
+
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "256"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
-    # Primary task detectors run on every captured frame. Heavy secondary models
-    # keep their own lower cadences so they do not dominate the live loop.
     every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
@@ -27,20 +26,39 @@ class VisionConfig:
     person_overlap_threshold: float = 0.15
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
     world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.30"))
-    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "90"))
+    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "15"))
     world_inference_size: int = 320
-    world_prompts: tuple[str, ...] = ("streetlight","solar streetlight","CCTV camera","road sign","signboard","road barrier","drain","manhole cover","solar panel","traffic cone","guardrail","utility pole","vehicle","person","road crack")
+    world_prompts: tuple[str, ...] = (
+        "pothole", "road crack", "streetlight", "solar streetlight", "CCTV camera",
+        "road sign", "signboard", "road barrier", "drain", "manhole cover", "solar panel",
+        "traffic cone", "guardrail", "utility pole", "vehicle", "person",
+    )
     qr_enabled: bool = True
     ocr_enabled: bool = True
     qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "30"))
-    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "90"))
+    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "60"))
     ocr_min_confidence: float = 0.55
     tracking_enabled: bool = True
     track_iou_threshold: float = 0.35
     track_ttl_seconds: float = 2.5
 
+
 DEFAULT_CONFIG = VisionConfig()
-CAPABILITY_ALIASES = {"Pothole":"pothole","Road crack":"road_crack","Streetlight":"streetlight","CCTV":"cctv_camera","Signboard":"signboard","Drain / manhole":"drain","Solar panel":"solar_panel","QR / asset ID":"asset_qr","OCR":"asset_text"}
+CAPABILITY_ALIASES = {
+    "Pothole": "pothole",
+    "Road crack": "road_crack",
+    "Streetlight": "streetlight",
+    "CCTV": "cctv_camera",
+    "Signboard": "signboard",
+    "Drain / manhole": "drain",
+    "Solar panel": "solar_panel",
+    "Road barrier": "road_barrier",
+    "Manhole cover": "manhole_cover",
+    "QR / asset ID": "asset_qr",
+    "OCR": "asset_text",
+    "Barcode": "asset_barcode",
+}
+
 
 def build_config(*, source=None, confidence=None, every_n_frames=None, mission_id=None, requirement_id=None, capabilities=None) -> VisionConfig:
     selected = tuple(capabilities if capabilities is not None else CAPABILITY_ALIASES.values())
