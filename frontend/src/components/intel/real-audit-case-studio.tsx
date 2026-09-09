@@ -38,6 +38,8 @@ const CASES = {
       "Retrieve invoices, quotations and approval / evaluation records.",
       "Trace the documented justification for the imported-luminaire decision.",
     ],
+    fieldTenderKey: "FIELD-AUDIT-DELHI-CWG",
+    fieldRequirementId: "REQ-AUDIT-DELHI-01",
     fieldRequirement: "streetlight",
     fieldLabel: "Physical verification of installed streetlights and asset identity",
   },
@@ -75,6 +77,8 @@ const CASES = {
       "Verify warranty / maintenance obligations and service calls.",
       "Repeat field verification on a representative sample and preserve dated evidence.",
     ],
+    fieldTenderKey: "FIELD-AUDIT-DHANBAD-LED",
+    fieldRequirementId: "REQ-AUDIT-DHANBAD-01",
     fieldRequirement: "streetlight",
     fieldLabel: "Physical verification of streetlight presence / visible condition / asset identity",
   },
@@ -102,7 +106,12 @@ export function RealAuditCaseStudio({ caseKey }: { caseKey?: string }) {
   }
 
   function goField() {
-    router.push(`/field?case=${item.key}`);
+    const query = new URLSearchParams({
+      case: item.key,
+      tender: item.fieldTenderKey,
+      requirement: item.fieldRequirementId,
+    });
+    router.push(`/field?${query.toString()}`);
   }
 
   return (
