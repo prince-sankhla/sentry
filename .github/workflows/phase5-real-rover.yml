@@ -1,0 +1,58 @@
+name: Phase 5 Real Rover Mission
+
+on:
+  push:
+    branches:
+      - main
+      - phase-5-real-rover-mission
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  field-contracts:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: backend:.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies and pytest
+        run: pip install -r backend/requirements.txt pytest
+
+      - name: Run Phase 3, Phase 4 and Phase 5 gateway contracts
+        run: >-
+          pytest -q
+          sentry_field/tests/test_phase3_mission.py
+          sentry_field/tests/test_phase4_mobile_gps.py
+          sentry_field/tests/test_phase5_real_rover.py
+
+      - name: Run field pipeline smoke test
+        run: python sentry_field/scripts/test_field_pipeline.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
