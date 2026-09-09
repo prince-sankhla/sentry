@@ -11,9 +11,12 @@ type PageProps = {
   searchParams: Promise<{ q?: string; case?: string }>;
 };
 
+// Demo cases use exact tender references so they cannot drift into a generic
+// company/buyer investigation because of wording in an audit title.
+// InvestigationPlanner unwraps TENDER:<reference> and runs the precise tender flow.
 const CASE_TO_QUERY: Record<string, string> = {
-  "delhi-cwg": "CAG Performance Audit Report No. 4 of 2011 · Street Lighting",
-  "dhanbad-led": "CAG Annual Technical Inspection Report on Local Bodies · 2017",
+  "delhi-cwg": "TENDER:AUDIT:2026_CAG_DELHI_CWG_STREETLIGHT",
+  "dhanbad-led": "TENDER:AUDIT:2026_CAG_DHANBAD_LED",
 };
 
 export default async function InvestigatePage({ searchParams }: PageProps) {
