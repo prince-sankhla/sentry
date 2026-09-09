@@ -44,8 +44,8 @@ def tender_recommendations(
 
     Field-ready records are identified by the explicit FIELD: reference convention.
     Pothole recommendations are keyword-matched over the live tender title,
-    description and reference; they remain ordinary tender investigations until a
-    registered physical profile exists.
+    description and reference; a tender may intentionally appear in both buckets
+    when it is both pothole-relevant and field-verification-ready.
     """
     field_items = direct_field_tender_leads(db)[:field_limit]
 
@@ -58,24 +58,23 @@ def tender_recommendations(
         .limit(pothole_limit)
     ).scalars().all()
 
-    field_refs = {item.get("reference_number") for item in field_items}
     seen: set[str] = set()
     pothole_items: list[dict] = []
     for tender in rows:
         key = str(tender.id)
-        if key in seen or tender.reference_number in field_refs:
+        if key in seen:
             continue
         seen.add(key)
         pothole_items.append(
             {
-                "tender_id": str(tender.id),
+                "tender_id": key,
                 "reference_number": tender.reference_number,
                 "title": tender.title,
                 "procuring_entity": tender.procuring_entity,
                 "category": tender.category,
                 "source_name": tender.source_name,
                 "source_url": tender.source_url,
-                "field_ready": False,
+                "field_ready": bool((tender.reference_number or "").upper().startswith("FIELD:")),
                 "pothole_relevant": True,
                 "reasons": [
                     "Tender text explicitly references pothole / road-surface distress work",
@@ -88,10 +87,7 @@ def tender_recommendations(
         "field_ready": [
             {
                 **item,
-                "title": item.get("tender_title") or item.get("subject") or "",
-                "procuring_entity": None,
-                "category": "Physical verification",
-                "source_name": item.get("investigation_type") or "tender",
+                "title": item.get("title") or item.get("tender_title") or item.get("subject") or "",
                 "field_ready": True,
                 "pothole_relevant": False,
             }
