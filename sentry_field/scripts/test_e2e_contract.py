@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from fastapi.testclient import TestClient
 
 from sentry_field import api_v2
@@ -90,7 +92,7 @@ def test_mobile_gps_is_bound_to_authorised_mission(monkeypatch):
             "lat": 26.1,
             "lon": 74.1,
             "accuracy_m": 8,
-            "captured_at": 1_800_000_000,
+            "captured_at": time.time(),
             "speed": 0,
         },
     )
