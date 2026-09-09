@@ -12,7 +12,12 @@ from pydantic import BaseModel, Field
 
 
 class PriorityQueueItem(BaseModel):
-    """One recommended starting point, with an explainable rationale."""
+    """One recommended starting point, with an explainable rationale.
+
+    Direct tender leads carry stable tender identity so the frontend can start an
+    investigation against the exact database record rather than using the tender
+    title as a free-text proxy.
+    """
 
     subject: str                             # the real procuring entity to investigate
     investigation_type: str = "buyer"
@@ -24,6 +29,9 @@ class PriorityQueueItem(BaseModel):
     evidence_completeness: float = 0.0       # primary-source share from the evidence ledger
     primary_pattern: str = ""                # first triggered indicator name, verbatim
     reasons: list[str] = Field(default_factory=list)  # why this is recommended, in plain language
+    tender_id: str | None = None             # stable Tender UUID for direct tender leads
+    reference_number: str | None = None      # exact source/reference identifier
+    tender_title: str | None = None          # display title without becoming the lookup key
 
 
 class PriorityQueueResponse(BaseModel):

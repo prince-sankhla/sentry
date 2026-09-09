@@ -6,7 +6,9 @@
  * A professional investigator's starting point. Buyer-level leads are ranked
  * from the deterministic investigation engine, while explicit field-ready and
  * CAG records are surfaced as direct tender leads so they can be opened from
- * the same Investigation Workspace.
+ * the same Investigation Workspace. Direct field leads are loaded with a stable
+ * tender reference so the click opens the exact procurement record rather than
+ * searching by title.
  */
 import { motion } from "framer-motion";
 import { ArrowRight, Check, FileText, Layers, ListChecks, ShieldQuestion } from "lucide-react";
@@ -15,6 +17,32 @@ import { useCallback, useEffect, useState } from "react";
 import { Section } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { getPriorityQueue, type PriorityQueueItem } from "@/lib/api";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+
+type QueueItem = PriorityQueueItem & {
+  tender_id?: string | null;
+  reference_number?: string | null;
+  tender_title?: string | null;
+};
+
+type FieldTenderLead = {
+  tender_id: string;
+  reference_number: string;
+  source_record_id: string | null;
+  tender_title: string;
+  subject: string;
+  source_url: string | null;
+  investigation_type: "tender";
+  priority: "review";
+  risk_level: "insufficient";
+  typology_count: number;
+  linked_records: number;
+  evidence_strength: "high" | "limited";
+  evidence_completeness: number;
+  primary_pattern: string;
+  reasons: string[];
+};
 
 const PRIORITY_STYLE: Record<PriorityQueueItem["priority"], { label: string; cls: string; dot: string }> = {
   critical: { label: "Critical", cls: "border-danger/50 bg-danger/10 text-danger", dot: "bg-danger" },
@@ -29,21 +57,63 @@ const EVIDENCE_STYLE: Record<PriorityQueueItem["evidence_strength"], string> = {
   limited: "text-muted"
 };
 
-function patternLabel(item: PriorityQueueItem): string {
+function patternLabel(item: QueueItem): string {
   return item.primary_pattern?.trim() || "Deterministic indicators triggered";
 }
 
 export function PriorityInvestigationQueue({ onOpen }: { onOpen: (subject: string) => void }) {
-  const [items, setItems] = useState<PriorityQueueItem[] | null>(null);
+  const [items, setItems] = useState<QueueItem[] | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    // The queue now includes explicit direct-tender leads in addition to the
-    // established buyer-risk leads, so request enough room to show both.
-    getPriorityQueue(20)
-      .then((res) => alive && setItems(res.items))
-      .catch(() => alive && setFailed(true));
+
+    const load = async () => {
+      try {
+        const [queueResult, fieldResult] = await Promise.all([
+          getPriorityQueue(20),
+          fetch(`${BACKEND_URL}/api/investigations/field-tender-leads`, {
+            cache: "no-store",
+            headers: { Accept: "application/json" }
+          }).then(async (response) => {
+            if (!response.ok) throw new Error(`field_leads_${response.status}`);
+            return (await response.json()) as { items: FieldTenderLead[]; total: number };
+          })
+        ]);
+
+        if (!alive) return;
+
+        const directLeads: QueueItem[] = fieldResult.items.map((lead) => ({
+          subject: lead.tender_title,
+          investigation_type: "tender",
+          priority: "review",
+          risk_level: "insufficient",
+          typology_count: 0,
+          linked_records: 1,
+          evidence_strength: lead.evidence_strength,
+          evidence_completeness: lead.evidence_completeness,
+          primary_pattern: lead.primary_pattern,
+          reasons: lead.reasons,
+          tender_id: lead.tender_id,
+          reference_number: lead.reference_number,
+          tender_title: lead.tender_title
+        }));
+
+        const directKeys = new Set(directLeads.map((lead) => lead.reference_number ?? lead.tender_id));
+        const existing = queueResult.items.filter((item) => {
+          const candidate = item as QueueItem;
+          return !(candidate.investigation_type === "tender" && directKeys.has(candidate.reference_number ?? candidate.tender_id ?? candidate.subject));
+        }) as QueueItem[];
+
+        setItems([...directLeads, ...existing]);
+      } catch {
+        getPriorityQueue(20)
+          .then((res) => alive && setItems(res.items as QueueItem[]))
+          .catch(() => alive && setFailed(true));
+      }
+    };
+
+    void load();
     return () => {
       alive = false;
     };
@@ -73,7 +143,7 @@ export function PriorityInvestigationQueue({ onOpen }: { onOpen: (subject: strin
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {items.map((item, i) => (
-            <QueueCard key={`${item.subject}-${item.investigation_type}-${i}`} item={item} index={i} onOpen={onOpen} />
+            <QueueCard key={`${item.tender_id ?? item.subject}-${item.investigation_type}-${i}`} item={item} index={i} onOpen={onOpen} />
           ))}
         </div>
       )}
@@ -86,13 +156,14 @@ function QueueCard({
   index,
   onOpen
 }: {
-  item: PriorityQueueItem;
+  item: QueueItem;
   index: number;
   onOpen: (subject: string) => void;
 }) {
   const style = PRIORITY_STYLE[item.priority];
-  const open = useCallback(() => onOpen(item.subject), [item.subject, onOpen]);
   const isTender = item.investigation_type === "tender";
+  const openTarget = isTender ? item.reference_number ?? item.tender_id ?? item.subject : item.subject;
+  const open = useCallback(() => onOpen(openTarget), [openTarget, onOpen]);
   const subjectLabel = isTender ? "Tender lead" : "Entity";
 
   return (
@@ -118,6 +189,9 @@ function QueueCard({
       <div className="min-w-0">
         <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{subjectLabel}</div>
         <div className="mt-0.5 line-clamp-2 text-[15px] font-semibold text-text group-hover:text-accent">{item.subject}</div>
+        {isTender && openTarget !== item.subject ? (
+          <div className="mt-1 truncate text-[10px] font-mono text-faint">{openTarget}</div>
+        ) : null}
       </div>
 
       <div className="min-w-0">

@@ -317,7 +317,7 @@ export function FieldEvidenceMap() {
           <span className={`rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] ${gps ? "border-accent/30 bg-accent/10 text-text" : "border-border bg-surface/85 text-muted"}`}>{gps ? "● Rover GPS live" : "○ Rover GPS unavailable"}</span>
           {route.length >= 2 && <span className="rounded-full border border-border bg-surface/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.14em] text-muted">Route tracked</span>}
         </div>
-        {gps && <div className="pointer-events-none absolute right-4 bottom-4"><span className="sentry-rover-live">ROVER LIVE · {gps.lat.toFixed(5)}, {gps.lon.toFixed(5)}</span></div>}
+        {gps && gps.lat != null && gps.lon != null && <div className="pointer-events-none absolute right-4 bottom-4"><span className="sentry-rover-live">ROVER LIVE · {gps.lat.toFixed(5)}, {gps.lon.toFixed(5)}</span></div>}
       </div>
     </section>
   );
