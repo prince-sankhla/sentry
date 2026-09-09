@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/ui/page";
 import { FieldHandoffConsole } from "@/components/field/field-handoff-console";
+import { MobileGpsSession } from "@/components/field/mobile-gps-session";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,10 @@ export default async function FieldPage({ searchParams }: PageProps) {
   return (
     <PageShell>
       {tenderKey && requirementId ? (
-        <FieldHandoffConsole tenderKey={tenderKey} requirementId={requirementId} />
+        <div className="space-y-5">
+          <FieldHandoffConsole tenderKey={tenderKey} requirementId={requirementId} />
+          <MobileGpsSession tenderKey={tenderKey} requirementId={requirementId} />
+        </div>
       ) : (
         <section className="rounded-2xl border border-border bg-surface p-8 shadow-sm">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">SENTRY FIELD</div>
