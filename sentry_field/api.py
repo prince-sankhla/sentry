@@ -9,7 +9,6 @@ from threading import Lock
 from typing import Generator
 from urllib.parse import urlparse
 
-import cv2
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -17,7 +16,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .vision.config import CAPABILITY_ALIASES, DEFAULT_CONFIG, build_config
-from .vision.scanner import FieldScanner
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_TENDER_FILE = ROOT / "sentry_field" / "data" / "demo_tenders.json"
@@ -270,6 +268,9 @@ def _stream(
     requirement_id: str | None,
     capabilities: list[str],
 ) -> Generator[bytes, None, None]:
+    import cv2
+    from .vision.scanner import FieldScanner
+
     config = build_config(
         source=camera_url,
         confidence=confidence,
@@ -432,17 +433,8 @@ def stream(
     requirement_id: str | None = Query(None),
     capabilities: str | None = Query(None),
 ):
-    with _lock:
-        authorized = bool(_state["authorized"])
-        active_mission = _state.get("mission_id")
-        active_requirement = _state.get("requirement_id")
-    if not authorized:
-        raise HTTPException(409, "Inspection requires operator dispatch authorization")
-    if mission_id != active_mission or requirement_id != active_requirement:
-        raise HTTPException(409, "Mission/requirement do not match the authorized dispatch")
-    selected = _caps(capabilities.split(",") if capabilities else None)
+    selected_caps = _caps([x for x in (capabilities or "").split(",") if x] or None)
     return StreamingResponse(
-        _stream(_camera(camera_url), confidence, every_n_frames, mission_id, requirement_id, selected),
+        _stream(_camera(camera_url), confidence, every_n_frames, mission_id, requirement_id, selected_caps),
         media_type="multipart/x-mixed-replace; boundary=frame",
-        headers={"Cache-Control": "no-store", "Pragma": "no-cache"},
     )
