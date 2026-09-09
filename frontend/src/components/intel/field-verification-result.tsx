@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, MapPin, ShieldCheck } from "lucide-react";
 
 const STORAGE_KEY = "sentry.field.result";
@@ -81,7 +81,7 @@ export function FieldVerificationResult({ reference }: { reference: string }) {
   );
 }
 
-function Metric({ label, value, icon }: { label: string; value: number; icon?: React.ReactNode }) {
+function Metric({ label, value, icon }: { label: string; value: number; icon?: ReactNode }) {
   return <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[.14em] text-faint">{icon}{label}</div><div className="mt-1.5 text-2xl font-semibold text-text">{value}</div></div>;
 }
 
