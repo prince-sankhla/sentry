@@ -1,6 +1,7 @@
 import { InvestigationWebResearch } from "@/components/intel/investigation-web-research";
 import { InvestigationPhases } from "@/components/intel/investigation-phases";
 import { PhysicalVerificationHandoff } from "@/components/intel/physical-verification-handoff";
+import { FieldVerificationResult } from "@/components/intel/field-verification-result";
 import { PhysicalTenderRecommendationsLoader } from "@/components/intel/physical-tender-recommendations-loader";
 import { RealAuditCaseLauncher } from "@/components/intel/real-audit-case-launcher";
 import { InvestigationWorkspace } from "../investigation-workspace";
@@ -11,9 +12,6 @@ type PageProps = {
   searchParams: Promise<{ q?: string; case?: string }>;
 };
 
-// Demo cases use exact tender references so they cannot drift into a generic
-// company/buyer investigation because of wording in an audit title.
-// InvestigationPlanner unwraps TENDER:<reference> and runs the precise tender flow.
 const CASE_TO_QUERY: Record<string, string> = {
   "delhi-cwg": "TENDER:AUDIT:2026_CAG_DELHI_CWG_STREETLIGHT",
   "dhanbad-led": "TENDER:AUDIT:2026_CAG_DHANBAD_LED",
@@ -31,9 +29,8 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
     <>
       <InvestigationPhases active="intelligence" completed={[]} />
 
-      {/* Keep the field escalation above the investigation workspace so it is always
-          the first actionable control on exact field-verification investigations. */}
       {initialQuery ? <PhysicalVerificationHandoff initialQuery={physicalReference} /> : null}
+      {initialQuery ? <FieldVerificationResult reference={physicalReference} /> : null}
 
       {landing ? <PhysicalTenderRecommendationsLoader /> : null}
       <RealAuditCaseLauncher />
