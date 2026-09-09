@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Activity, Camera, CheckCircle2, FileText, Gauge, MapPin, Navigation, Radar, RotateCcw, Send, ShieldCheck, Siren, Wifi, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/page";
@@ -19,8 +19,6 @@ type Reanalysis = { status: string; mission_id: string; tender?: { reference_num
 
 const EMPTY: Status = { running: false, authorized: false, camera_url: DEFAULT_CAMERA, fps: 0, inference_ms: 0, findings: 0, evidence: 0, last_detection: null, last_identity: null, last_error: null, mission_id: null, requirement_id: null, tender_id: null, capabilities: [], confidence: 0.55, every_n_frames: 1, machine: null, demo_site: null, dispatch_at: null, machine_id: null, battery: null, speed: null, gps: { status: "unavailable", source: null, lat: null, lon: null }, recent_events: [] };
 const LABELS: Record<string, string> = { pothole: "Pothole", road_crack: "Road crack", streetlight: "Streetlight", cctv_camera: "CCTV", signboard: "Signboard", drain: "Drain / manhole", solar_panel: "Solar panel", road_barrier: "Road barrier", manhole_cover: "Manhole cover", asset_qr: "QR / asset ID", asset_text: "OCR / asset text", asset_barcode: "Barcode" };
-
-function evidenceUrl(value: string | null | undefined) { return value ? (value.startsWith("http") ? value : `${API}${value}`) : null; }
 
 export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: string; requirementId?: string }) {
   const router = useRouter();
@@ -59,14 +57,8 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
           const field = await fetch(`${API}/tenders/${encodeURIComponent(tenderKey)}`, { cache: "no-store" });
           if (field.ok) resolved = await field.json() as Tender;
         }
-        if (!resolved) {
-          const field = await fetch(`${API}/tenders`, { cache: "no-store" });
-          if (field.ok) {
-            const payload = await field.json();
-            resolved = Array.isArray(payload?.tenders) ? payload.tenders[0] as Tender : null;
-          }
-        }
-        if (!resolved || !resolved.requirements?.length) throw new Error("No executable FIELD plan is available for this tender");
+        if (!resolved) throw new Error("No executable FIELD plan is available for this tender");
+        if (!resolved.requirements?.length) throw new Error("FIELD plan contains no executable requirements");
         const primary = resolved.requirements.find((item) => item.id === requirementId) ?? resolved.requirements[0];
         if (alive) {
           setTender(resolved);
@@ -98,7 +90,6 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
           setOnline(healthResponse.ok);
           setStatus(nextStatus);
           setEvents(Array.isArray(payload.events) ? payload.events : []);
-          if (nextStatus.last_error) setError(nextStatus.last_error);
         }
       } catch {
         if (alive) setOnline(false);
@@ -131,7 +122,7 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
           body: JSON.stringify({ tender_id: tender.id, mission_id: missionId, requirement_id: primaryRequirement.id, machine_id: deviceId, lat: position.coords.latitude, lon: position.coords.longitude, accuracy_m: position.coords.accuracy, captured_at: position.timestamp, speed: position.coords.speed }),
         });
       } catch {
-        // A temporary GPS transport failure is reflected by the status poll.
+        // GPS transport failures are reflected through the next gateway status poll.
       }
     }, () => setGpsWatching(false), { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
     setGpsWatching(true);
@@ -173,7 +164,9 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
 
   async function completeAndSend() {
     if (!tender || !status.mission_id) return;
-    const observations = events.filter((event) => event.type === "evidence" || event.type === "detection").map((event) => ({ capability: event.capability || event.type, observation: event.observation || "Field observation", confidence: event.confidence, track_id: event.track_id, frame_url: event.frame_url, gps: event.gps, observed_at: event.observed_at }));
+    const observations = events
+      .filter((event) => event.type === "evidence" || event.type === "detection")
+      .map((event) => ({ capability: event.capability || event.type, observation: event.observation || "Field observation", confidence: event.confidence, track_id: event.track_id, frame_url: event.frame_url, gps: event.gps, observed_at: event.observed_at }));
     setBusy(true);
     setError(null);
     try {
@@ -185,8 +178,8 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.detail || "SENTRY re-analysis failed");
       const result = payload as Reanalysis;
-      setReanalysis(result);
       sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
+      setReanalysis(result);
       await fetch(`${API}/stop`, { method: "POST" }).catch(() => undefined);
       stopGps();
       setStreamUrl(null);
@@ -220,9 +213,8 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={online ? "success" : "muted"}><Wifi className="mr-1 inline h-3 w-3" />{online ? "Gateway online" : "Gateway offline"}</Badge>
-            <Badge tone={gpsLive ? "success" : gpsWatching ? "muted" : "muted"}><Navigation className="mr-1 inline h-3 w-3" />{gpsLive ? "GPS live" : gpsWatching ? "GPS waiting" : "GPS idle"}</Badge>
-            {missionLive ? <button type="button" onClick={() => void stopMission()} className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-2.5 text-xs font-semibold text-danger"><Siren className="h-3.5 w-3.5" />Stop mission</button> : null}
-            {!missionLive ? <button type="button" onClick={() => void startMission()} disabled={!online || busy} className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-40"><ShieldCheck className="h-3.5 w-3.5" />{busy ? "Starting…" : "Start SENTRY FIELD"}</button> : null}
+            <Badge tone={gpsLive ? "success" : "muted"}><Navigation className="mr-1 inline h-3 w-3" />{gpsLive ? "GPS live" : gpsWatching ? "GPS waiting" : "GPS idle"}</Badge>
+            {missionLive ? <button type="button" onClick={() => void stopMission()} className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-2.5 text-xs font-semibold text-danger"><Siren className="h-3.5 w-3.5" />Stop mission</button> : <button type="button" onClick={() => void startMission()} disabled={!online || busy} className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-40"><ShieldCheck className="h-3.5 w-3.5" />{busy ? "Starting…" : "Start SENTRY FIELD"}</button>}
           </div>
         </div>
 
@@ -260,7 +252,7 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
         <div className="flex flex-col gap-3 border-b border-border px-4 py-3 md:flex-row md:items-center md:justify-between">
           <div className="flex gap-1 rounded-lg bg-surface-2 p-1">
             <button type="button" onClick={() => setTab("live")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${tab === "live" ? "bg-surface text-text" : "text-muted"}`}>Live camera</button>
-            <button type="button" onClick={() => setTab("evidence")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${tab === "evidence" ? "bg-surface text-text" : "text-muted"}`}>Evidence ({evidenceEvents.length})</button>
+            <button type="button" onClick={() => setTab("evidence")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${tab === "evidence" ? "bg-surface text-text" : "text-muted"}>Evidence ({evidenceEvents.length})</button>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[.14em] text-faint"><span>Mission {status.mission_id || "—"}</span>{status.machine_id ? <span>· {status.machine_id}</span> : null}</div>
         </div>
@@ -270,7 +262,7 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
             <div className="relative min-h-[55vh] overflow-hidden rounded-xl bg-[#0b0e13]">
               {streamUrl ? <img key={streamUrl} src={streamUrl} alt="SENTRY FIELD live annotated camera" className="h-full min-h-[55vh] w-full object-contain" onLoad={() => setCameraError(null)} onError={() => setCameraError("Camera stream failed. Check the DroidCam /video URL, phone network reachability, and FIELD gateway terminal.")} /> : <div className="absolute inset-0 grid place-items-center text-center"><div><Camera className="mx-auto h-10 w-10 text-accent" /><div className="mt-3 text-sm font-semibold text-text">{status.last_error ? "Field stream stopped" : "SENTRY FIELD ready"}</div><div className="mt-1 max-w-md text-xs leading-5 text-muted">Enter your phone's DroidCam /video URL, then start the mission. The first frame is shown only after the gateway opens the camera successfully.</div></div>}
               <div className="absolute left-4 top-4 flex flex-wrap gap-2"><Badge tone={missionLive ? "success" : "muted"}>{missionLive ? "LIVE" : "IDLE"}</Badge>{status.last_detection ? <Badge tone="success">{LABELS[status.last_detection.type] || status.last_detection.type} · {Math.round(status.last_detection.confidence * 100)}%</Badge> : null}</div>
-              <div className="absolute bottom-4 left-4 flex flex-wrap gap-2"><Badge tone={gpsLive ? "success" : "muted">}GPS {status.gps.status || "unavailable"}</Badge></div>
+              <div className="absolute bottom-4 left-4 flex flex-wrap gap-2"><Badge tone={gpsLive ? "success" : "muted">GPS {status.gps.status || "unavailable"}</Badge></div>
             </div>
           </div>
         ) : (
@@ -284,8 +276,6 @@ export function FieldMissionConsole({ tenderKey, requirementId }: { tenderKey?: 
         <button type="button" onClick={resetMission} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-text disabled:opacity-50"><RotateCcw className="h-3.5 w-3.5" /> Reset mission</button>
         <button type="button" onClick={() => void completeAndSend()} disabled={!status.mission_id || busy || (!events.some((event) => event.type === "evidence") && !events.some((event) => event.type === "detection"))} className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-bg disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy ? "Returning to SENTRY…" : "Complete verification → SENTRY"}</button>
       </div>
-
-      {reanalysis ? <section className="rounded-2xl border border-accent/20 bg-accent/5 p-5"><div className="text-sm font-semibold text-text">Verification result ready</div><div className="mt-1 text-xs text-muted">{reanalysis.guardrail}</div></section> : null}
     </main>
   );
 }
@@ -294,6 +284,6 @@ function Info({ label, value, detail }: { label: string; value: string; detail?:
   return <div className="rounded-xl border border-border bg-surface-2 p-4"><div className="text-[10px] uppercase tracking-[.14em] text-faint">{label}</div><div className="mt-1 text-sm font-semibold text-text">{value}</div>{detail ? <div className="mt-1 text-xs text-muted">{detail}</div> : null}</div>;
 }
 
-function Metric({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+function Metric({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
   return <div className="rounded-2xl border border-border bg-surface p-4"><div className="flex items-center justify-between text-[10px] uppercase tracking-[.14em] text-faint"><span>{label}</span>{icon}</div><div className="mt-2 text-xl font-semibold text-text">{value}</div></div>;
 }
