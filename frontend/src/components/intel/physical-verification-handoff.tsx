@@ -4,17 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Camera, MapPin, Radar, ShieldCheck } from "lucide-react";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+const FIELD_API_URL = process.env.NEXT_PUBLIC_FIELD_API_URL?.trim() || "http://127.0.0.1:8001";
 
 const CAPABILITY_LABELS: Record<string, string> = {
-  pothole: "Pothole",
-  road_crack: "Road crack",
-  streetlight: "Streetlight",
-  cctv_camera: "CCTV",
-  signboard: "Signboard",
-  drain: "Drain / manhole",
-  solar_panel: "Solar panel",
-  asset_qr: "QR / asset ID",
-  asset_text: "OCR / asset text",
+  pothole: "Pothole", road_crack: "Road crack", streetlight: "Streetlight", cctv_camera: "CCTV",
+  signboard: "Signboard", drain: "Drain / manhole", solar_panel: "Solar panel", asset_qr: "QR / asset ID", asset_text: "OCR / asset text",
 };
 
 type Requirement = { id: string; capability: string; label: string; expected_quantity: number };
@@ -30,52 +24,104 @@ type VerificationPlan = {
   verification_notes: string | null;
   source_profile_verified_on: string | null;
 };
+type FieldProfile = {
+  id: string;
+  tender_id: string;
+  reference_number: string;
+  title: string;
+  source_name: string;
+  source_url: string;
+  source_verified_on?: string;
+  contract_location: string;
+  category: string;
+  machine: string;
+  demo_site: string;
+  requirements: Requirement[];
+  verification_notes: string;
+};
+
+const CASE_PROFILES: Record<string, string> = {
+  "AUDIT:2026_CAG_DELHI_CWG_STREETLIGHT": "FIELD-AUDIT-DELHI-CWG",
+  "AUDIT:2026_CAG_DHANBAD_LED": "FIELD-AUDIT-DHANBAD-LED",
+};
+
+function planFromProfile(profile: FieldProfile): VerificationPlan {
+  return {
+    tender: {
+      id: profile.tender_id,
+      reference_number: profile.reference_number,
+      title: profile.title,
+      source_record_id: profile.tender_id,
+      source_url: profile.source_url,
+      procuring_entity: profile.source_name,
+    },
+    verification_required: true,
+    profile_id: profile.id,
+    field_tender_key: profile.id,
+    machine: profile.machine || "Normal Vision Rover",
+    demo_site: profile.demo_site || null,
+    category: profile.category || null,
+    requirements: profile.requirements || [],
+    verification_notes: profile.verification_notes || null,
+    source_profile_verified_on: profile.source_verified_on || null,
+  };
+}
 
 export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: string }) {
   const [plan, setPlan] = useState<VerificationPlan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notApplicable, setNotApplicable] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const profileId = useMemo(() => CASE_PROFILES[initialQuery.trim()] || "", [initialQuery]);
 
   useEffect(() => {
     const reference = initialQuery.trim();
-    if (!reference) { setLoading(false); setNotApplicable(true); return; }
     let alive = true;
     setLoading(true);
-    setNotApplicable(false);
-    fetch(`${BACKEND_URL}/api/investigations/field-verification?reference_number=${encodeURIComponent(reference)}`, { cache: "no-store", headers: { Accept: "application/json" } })
-      .then(async (response) => {
-        if (response.status === 404 || response.status === 409) return null;
-        if (!response.ok) throw new Error(`Field verification planning failed: ${response.status}`);
-        return (await response.json()) as VerificationPlan;
-      })
-      .then((payload) => {
+    setFailed(false);
+    setPlan(null);
+
+    const load = async () => {
+      try {
+        if (profileId) {
+          const response = await fetch(`${FIELD_API_URL}/tenders/${encodeURIComponent(profileId)}`, { cache: "no-store" });
+          if (!response.ok) throw new Error();
+          const profile = (await response.json()) as FieldProfile;
+          if (!alive) return;
+          setPlan(planFromProfile(profile));
+          setLoading(false);
+          return;
+        }
+        if (!reference) throw new Error();
+        const response = await fetch(`${BACKEND_URL}/api/investigations/field-verification?reference_number=${encodeURIComponent(reference)}`, { cache: "no-store", headers: { Accept: "application/json" } });
+        if (!response.ok) throw new Error();
+        const payload = (await response.json()) as VerificationPlan;
         if (!alive) return;
         setPlan(payload);
-        setNotApplicable(!payload);
         setLoading(false);
-      })
-      .catch(() => {
+      } catch {
         if (!alive) return;
-        setPlan(null);
-        setNotApplicable(true);
+        setFailed(true);
         setLoading(false);
-      });
+      }
+    };
+    void load();
     return () => { alive = false; };
-  }, [initialQuery]);
+  }, [initialQuery, profileId]);
 
   const capabilities = useMemo(() => {
     const seen = new Set<string>();
     return (plan?.requirements ?? []).map((item) => item.capability).filter((value) => { if (!value || seen.has(value)) return false; seen.add(value); return true; });
   }, [plan]);
 
-  if (notApplicable) return null;
+  if (failed) return null;
   if (loading || !plan || !plan.requirements.length) {
     return (
       <section className="mt-3 overflow-hidden rounded-2xl border border-accent/20 bg-accent/[0.035] shadow-sm">
-        <div className="flex flex-col gap-2 px-5 py-4 md:px-6">
+        <div className="px-5 py-4 md:px-6">
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-accent"><Radar className="h-3.5 w-3.5 animate-pulse" /> SENTRY FIELD / VERIFICATION GATE</div>
-          <div className="text-sm font-semibold text-text">Resolving physical-verification profile…</div>
-          <div className="text-[11px] text-muted">SENTRY will auto-select capabilities from this tender's executable requirements.</div>
+          <div className="mt-1 text-sm font-semibold text-text">Resolving physical-verification profile…</div>
+          <div className="mt-1 text-[11px] text-muted">SENTRY will auto-select capabilities from the tender requirements.</div>
         </div>
       </section>
     );
@@ -91,7 +137,7 @@ export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: st
           <div>
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-accent"><Radar className="h-3.5 w-3.5" /> SENTRY FIELD / NEXT VERIFICATION</div>
             <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-text">Physical verification available</h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">This investigation has a registered field profile. SENTRY will carry the exact tender into FIELD and automatically select every executable vision capability.</p>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">This investigation has a registered field profile. SENTRY carries the exact tender into FIELD and automatically selects every executable vision capability.</p>
           </div>
           <a href={fieldUrl} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-bg transition hover:bg-accent-hi">Launch SENTRY FIELD <ArrowRight className="h-3.5 w-3.5" /></a>
         </div>
@@ -101,20 +147,11 @@ export function PhysicalVerificationHandoff({ initialQuery }: { initialQuery: st
           <div className="mt-1.5 text-[11px] text-muted">No manual detector selection is required.</div>
         </div>
       </div>
-
       <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-4 md:px-6">
-        <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><ShieldCheck className="h-3.5 w-3.5 text-success" /> Exact tender</div><div className="mt-2 text-sm font-semibold text-text">{plan.tender.reference_number}</div><div className="mt-1 text-xs text-muted">DB record: {plan.tender.id}</div></div>
-        <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><Radar className="h-3.5 w-3.5 text-accent" /> Machine</div><div className="mt-2 text-sm font-semibold text-text">{plan.machine}</div><div className="mt-1 text-xs text-muted">Profile: {plan.profile_id}</div></div>
+        <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><ShieldCheck className="h-3.5 w-3.5 text-success" /> Exact tender</div><div className="mt-2 text-sm font-semibold text-text">{plan.tender.reference_number}</div><div className="mt-1 text-xs text-muted">DB/profile: {plan.profile_id}</div></div>
+        <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><Radar className="h-3.5 w-3.5 text-accent" /> Machine</div><div className="mt-2 text-sm font-semibold text-text">{plan.machine}</div><div className="mt-1 text-xs text-muted">{capabilities.length} auto-selected capabilities</div></div>
         <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><MapPin className="h-3.5 w-3.5 text-accent" /> Field site</div><div className="mt-2 text-sm font-semibold text-text">{plan.demo_site || "Site supplied by operator"}</div><div className="mt-1 text-xs text-muted">{plan.category || "Physical procurement asset verification"}</div></div>
         <div className="rounded-xl border border-border bg-surface p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint"><Camera className="h-3.5 w-3.5 text-accent" /> Requirements</div><div className="mt-2 text-sm font-semibold text-text">{plan.requirements.length} executable</div><div className="mt-1 text-xs text-muted">All capabilities derived automatically</div></div>
-      </div>
-
-      <div className="border-t border-accent/15 px-5 py-4 md:px-6">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Executable verification requirements</div>
-        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          {plan.requirements.map((requirement) => <a key={requirement.id} href={`/field?tender=${encodeURIComponent(plan.field_tender_key)}&requirement=${encodeURIComponent(requirement.id)}`} className="rounded-xl border border-border bg-surface px-3.5 py-3 transition hover:border-accent/30 hover:bg-surface-2"><div className="flex items-center justify-between gap-3"><span className="text-[12px] font-semibold text-text">{requirement.label}</span><span className="font-mono text-[10px] text-faint">{requirement.id}</span></div><div className="mt-1 text-xs text-muted">{CAPABILITY_LABELS[requirement.capability] || requirement.capability} · expected quantity {requirement.expected_quantity}</div></a>)}
-        </div>
-        {plan.verification_notes && <p className="mt-3 text-[11px] leading-5 text-muted">Verification boundary: {plan.verification_notes}</p>}
       </div>
     </section>
   );
