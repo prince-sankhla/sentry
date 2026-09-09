@@ -23,6 +23,7 @@ from app.api.routes import (  # noqa: E402
     ecosystem_graph,
     graph,
     investigations,
+    investigation_field_leads,
     live_ingestion,
     monitoring,
     profiles,
@@ -85,6 +86,7 @@ app.include_router(dashboard.router)
 app.include_router(graph.router)
 app.include_router(ecosystem_graph.router)
 app.include_router(investigations.router)
+app.include_router(investigation_field_leads.router)
 app.include_router(live_ingestion.router)
 app.include_router(monitoring.router)
 app.include_router(search.router)
