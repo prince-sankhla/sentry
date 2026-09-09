@@ -16,21 +16,13 @@ export type TenderRecommendation = {
   reasons?: string[];
 };
 
-export function PhysicalTenderRecommendations({
-  fieldReady,
-  pothole,
-}: {
-  fieldReady: TenderRecommendation[];
-  pothole: TenderRecommendation[];
-}) {
+export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldReady: TenderRecommendation[]; pothole: TenderRecommendation[] }) {
   const router = useRouter();
-
   const open = (item: TenderRecommendation) => {
     const target = item.reference_number?.trim() || item.tender_id?.trim();
     if (!target) return;
-    router.push(`/investigate?q=${encodeURIComponent(target)}`);
+    router.push(`/investigate?q=${encodeURIComponent(`TENDER:${target}`)}`);
   };
-
   const section = (title: string, subtitle: string, items: TenderRecommendation[], icon: React.ReactNode) => (
     <section className="mt-8 rounded-3xl border border-border bg-surface p-5 shadow-sm md:p-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -76,11 +68,10 @@ export function PhysicalTenderRecommendations({
       )}
     </section>
   );
-
   return (
     <>
       {section("Physical verification recommendations", "Core procurement tenders that have a registered SENTRY FIELD inspection profile. These are surfaced separately from generic entity investigations.", fieldReady, <Camera className="h-3.5 w-3.5" />)}
-      {section("Pothole & road-distress tenders", "Tender records whose title, description, category or reference explicitly mention potholes or road-surface distress. Every card opens the exact tender investigation.", pothole, <Siren className="h-3.5 w-3.5" />)}
-    </section>
+      {section("Pothole & road-distress tenders", "Tender records whose title, description or reference explicitly mention potholes or road-surface distress. Every card opens the exact tender investigation.", pothole, <Siren className="h-3.5 w-3.5" />)}
+    </>
   );
 }
