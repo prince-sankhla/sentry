@@ -23,8 +23,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install backend dependencies and pytest
-        run: pip install -r backend/requirements.txt pytest
+      - name: Install backend and field dependencies
+        run: pip install -r backend/requirements.txt -r sentry_field/requirements.txt pytest
 
       - name: Run Phase 3, Phase 4 and Phase 5 gateway contracts
         run: >-
