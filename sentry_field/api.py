@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .vision.config import CAPABILITY_ALIASES, DEFAULT_CONFIG, build_config
 
@@ -24,7 +24,7 @@ EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_CAMERA_URL = os.getenv("SENTRY_CAMERA_URL", DEFAULT_CONFIG.source)
 FIELD_API_PORT = int(os.getenv("SENTRY_FIELD_API_PORT", "8001"))
 
-app = FastAPI(title="SENTRY FIELD Local Gateway", version="0.5.0")
+app = FastAPI(title="SENTRY FIELD Local Gateway", version="0.6.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -59,7 +59,18 @@ _state = {
     "machine_id": None,
     "battery": None,
     "speed": None,
-    "gps": {"status": "unavailable", "source": None, "lat": None, "lon": None},
+    "gps": {
+        "status": "unavailable",
+        "source": None,
+        "lat": None,
+        "lon": None,
+        "accuracy_m": None,
+        "captured_at": None,
+        "received_at": None,
+        "mission_id": None,
+        "requirement_id": None,
+        "tender_id": None,
+    },
     "stop_token": 0,
 }
 _events: deque[dict] = deque(maxlen=150)
@@ -78,8 +89,20 @@ class TelemetryRequest(BaseModel):
     machine_id: str
     battery: float | None = None
     speed: float | None = None
-    lat: float | None = None
-    lon: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+
+
+class MobileGpsRequest(BaseModel):
+    tender_id: str
+    mission_id: str
+    requirement_id: str
+    machine_id: str = Field(min_length=1, max_length=160)
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    accuracy_m: float = Field(ge=0, le=100000)
+    captured_at: float = Field(gt=0)
+    speed: float | None = Field(default=None, ge=0, le=500)
 
 
 def _camera(value: str | None) -> str:
@@ -209,6 +232,19 @@ def dispatch(request: DispatchRequest):
                 "last_detection": None,
                 "last_identity": None,
                 "last_error": None,
+                "gps": {
+                    "status": "unavailable",
+                    "source": None,
+                    "lat": None,
+                    "lon": None,
+                    "accuracy_m": None,
+                    "captured_at": None,
+                    "received_at": None,
+                    "mission_id": None,
+                    "requirement_id": None,
+                    "tender_id": None,
+                },
+                "machine_id": None,
             }
         )
         _state["updated_at"] = time.time()
@@ -230,7 +266,18 @@ def dispatch(request: DispatchRequest):
 
 @app.post("/telemetry")
 def telemetry(request: TelemetryRequest):
-    gps = {"status": "unavailable", "source": request.machine_id, "lat": request.lat, "lon": request.lon}
+    gps = {
+        "status": "unavailable",
+        "source": request.machine_id,
+        "lat": request.lat,
+        "lon": request.lon,
+        "accuracy_m": None,
+        "captured_at": None,
+        "received_at": time.time(),
+        "mission_id": _state.get("mission_id"),
+        "requirement_id": _state.get("requirement_id"),
+        "tender_id": _state.get("tender_id"),
+    }
     if request.lat is not None and request.lon is not None:
         gps["status"] = "live"
     _set(machine_id=request.machine_id, battery=request.battery, speed=request.speed, gps=gps)
@@ -244,6 +291,55 @@ def telemetry(request: TelemetryRequest):
             "observed_at": time.time(),
             "mission_id": _state.get("mission_id"),
             "requirement_id": _state.get("requirement_id"),
+            "tender_id": _state.get("tender_id"),
+        }
+    )
+    return JSONResponse({"ok": True, "gps": gps})
+
+
+@app.post("/telemetry/mobile")
+def mobile_telemetry(request: MobileGpsRequest):
+    captured_at = request.captured_at / 1000 if request.captured_at > 10_000_000_000 else request.captured_at
+    now = time.time()
+    if captured_at > now + 300:
+        raise HTTPException(400, "Mobile GPS timestamp is too far in the future")
+    if captured_at < now - 86400:
+        raise HTTPException(400, "Mobile GPS timestamp is too old")
+    with _lock:
+        if not _state["authorized"]:
+            raise HTTPException(403, "Rover mission is not authorised")
+        if request.tender_id != _state.get("tender_id"):
+            raise HTTPException(409, "GPS tender does not match the authorised mission")
+        if request.mission_id != _state.get("mission_id"):
+            raise HTTPException(409, "GPS mission does not match the authorised mission")
+        if request.requirement_id != _state.get("requirement_id"):
+            raise HTTPException(409, "GPS requirement does not match the authorised mission")
+        gps = {
+            "status": "live",
+            "source": "browser-geolocation",
+            "lat": request.lat,
+            "lon": request.lon,
+            "accuracy_m": request.accuracy_m,
+            "captured_at": captured_at,
+            "received_at": now,
+            "mission_id": request.mission_id,
+            "requirement_id": request.requirement_id,
+            "tender_id": request.tender_id,
+        }
+        _state["machine_id"] = request.machine_id
+        _state["speed"] = request.speed
+        _state["gps"] = gps
+        _state["updated_at"] = now
+    _events.appendleft(
+        {
+            "type": "mobile_gps",
+            "machine_id": request.machine_id,
+            "gps": gps,
+            "speed": request.speed,
+            "observed_at": now,
+            "mission_id": request.mission_id,
+            "requirement_id": request.requirement_id,
+            "tender_id": request.tender_id,
         }
     )
     return JSONResponse({"ok": True, "gps": gps})
@@ -255,6 +351,19 @@ def stop():
         _state["stop_token"] += 1
         _state["running"] = False
         _state["authorized"] = False
+        _state["gps"] = {
+            "status": "unavailable",
+            "source": None,
+            "lat": None,
+            "lon": None,
+            "accuracy_m": None,
+            "captured_at": None,
+            "received_at": None,
+            "mission_id": None,
+            "requirement_id": None,
+            "tender_id": None,
+        }
+        _state["machine_id"] = None
         _state["updated_at"] = time.time()
     _events.appendleft({"type": "stop", "observed_at": time.time(), "mission_id": _state.get("mission_id")})
     return JSONResponse({"ok": True, "stopped": True})
@@ -363,9 +472,9 @@ def _stream(
                         "requirement_id": requirement_id,
                     }
                 )
-            now = time.monotonic()
-            dt = now - prev
-            prev = now
+            now_mono = time.monotonic()
+            dt = now_mono - prev
+            prev = now_mono
             if dt > 0:
                 fps = 0.9 * fps + 0.1 * (1 / dt)
             ms = (time.monotonic() - started) * 1000
