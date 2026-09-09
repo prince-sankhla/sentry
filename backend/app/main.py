@@ -18,6 +18,7 @@ from app.api.routes import (  # noqa: E402
     dashboard,
     entities,
     ecosystem_graph,
+    field_reanalysis,
     field_verification,
     graph,
     investigations,
@@ -82,6 +83,7 @@ app.include_router(ecosystem_graph.router)
 app.include_router(investigations.router)
 app.include_router(investigation_field_leads.router)
 app.include_router(field_verification.router)
+app.include_router(field_reanalysis.router)
 app.include_router(live_ingestion.router)
 app.include_router(monitoring.router)
 app.include_router(search.router)
