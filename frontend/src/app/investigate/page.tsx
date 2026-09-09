@@ -8,10 +8,7 @@ import { InvestigationWorkspace } from "../investigation-workspace";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<{
-    q?: string;
-    case?: string;
-  }>;
+  searchParams: Promise<{ q?: string; case?: string }>;
 };
 
 const CASE_TO_QUERY: Record<string, string> = {
@@ -25,6 +22,7 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
   const caseQuery = CASE_TO_QUERY[(params.case ?? "").trim()] ?? "";
   const initialQuery = explicitQuery || caseQuery;
   const landing = !initialQuery;
+  const physicalReference = initialQuery.replace(/^TENDER:/i, "").trim();
 
   return (
     <>
@@ -33,7 +31,7 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
       <RealAuditCaseLauncher />
       {initialQuery ? <InvestigationWebResearch initialQuery={initialQuery} /> : null}
       <InvestigationWorkspace initialQuery={initialQuery} />
-      {initialQuery ? <PhysicalVerificationHandoff initialQuery={initialQuery} /> : null}
+      {initialQuery ? <PhysicalVerificationHandoff initialQuery={physicalReference} /> : null}
     </>
   );
 }
