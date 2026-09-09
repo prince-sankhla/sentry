@@ -50,7 +50,7 @@ export default async function RootRoute({
       return <CompaniesPage {...(props as any)} />;
     case "context": return <ContextPage {...(props as any)} />;
     case "demo": return <DemoPage />;
-    case "field": return <FieldPage />;
+    case "field": return <FieldPage searchParams={searchParams as Promise<{ tender?: string; requirement?: string }>} />;
     case "graph": return <GraphPage {...(props as any)} />;
     case "investigate": return <InvestigatePage {...(props as any)} />;
     case "investigations": return <InvestigationsPage {...(props as any)} />;
