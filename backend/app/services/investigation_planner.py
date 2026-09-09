@@ -7,7 +7,6 @@ from app.connectors.common.source_priority import prioritize_source_names
 from app.schemas.investigation_planner import InvestigationPlan, InvestigationPlanStep, InvestigationType
 from app.services.investigation_intent import detect_intent
 
-
 TYPE_KEYWORDS: dict[InvestigationType, tuple[str, ...]] = {
     "supplier": ("supplier", "vendor", "bidder", "contractor"),
     "buyer": ("buyer", "procuring entity", "purchaser", "agency"),
@@ -31,25 +30,17 @@ MODULE_ORDER: dict[InvestigationType, list[str]] = {
 }
 
 ACTION_BY_MODULE = {
-    "awards": "Search awards",
-    "buyer": "Search buyer",
-    "buyer_connectors": "Search buyer connectors",
-    "buyers": "Search buyers",
-    "company_connectors": "Search company connectors",
-    "documents": "Search documents",
-    "entity_resolution": "Resolve entity aliases",
-    "evidence": "Merge evidence",
-    "graph": "Search relationship graph",
-    "procurement_intelligence": "Load procurement intelligence",
-    "source_connectors": "Search source connectors",
-    "suppliers": "Search suppliers",
-    "tender_connectors": "Search tender connectors",
-    "tenders": "Search tenders",
+    "awards": "Search awards", "buyer": "Search buyer", "buyer_connectors": "Search buyer connectors",
+    "buyers": "Search buyers", "company_connectors": "Search company connectors", "documents": "Search documents",
+    "entity_resolution": "Resolve entity aliases", "evidence": "Merge evidence", "graph": "Search relationship graph",
+    "procurement_intelligence": "Load procurement intelligence", "source_connectors": "Search source connectors",
+    "suppliers": "Search suppliers", "tender_connectors": "Search tender connectors", "tenders": "Search tenders",
     "timeline": "Search timeline",
 }
 
 CONNECTOR_MODULES = {"buyer_connectors", "company_connectors", "source_connectors", "tender_connectors"}
 _AUDIT_RECORD_CUES = ("cag ", "cag performance audit report", "annual technical inspection report", "comptroller and auditor general")
+_TENDER_MARKER_RE = re.compile(r"^TENDER:(.+)$", re.IGNORECASE | re.DOTALL)
 
 
 class InvestigationPlanner:
@@ -57,15 +48,20 @@ class InvestigationPlanner:
         self.source_manager = source_manager or SourceManager()
 
     def build_plan(self, query: str, source_names: list[str] | None = None) -> InvestigationPlan:
-        intent = detect_intent(query)
-        entity_query = intent.entity_query or _clean_query(query)
-        investigation_type = intent.investigation_type
-        # Explicit audit case references are stable record identifiers in SENTRY's
-        # case launcher. Keep them in the tender/document workflow even if an older
-        # intent detector version classifies the prose as a company/authority name.
-        if any(cue in entity_query.casefold() for cue in _AUDIT_RECORD_CUES):
+        raw = _clean_query(query)
+        marked = _TENDER_MARKER_RE.match(raw)
+        if marked:
+            entity_query = marked.group(1).strip()
             investigation_type = "tender"
-        confidence = max(intent.confidence, 0.97) if investigation_type == "tender" and any(cue in entity_query.casefold() for cue in _AUDIT_RECORD_CUES) else intent.confidence
+            confidence = 0.99
+        else:
+            intent = detect_intent(raw)
+            entity_query = intent.entity_query or raw
+            investigation_type = intent.investigation_type
+            if any(cue in entity_query.casefold() for cue in _AUDIT_RECORD_CUES):
+                investigation_type = "tender"
+            confidence = max(intent.confidence, 0.97) if investigation_type == "tender" and any(cue in entity_query.casefold() for cue in _AUDIT_RECORD_CUES) else intent.confidence
+
         connectors = self._select_connectors(source_names)
         modules = MODULE_ORDER[investigation_type]
         steps = self._build_steps(query=entity_query, investigation_type=investigation_type, modules=modules, connectors=connectors)
@@ -73,33 +69,27 @@ class InvestigationPlanner:
 
     def detect_type(self, query: str) -> tuple[InvestigationType, float]:
         lowered = query.casefold()
+        if _TENDER_MARKER_RE.match(query.strip()):
+            return "tender", 0.99
         if any(cue in lowered for cue in _AUDIT_RECORD_CUES):
             return "tender", 0.97
         scores: dict[InvestigationType, int] = {investigation_type: 0 for investigation_type in TYPE_KEYWORDS}
         for investigation_type, keywords in TYPE_KEYWORDS.items():
             scores[investigation_type] += sum(2 for keyword in keywords if keyword in lowered)
-        if re.search(r"\b[A-Z]{2,8}[:/-][A-Z0-9][A-Z0-9./-]{4,}\b", query):
-            scores["tender"] += 4
-        if re.search(r"\b(contract|agreement|award)\s*(no\.?|number|id)?\s*[:#-]?\s*[A-Z0-9./-]{4,}\b", lowered):
-            scores["contract"] += 4
-        if re.search(r"\b(ministry|department of|municipal|authority)\b", lowered):
-            scores["ministry"] += 3
-        if re.search(r"\b(district|province|state of|city of)\b", lowered):
-            scores["location"] += 3
+        if re.search(r"\b[A-Z]{2,8}[:/-][A-Z0-9][A-Z0-9./-]{4,}\b", query): scores["tender"] += 4
+        if re.search(r"\b(contract|agreement|award)\s*(no\.?|number|id)?\s*[:#-]?\s*[A-Z0-9./-]{4,}\b", lowered): scores["contract"] += 4
+        if re.search(r"\b(ministry|department of|municipal|authority)\b", lowered): scores["ministry"] += 3
+        if re.search(r"\b(district|province|state of|city of)\b", lowered): scores["location"] += 3
         best_type = max(scores, key=scores.get)
         best_score = scores[best_type]
-        if best_score == 0:
-            return "company", 0.45
-        confidence = min(0.95, 0.55 + (best_score * 0.1))
-        return best_type, confidence
+        if best_score == 0: return "company", 0.45
+        return best_type, min(0.95, 0.55 + best_score * 0.1)
 
     def _select_connectors(self, source_names: list[str] | None) -> list[str]:
         available = self.source_manager.connector_names()
-        if not source_names:
-            return prioritize_source_names(available)
+        if not source_names: return prioritize_source_names(available)
         requested = {source_name.strip() for source_name in source_names if source_name.strip()}
-        selected = [source_name for source_name in available if source_name in requested]
-        return prioritize_source_names(selected)
+        return prioritize_source_names([source_name for source_name in available if source_name in requested])
 
     def _build_steps(self, *, query: str, investigation_type: InvestigationType, modules: list[str], connectors: list[str]) -> list[InvestigationPlanStep]:
         steps: list[InvestigationPlanStep] = []
@@ -112,4 +102,4 @@ class InvestigationPlanner:
 
 
 def _clean_query(query: str) -> str:
-    return re.sub(r"\s+", " ", query).strip()
+    return re.sub(r"\s+", " ", query or "").strip()
