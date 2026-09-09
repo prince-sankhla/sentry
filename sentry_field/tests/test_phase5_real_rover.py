@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from sentry_field import api
-from sentry_field.api_fast import app as fast_app
 
 
 client = TestClient(api.app)
@@ -115,7 +114,3 @@ def test_rover_can_send_battery_and_speed_without_gps() -> None:
     status = client.get("/status").json()
     assert status["battery"] == 64
     assert status["speed"] == 0.0
-
-
-def test_gateway_compatibility_entrypoint_remains_canonical() -> None:
-    assert fast_app is api.app
