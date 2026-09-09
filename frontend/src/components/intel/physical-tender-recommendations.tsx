@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Camera, MapPin, Siren } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export type TenderRecommendation = {
   tender_id?: string | null;
@@ -18,12 +19,18 @@ export type TenderRecommendation = {
 export function PhysicalTenderRecommendations({
   fieldReady,
   pothole,
-  onOpen,
 }: {
   fieldReady: TenderRecommendation[];
   pothole: TenderRecommendation[];
-  onOpen: (target: string) => void;
 }) {
+  const router = useRouter();
+
+  const open = (item: TenderRecommendation) => {
+    const target = item.reference_number?.trim() || item.tender_id?.trim();
+    if (!target) return;
+    router.push(`/investigate?q=${encodeURIComponent(target)}`);
+  };
+
   const section = (title: string, subtitle: string, items: TenderRecommendation[], icon: React.ReactNode) => (
     <section className="mt-8 rounded-3xl border border-border bg-surface p-5 shadow-sm md:p-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -40,7 +47,7 @@ export function PhysicalTenderRecommendations({
           {items.map((item) => {
             const target = item.reference_number?.trim() || item.tender_id?.trim() || "";
             return (
-              <button key={`${item.tender_id ?? ""}-${item.reference_number ?? item.title}`} type="button" disabled={!target} onClick={() => target && onOpen(target)} className="group text-left rounded-2xl border border-border bg-bg/20 p-5 transition hover:border-accent/40 disabled:opacity-50">
+              <button key={`${item.tender_id ?? ""}-${item.reference_number ?? item.title}`} type="button" disabled={!target} onClick={() => open(item)} className="group text-left rounded-2xl border border-border bg-bg/20 p-5 transition hover:border-accent/40 disabled:opacity-50">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[.13em] text-faint">
@@ -73,7 +80,7 @@ export function PhysicalTenderRecommendations({
   return (
     <>
       {section("Physical verification recommendations", "Core procurement tenders that have a registered SENTRY FIELD inspection profile. These are surfaced separately from generic entity investigations.", fieldReady, <Camera className="h-3.5 w-3.5" />)}
-      {section("Pothole & road-distress tenders", "Tender records whose title, description, category or requirements indicate road-surface or pothole-relevant work. Every card opens the exact tender investigation.", pothole, <Siren className="h-3.5 w-3.5" />)}
-    </>
+      {section("Pothole & road-distress tenders", "Tender records whose title, description, category or reference explicitly mention potholes or road-surface distress. Every card opens the exact tender investigation.", pothole, <Siren className="h-3.5 w-3.5" />)}
+    </section>
   );
 }
