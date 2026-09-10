@@ -6,8 +6,6 @@ from sqlalchemy.orm import Session
 from app.models import Tender
 from app.services.procurement_scope import INTERNATIONAL_PROCUREMENT_SOURCES
 
-# Backward-compatible marker retained for existing field-lead contract tests and
-# documentation. Physical discovery is now broader than this explicit prefix.
 FIELD_REFERENCE_PATTERN = "FIELD:%"
 
 _PHYSICAL_CAPABILITY_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -88,7 +86,8 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
     for tender in rows:
         capabilities = _physical_capabilities(tender)
         profile = profile_for_tender(tender)
-        if not capabilities and profile is None:
+        explicit_field = (tender.reference_number or "").upper().startswith("FIELD:")
+        if not capabilities and profile is None and not explicit_field:
             continue
         key = str(tender.id)
         if key in seen:
@@ -105,7 +104,7 @@ def direct_field_tender_leads(db: Session) -> list[dict]:
                 if capability not in profile_caps:
                     profile_caps.append(capability)
                 requirements.append({"id": req_id, "capability": capability, "label": str(item.get("label") or capability), "expected_quantity": int(item.get("expected_quantity") or 1)})
-        auto_capabilities = profile_caps or capabilities
+        auto_capabilities = profile_caps or capabilities or ["asset_text"]
         out.append({
             "tender_id": key,
             "reference_number": tender.reference_number,
