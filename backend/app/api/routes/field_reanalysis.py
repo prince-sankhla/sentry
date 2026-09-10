@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -40,49 +40,27 @@ class FieldReanalysisRequest(BaseModel):
 
 
 def _ensure_store(db: Session) -> None:
-    db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS field_verifications (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                tender_id UUID NOT NULL REFERENCES tenders(id),
-                version INTEGER NOT NULL,
-                mission_id VARCHAR(200) NOT NULL,
-                status VARCHAR(32) NOT NULL DEFAULT 'verified',
-                submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                requirements JSONB NOT NULL,
-                observations JSONB NOT NULL,
-                result JSONB NOT NULL,
-                supersedes_id UUID NULL REFERENCES field_verifications(id),
-                UNIQUE (tender_id, version)
-            )
-            """
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS field_verifications (
+            id UUID PRIMARY KEY,
+            tender_id UUID NOT NULL REFERENCES tenders(id),
+            version INTEGER NOT NULL,
+            mission_id VARCHAR(200) NOT NULL,
+            status VARCHAR(32) NOT NULL DEFAULT 'verified',
+            submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            requirements JSONB NOT NULL,
+            observations JSONB NOT NULL,
+            result JSONB NOT NULL,
+            supersedes_id UUID NULL REFERENCES field_verifications(id),
+            UNIQUE (tender_id, version)
         )
-    )
+    """))
     db.execute(text("CREATE INDEX IF NOT EXISTS idx_field_verifications_tender ON field_verifications(tender_id)"))
     db.commit()
 
 
-def _latest_verification(db: Session, tender_id: UUID) -> dict[str, Any] | None:
-    _ensure_store(db)
-    row = db.execute(
-        text(
-            """
-            SELECT id::text, version, mission_id, status, submitted_at, updated_at,
-                   jsonb_array_length(observations) AS observation_count,
-                   COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
-                   COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
-            FROM field_verifications
-            WHERE tender_id = :tender_id
-            ORDER BY version DESC
-            LIMIT 1
-            """
-        ),
-        {"tender_id": str(tender_id)},
-    ).mappings().first()
-    if not row:
-        return None
+def _row_metadata(row: Any) -> dict[str, Any]:
     return {
         "id": row["id"],
         "version": row["version"],
@@ -96,67 +74,57 @@ def _latest_verification(db: Session, tender_id: UUID) -> dict[str, Any] | None:
     }
 
 
+def _latest_verification(db: Session, tender_id: UUID) -> dict[str, Any] | None:
+    _ensure_store(db)
+    row = db.execute(text("""
+        SELECT id::text, version, mission_id, status, submitted_at, updated_at,
+               jsonb_array_length(observations) AS observation_count,
+               COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
+               COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
+        FROM field_verifications
+        WHERE tender_id = :tender_id
+        ORDER BY version DESC
+        LIMIT 1
+    """), {"tender_id": str(tender_id)}).mappings().first()
+    return _row_metadata(row) if row else None
+
+
 def _verification_history(db: Session, tender_id: UUID) -> list[dict[str, Any]]:
     _ensure_store(db)
-    rows = db.execute(
-        text(
-            """
-            SELECT id::text, version, mission_id, status, submitted_at, updated_at,
-                   jsonb_array_length(observations) AS observation_count,
-                   COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
-                   COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
-            FROM field_verifications
-            WHERE tender_id = :tender_id
-            ORDER BY version ASC
-            """
-        ),
-        {"tender_id": str(tender_id)},
-    ).mappings().all()
-    return [
-        {
-            "id": row["id"],
-            "version": row["version"],
-            "status": row["status"],
-            "mission_id": row["mission_id"],
-            "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,
-            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
-            "observation_count": row["observation_count"],
-            "evidence_count": row["evidence_count"],
-            "gps_evidence_count": row["gps_evidence_count"],
-        }
-        for row in rows
-    ]
+    rows = db.execute(text("""
+        SELECT id::text, version, mission_id, status, submitted_at, updated_at,
+               jsonb_array_length(observations) AS observation_count,
+               COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
+               COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
+        FROM field_verifications
+        WHERE tender_id = :tender_id
+        ORDER BY version ASC
+    """), {"tender_id": str(tender_id)}).mappings().all()
+    return [_row_metadata(row) for row in rows]
 
 
 def _save_verification(db: Session, tender_id: UUID, request: FieldReanalysisRequest, result: dict[str, Any]) -> dict[str, Any]:
     _ensure_store(db)
     db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": str(tender_id)})
-    latest = db.execute(
-        text("SELECT id, version FROM field_verifications WHERE tender_id = :tender_id ORDER BY version DESC LIMIT 1"),
-        {"tender_id": str(tender_id)},
-    ).mappings().first()
+    latest = db.execute(text("SELECT id, version FROM field_verifications WHERE tender_id = :tender_id ORDER BY version DESC LIMIT 1"), {"tender_id": str(tender_id)}).mappings().first()
     version = int(latest["version"]) + 1 if latest else 1
-    row = db.execute(
-        text(
-            """
-            INSERT INTO field_verifications
-              (tender_id, version, mission_id, status, requirements, observations, result, supersedes_id)
-            VALUES
-              (:tender_id, :version, :mission_id, 'verified', CAST(:requirements AS jsonb),
-               CAST(:observations AS jsonb), CAST(:result AS jsonb), :supersedes_id)
-            RETURNING id::text, version, submitted_at, updated_at
-            """
-        ),
-        {
-            "tender_id": str(tender_id),
-            "version": version,
-            "mission_id": request.mission_id,
-            "requirements": json.dumps([item.model_dump() for item in request.requirements]),
-            "observations": json.dumps([item.model_dump() for item in request.observations]),
-            "result": json.dumps(result),
-            "supersedes_id": str(latest["id"]) if latest else None,
-        },
-    ).mappings().one()
+    row = db.execute(text("""
+        INSERT INTO field_verifications
+          (id, tender_id, version, mission_id, status, requirements, observations, result, supersedes_id)
+        VALUES
+          (:id, :tender_id, :version, :mission_id, 'verified', CAST(:requirements AS jsonb),
+           CAST(:observations AS jsonb), CAST(:result AS jsonb), :supersedes_id)
+        RETURNING id::text, version, submitted_at, updated_at
+    """), {
+        "id": str(uuid4()),
+        "tender_id": str(tender_id),
+        "version": version,
+        "mission_id": request.mission_id,
+        "requirements": json.dumps([item.model_dump(mode="json") for item in request.requirements]),
+        "observations": json.dumps([item.model_dump(mode="json") for item in request.observations]),
+        "result": json.dumps(result),
+        "supersedes_id": str(latest["id"]) if latest else None,
+    }).mappings().one()
     db.commit()
     return {
         "id": row["id"],
@@ -165,6 +133,9 @@ def _save_verification(db: Session, tender_id: UUID, request: FieldReanalysisReq
         "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,
         "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
         "supersedes_version": latest["version"] if latest else None,
+        "observation_count": len(request.observations),
+        "evidence_count": result["summary"]["evidence_count"],
+        "gps_evidence_count": result["summary"]["gps_evidence_count"],
     }
 
 
