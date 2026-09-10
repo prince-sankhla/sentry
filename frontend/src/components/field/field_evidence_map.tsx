@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Crosshair, Filter, LocateFixed, MapPin, RefreshCw, ShieldAlert, Navigation } from "lucide-react";
+import { Crosshair, Filter, LocateFixed, MapPin, RefreshCw, Navigation } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_FIELD_API_URL?.trim() || "http://127.0.0.1:8001";
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
@@ -112,10 +112,10 @@ function loadCss() {
 }
 
 function stableId(event: EventItem, index: number) {
-  return [event.observed_at || 0, event.track_id || "", event.type || "", event.value || "", index].join(":");
+  return [event.tender_id || "", event.observed_at || 0, event.track_id || "", event.type || "", event.value || "", index].join(":");
 }
 
-export function FieldEvidenceMap() {
+export function FieldEvidenceMap({ tenderKey }: { tenderKey?: string }) {
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const layersRef = useRef<any[]>([]);
@@ -130,6 +130,8 @@ export function FieldEvidenceMap() {
   const [saved, setSaved] = useState<Flag[]>([]);
   const [saveState, setSaveState] = useState("Auto-save ON");
 
+  const activeTender = (tenderKey || status.tender_id || "").trim();
+  const storageKey = `sentry-field-map-flags:${activeTender || "unscoped"}`;
   const gps = status.gps?.lat != null && status.gps?.lon != null ? status.gps : undefined;
 
   const liveFlags = useMemo<Flag[]>(() => {
@@ -141,12 +143,13 @@ export function FieldEvidenceMap() {
         return;
       }
       if (["dispatch", "stop", "telemetry"].includes(event.type || "")) return;
+      if (activeTender && event.tender_id && event.tender_id !== activeTender) return;
       const point = event.gps?.lat != null && event.gps?.lon != null ? event.gps : lastGps;
       if (!point || point.lat == null || point.lon == null) return;
-      next.push({ ...event, id: stableId(event, index), lat: point.lat, lon: point.lon, source: "live" });
+      next.push({ ...event, id: stableId({ ...event, tender_id: activeTender || event.tender_id }, index), lat: point.lat, lon: point.lon, source: "live" });
     });
     return next;
-  }, [events, gps]);
+  }, [events, gps, activeTender]);
 
   const allFlags = useMemo(() => {
     const byId = new Map<string, Flag>();
@@ -158,46 +161,53 @@ export function FieldEvidenceMap() {
 
   const route = useMemo<[number, number][]>(() => {
     return events
-      .filter((event) => event.type === "telemetry" && event.gps?.lat != null && event.gps?.lon != null)
+      .filter((event) => event.type === "telemetry" && (!activeTender || !event.tender_id || event.tender_id === activeTender) && event.gps?.lat != null && event.gps?.lon != null)
       .slice()
       .reverse()
       .map((event) => [event.gps!.lat!, event.gps!.lon!]);
-  }, [events]);
+  }, [events, activeTender]);
 
   useEffect(() => {
+    if (!activeTender) {
+      setSaved([]);
+      return;
+    }
     let alive = true;
-    fetch("/api/field-map", { cache: "no-store" })
-      .then((r) => r.json())
+    fetch(`/api/field-map?tender_id=${encodeURIComponent(activeTender)}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("Map history unavailable")))
       .then((data) => { if (alive && Array.isArray(data?.flags)) setSaved(data.flags as Flag[]); })
       .catch(() => {
         try {
-          const raw = window.localStorage.getItem("sentry-field-map-flags");
+          const raw = window.localStorage.getItem(storageKey);
           if (raw && alive) setSaved(JSON.parse(raw) as Flag[]);
-        } catch {}
+          else if (alive) setSaved([]);
+        } catch { if (alive) setSaved([]); }
       });
     return () => { alive = false; };
-  }, []);
-
-  useEffect(() => { try { window.localStorage.setItem("sentry-field-map-flags", JSON.stringify(saved)); } catch {} }, [saved]);
+  }, [activeTender, storageKey]);
 
   useEffect(() => {
-    if (!liveFlags.length) return;
+    try { window.localStorage.setItem(storageKey, JSON.stringify(saved)); } catch {}
+  }, [saved, storageKey]);
+
+  useEffect(() => {
+    if (!activeTender || !liveFlags.length) return;
     const additions = liveFlags.filter((flag) => !saved.some((item) => item.id === flag.id));
     if (!additions.length) return;
-    const next = [...additions.map((flag) => ({ ...flag, source: "saved" as const })), ...saved].slice(0, 500);
+    const next = [...additions.map((flag) => ({ ...flag, tender_id: activeTender, source: "saved" as const })), ...saved].slice(0, 500);
     setSaved(next);
     setSaveState(`Auto-saved ${next.length} flags`);
     const timer = window.setTimeout(() => setSaveState("Auto-save ON"), 1800);
     void fetch("/api/field-map", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ flags: next }),
+      body: JSON.stringify({ tender_id: activeTender, flags: next }),
     }).catch(() => {
-      try { window.localStorage.setItem("sentry-field-map-flags", JSON.stringify(next)); } catch {}
+      try { window.localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
       setSaveState("Local fallback saved");
     });
     return () => window.clearTimeout(timer);
-  }, [liveFlags, saved]);
+  }, [activeTender, liveFlags, saved, storageKey]);
 
   useEffect(() => {
     let alive = true;
@@ -210,7 +220,10 @@ export function FieldEvidenceMap() {
         if (!statusResponse.ok || !eventsResponse.ok) throw new Error("Field gateway offline");
         const nextStatus = (await statusResponse.json()) as Status;
         const nextEvents = (await eventsResponse.json()) as { events?: EventItem[] };
-        if (alive) { setStatus(nextStatus); setEvents(Array.isArray(nextEvents.events) ? nextEvents.events : []); }
+        if (alive) {
+          setStatus(nextStatus);
+          setEvents(Array.isArray(nextEvents.events) ? nextEvents.events : []);
+        }
       } catch {}
     };
     poll();
@@ -248,11 +261,11 @@ export function FieldEvidenceMap() {
     } else {
       roverLayerRef.current.setLatLng?.(point);
     }
-    if (!firstGpsFitRef.current) {
+    if (!firstGpsFitRef.current || status.tender_id !== activeTender) {
       firstGpsFitRef.current = true;
       mapRef.current.setView(point, Math.max(15, mapRef.current.getZoom?.() || 15));
     }
-  }, [gps?.lat, gps?.lon, mapReady, status.mission_id]);
+  }, [gps?.lat, gps?.lon, mapReady, status.mission_id, status.tender_id, activeTender]);
 
   useEffect(() => {
     if (!mapRef.current || !window.L || !mapReady) return;
@@ -275,10 +288,10 @@ export function FieldEvidenceMap() {
       const confidence = flag.confidence != null ? `${Math.round(flag.confidence * 100)}%` : "—";
       const when = flag.observed_at ? new Date(flag.observed_at * 1000).toLocaleString() : "—";
       const evidence = flag.frame_url ? `<a href="${API}${flag.frame_url}" target="_blank" rel="noreferrer">Open evidence ↗</a>` : "No frame attached";
-      marker.bindPopup(`<div class="sentry-map-popup"><div class="sentry-map-popup-kicker">SENTRY FIELD · ${meta.label}</div><strong>${flag.value || meta.label}</strong><div class="sentry-map-popup-grid"><span>Confidence</span><b>${confidence}</b><span>GPS</span><b>${flag.lat.toFixed(5)}, ${flag.lon.toFixed(5)}</b><span>Mission</span><b>${flag.mission_id || status.mission_id || "—"}</b><span>Requirement</span><b>${flag.requirement_id || status.requirement_id || "—"}</b><span>Time</span><b>${when}</b></div><div class="sentry-map-popup-link">${evidence}</div></div>`);
+      marker.bindPopup(`<div class="sentry-map-popup"><div class="sentry-map-popup-kicker">SENTRY FIELD · ${meta.label}</div><strong>${flag.value || meta.label}</strong><div class="sentry-map-popup-grid"><span>Confidence</span><b>${confidence}</b><span>GPS</span><b>${flag.lat.toFixed(5)}, ${flag.lon.toFixed(5)}</b><span>Mission</span><b>${flag.mission_id || status.mission_id || "—"}</b><span>Requirement</span><b>${flag.requirement_id || status.requirement_id || "—"}</b><span>Tender</span><b>${flag.tender_id || activeTender || "—"}</b><span>Time</span><b>${when}</b></div><div class="sentry-map-popup-link">${evidence}</div></div>`);
       layersRef.current.push(marker);
     });
-  }, [visibleFlags, mapReady, status.mission_id, status.requirement_id]);
+  }, [visibleFlags, mapReady, status.mission_id, status.requirement_id, activeTender]);
 
   function centerOnGps() {
     if (!mapRef.current || gps?.lat == null || gps?.lon == null) return;
@@ -291,7 +304,7 @@ export function FieldEvidenceMap() {
         <div>
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-accent"><MapPin className="h-3.5 w-3.5" /> SENTRY FIELD / EVIDENCE MAP</div>
           <h2 className="mt-1 text-lg font-semibold tracking-tight text-text">Geospatial findings</h2>
-          <p className="mt-1 text-xs text-muted">Live rover position, inspection route and GPS-backed evidence on one map.</p>
+          <p className="mt-1 text-xs text-muted">Current tender only · live rover position, inspection route and GPS-backed evidence.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] font-semibold text-muted">{saveState}</span>
@@ -311,7 +324,7 @@ export function FieldEvidenceMap() {
 
       <div className="relative">
         <div ref={mapEl} className="h-[430px] w-full bg-[#eef1f4] md:h-[560px]" />
-        {!mapReady && !mapError && <div className="absolute inset-0 grid place-items-center bg-surface/80 text-center"><div><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" /><div className="mt-3 text-sm font-semibold text-text">Loading field map</div><div className="mt-1 text-xs text-muted">OpenStreetMap · Leaflet · live evidence layer</div></div></div>}
+        {!mapReady && !mapError && <div className="absolute inset-0 grid place-items-center bg-surface/80 text-center"><div><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" /><div className="mt-3 text-sm font-semibold text-text">Loading field map</div><div className="mt-1 text-xs text-muted">OpenStreetMap · Leaflet · tender-scoped evidence layer</div></div></div>}
         {mapError && <div className="absolute inset-0 grid place-items-center bg-surface/90 text-center"><div><Crosshair className="mx-auto h-8 w-8 text-danger" /><div className="mt-3 text-sm font-semibold text-text">Map engine unavailable</div><div className="mt-1 text-xs text-muted">{mapError}</div></div></div>}
         <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
           <span className={`rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] ${gps ? "border-accent/30 bg-accent/10 text-text" : "border-border bg-surface/85 text-muted"}`}>{gps ? "● Rover GPS live" : "○ Rover GPS unavailable"}</span>
