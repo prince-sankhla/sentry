@@ -1,5 +1,5 @@
 import { PageShell } from "@/components/ui/page";
-import { FieldMissionConsole } from "@/components/field/field_mission_console";
+import { FieldMissionConsoleV2 } from "@/components/field/field_mission_console_v2";
 import { FieldEvidenceMap } from "@/components/field/field_evidence_map";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export default async function FieldPage({ searchParams }: PageProps) {
   return (
     <PageShell>
       <div className="space-y-5">
-        <FieldMissionConsole
+        <FieldMissionConsoleV2
           tenderKey={tenderKey || undefined}
           requirementId={requirementId || undefined}
         />
