@@ -18,7 +18,6 @@ _frame_url = _gateway._frame_url
 _camera = _gateway._camera
 _caps = _gateway._caps
 
-
 @app.middleware("http")
 async def canonical_dispatch_validation(request: Request, call_next) -> Response:
     """Validate primary capability against the selected tender requirement."""
@@ -41,13 +40,8 @@ async def canonical_dispatch_validation(request: Request, call_next) -> Response
                 if tender is not None:
                     requirement = next((item for item in tender.get("requirements") or [] if str(item.get("id")) == requirement_id), None)
                     if requirement is not None and str(requirement.get("capability") or "") != capability:
-                        return Response(
-                            content=json.dumps({"detail": "Capability does not match the selected tender requirement"}),
-                            status_code=400,
-                            media_type="application/json",
-                        )
+                        return Response(content=json.dumps({"detail": "Capability does not match the selected tender requirement"}), status_code=400, media_type="application/json")
         request._body = body
     return await call_next(request)
-
 
 __all__ = ["FIELD_API_PORT", "app", "_state", "_events", "_load_demo_tenders", "_find_tender", "_set", "_snapshot", "_snap", "_frame_url", "_camera", "_caps"]
