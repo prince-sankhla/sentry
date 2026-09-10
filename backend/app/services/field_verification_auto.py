@@ -46,6 +46,12 @@ def auto_capabilities_for_tender(tender: Tender) -> list[str]:
 def _synthetic_plan(tender: Tender) -> dict:
     capabilities = auto_capabilities_for_tender(tender)
     return {
+        "id": str(tender.id),
+        "reference_number": tender.reference_number,
+        "title": tender.title,
+        "source_record_id": tender.source_record_id,
+        "source_url": tender.source_url,
+        "procuring_entity": tender.procuring_entity,
         "tender": {
             "id": str(tender.id),
             "reference_number": tender.reference_number,
