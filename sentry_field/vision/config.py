@@ -10,9 +10,12 @@ EVIDENCE_DIR = ROOT / "field_evidence"
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
+    # Keep the primary detectors on every frame so a new object is surfaced
+    # as soon as it enters the camera view. The lightweight 224px inference
+    # size keeps the laptop path responsive.
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "224"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
-    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "2"))
+    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
     mission_id: str | None = os.getenv("SENTRY_MISSION_ID") or None
@@ -25,8 +28,11 @@ class VisionConfig:
     context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "90"))
     person_overlap_threshold: float = 0.15
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
+    # Open-vocabulary is heavier; running it every few frames gives rapid
+    # coverage of assets such as lights/signs/CCTV without forcing that
+    # expensive model to gate the primary per-frame detection path.
     world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.30"))
-    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "8"))
+    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "4"))
     world_inference_size: int = int(os.getenv("SENTRY_WORLD_INFERENCE_SIZE", "256"))
     world_prompts: tuple[str, ...] = (
         "pothole", "road crack", "streetlight", "solar streetlight", "CCTV camera",
@@ -70,7 +76,7 @@ def build_config(*, source=None, confidence=None, every_n_frames=None, mission_i
         source=source or DEFAULT_CONFIG.source,
         inference_size=DEFAULT_CONFIG.inference_size,
         confidence=DEFAULT_CONFIG.confidence if confidence is None else max(0.05, min(0.99, confidence)),
-        every_n_frames=DEFAULT_CONFIG.every_n_frames if every_n_frames is None else max(2, every_n_frames),
+        every_n_frames=DEFAULT_CONFIG.every_n_frames if every_n_frames is None else max(1, every_n_frames),
         evidence_cooldown_seconds=DEFAULT_CONFIG.evidence_cooldown_seconds,
         evidence_dir=DEFAULT_CONFIG.evidence_dir,
         mission_id=mission_id or DEFAULT_CONFIG.mission_id,
