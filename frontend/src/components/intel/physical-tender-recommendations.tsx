@@ -113,25 +113,16 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
   };
 
   return (
-    <>
-      <section className="mt-8 rounded-3xl border border-accent/20 bg-surface p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-accent"><Camera className="h-3.5 w-3.5" /> SENTRY FIELD / PHYSICAL VERIFICATION</div>
-            <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-text">All field-verification tenders</h2>
-            <p className="mt-1 max-w-4xl text-sm leading-6 text-muted">One queue for every tender that can be investigated physically. Registered field profiles and real DB pothole / road-distress tenders are unified here, with automatic capabilities and direct investigation handoff.</p>
-          </div>
-          <span className="shrink-0 text-[11px] text-faint">{fieldQueue.length} field-capable tenders</span>
+    <section className="mt-8 rounded-3xl border border-accent/20 bg-surface p-5 shadow-sm md:p-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-accent"><Camera className="h-3.5 w-3.5" /> SENTRY FIELD / PHYSICAL VERIFICATION</div>
+          <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-text">All field-verification tenders</h2>
+          <p className="mt-1 max-w-4xl text-sm leading-6 text-muted">One queue for every tender that can be investigated physically. Registered field profiles and real DB pothole / road-distress tenders are unified here, with automatic capabilities and direct investigation handoff.</p>
         </div>
-        {renderCards(fieldQueue, "No physical-verification tender records are currently available.")}
-      </section>
-
-      <section className="mt-8 rounded-3xl border border-border bg-surface p-5 shadow-sm md:p-6">
-        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-accent"><Siren className="h-3.5 w-3.5" /> ROAD / POTHOLE WATCH</div>
-        <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-text">Pothole & road-distress discovery</h2>
-        <p className="mt-1 max-w-4xl text-sm leading-6 text-muted">The same live DB records remain visible here as a dedicated discovery view, while all runnable pothole tenders are now promoted into the Physical Verification queue above.</p>
-        {renderCards(pothole, "No pothole / road-distress tender records currently match the recommendation rules.")}
-      </section>
-    </>
+        <span className="shrink-0 text-[11px] text-faint">{fieldQueue.length} field-capable tenders</span>
+      </div>
+      {renderCards(fieldQueue, "No physical-verification tender records are currently available.")}
+    </section>
   );
 }
