@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
@@ -51,7 +50,4 @@ async def canonical_dispatch_validation(request: Request, call_next) -> Response
     return await call_next(request)
 
 
-__all__ = [
-    "FIELD_API_PORT", "app", "_state", "_events", "_load_demo_tenders",
-    "_find_tender", "_set", "_snapshot", "_snap", "_frame_url", "_camera", "_caps",
-]
+__all__ = ["FIELD_API_PORT", "app", "_state", "_events", "_load_demo_tenders", "_find_tender", "_set", "_snapshot", "_snap", "_frame_url", "_camera", "_caps"]
