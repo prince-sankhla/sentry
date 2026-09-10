@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlparse
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
@@ -17,6 +18,14 @@ _snap = _snapshot
 _frame_url = _gateway._frame_url
 _camera = _gateway._camera
 _caps = _gateway._caps
+
+
+def _valid_http_camera_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
 @app.middleware("http")
@@ -45,6 +54,9 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
         request._body = body
 
     if request.method == "GET" and request.url.path == "/stream":
+        camera_url = str(request.query_params.get("camera_url") or "").strip()
+        if not _valid_http_camera_url(camera_url):
+            return Response(content=json.dumps({"detail": "camera_url must be a valid http(s) URL"}), status_code=400, media_type="application/json")
         mission_id = request.query_params.get("mission_id")
         requirement_id = request.query_params.get("requirement_id")
         with _gateway._lock:
