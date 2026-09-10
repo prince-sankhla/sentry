@@ -109,6 +109,8 @@ class FieldScanner:
         self.selected = set(config.selected_capabilities or CAPABILITY_ALIASES.values())
         self.current_gps: dict[str, Any] | None = None
         self.model_errors: dict[str, str] = {}
+        self.device = self._resolve_device(config.device)
+        self.use_half = bool(config.half and self.device != "cpu")
         self.context_model = self._load_optional(config.context_model, "context_model")
         self.pothole_model = self._load_optional(config.pothole_model, "pothole_model") if "pothole" in self.selected else None
         self.road_distress_model = self._load_optional(config.road_distress_model, "road_distress_model") if "road_crack" in self.selected else None
@@ -126,6 +128,8 @@ class FieldScanner:
         self.writer = EvidenceWriter(config.evidence_dir)
         self.tracker = SimpleTrackStore(config.track_iou_threshold, config.track_ttl_seconds)
         self.last_evidence_at: dict[str, float] = {}
+        self.last_accepted: list[Detection] = []
+        self.last_accepted_frame = 0
         self.ocr_available = False
         self.pytesseract = None
         if config.ocr_enabled:
@@ -141,6 +145,32 @@ class FieldScanner:
             self.barcode_decode = barcode_decode
         except ImportError as exc:
             self.model_errors["barcode"] = f"Barcode backend unavailable: {exc}"
+        self._warmup_models()
+
+    @staticmethod
+    def _resolve_device(requested: str) -> str:
+        requested = (requested or "auto").strip().lower()
+        if requested != "auto":
+            return requested
+        try:
+            import torch
+            return "cuda:0" if torch.cuda.is_available() else "cpu"
+        except Exception:
+            return "cpu"
+
+    def _warmup_models(self) -> None:
+        sample = None
+        try:
+            sample = __import__("numpy").zeros((self.config.inference_size, self.config.inference_size, 3), dtype="uint8")
+            for model, imgsz in (
+                (self.pothole_model, self.config.inference_size),
+                (self.road_distress_model, self.config.inference_size),
+                (self.world_model, self.config.world_inference_size),
+            ):
+                if model is not None:
+                    model.predict(sample, imgsz=imgsz, conf=0.05, verbose=False, device=self.device, half=self.use_half)
+        except Exception as exc:
+            self.model_errors.setdefault("warmup", f"Model warmup warning: {exc}")
 
     def _load_optional(self, path: Path, name: str):
         if not Path(path).exists():
@@ -255,11 +285,12 @@ class FieldScanner:
         except Exception:
             return None
 
-    def _specialized(self, frame: Any, model: Any, detector_name: str, frame_index: int) -> list[Detection]:
-        if model is None or frame_index % max(1, self.config.every_n_frames) != 0:
+    def _specialized(self, frame: Any, model: Any, detector_name: str, frame_index: int, phase: int = 0) -> list[Detection]:
+        cadence = max(1, self.config.every_n_frames)
+        if model is None or frame_index % cadence != phase % cadence:
             return []
         try:
-            result = model(frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False)[0]
+            result = model.predict(frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False, device=self.device, half=self.use_half)[0]
             return _parse_result(result, detector_name)
         except Exception as exc:
             self.model_errors[detector_name] = f"Inference failed: {exc}"
@@ -273,32 +304,35 @@ class FieldScanner:
 
         if self.context_model is not None and frame_index % max(1, self.config.context_every_n_frames) == 0:
             try:
-                context = _parse_result(self.context_model(frame, imgsz=320, conf=self.config.context_confidence, verbose=False)[0], "context_model")
+                context = _parse_result(self.context_model.predict(frame, imgsz=256, conf=self.config.context_confidence, verbose=False, device=self.device, half=self.use_half)[0], "context_model")
             except Exception as exc:
                 self.model_errors["context_model"] = f"Inference failed: {exc}"
 
-        def add(detection: Detection, quality: str) -> None:
+        def add(detection: Detection, quality: str, *, persist: bool = True) -> None:
             track_id, is_new = self.tracker.assign(detection.label, detection.bbox, time.monotonic())
             detection.track_id = track_id
             accepted.append(detection)
-            if is_new:
+            if is_new and persist:
                 event = self._save_detection(frame, detection, track_id, quality)
                 if event:
                     evidence.append(event)
 
-        for detection in self._specialized(frame, self.pothole_model, "pothole_model", frame_index):
+        cadence = max(1, self.config.every_n_frames)
+        pothole_phase = 0
+        crack_phase = 1 % cadence
+        for detection in self._specialized(frame, self.pothole_model, "pothole_model", frame_index, pothole_phase):
             detection.label = self._normalise_world_label(detection.label) or detection.label.strip().lower()
             add(detection, "specialized")
-        for detection in self._specialized(frame, self.road_distress_model, "road_distress_model", frame_index):
+        for detection in self._specialized(frame, self.road_distress_model, "road_distress_model", frame_index, crack_phase):
             detection.label = self._normalise_world_label(detection.label) or "road crack"
             add(detection, "specialized")
 
-        # The open-vocabulary detector is the universal fallback for physical
-        # capabilities whenever a specialised weight is unavailable, and also
-        # provides the common roadside asset detector family.
+        # Open-vocabulary inference is deliberately less frequent than the
+        # specialised models because it is the widest/heaviest detector. It
+        # remains enabled for the capability families that need it.
         if self.world_model is not None and frame_index % max(1, self.config.world_every_n_frames) == 0:
             try:
-                result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False)[0]
+                result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False, device=self.device, half=self.use_half)[0]
                 allowed = {item.lower() for item in WORLD_EVIDENCE_CLASSES}
                 specialised_missing = {
                     capability
@@ -327,6 +361,15 @@ class FieldScanner:
                 event = self._save_identity_evidence(frame, capability, value, detector)
                 if event:
                     evidence.append(event)
+
+        # Reuse the last inference result between heavyweight inference ticks.
+        # This keeps the live stream visually continuous without pretending a
+        # new model prediction happened on every displayed camera frame.
+        if not accepted and self.last_accepted and frame_index - self.last_accepted_frame <= max(1, cadence * 2):
+            accepted = [Detection(d.label, d.confidence, list(d.bbox), d.detector, d.track_id) for d in self.last_accepted]
+        if accepted and (frame_index == self.last_accepted_frame or accepted != self.last_accepted):
+            self.last_accepted = [Detection(d.label, d.confidence, list(d.bbox), d.detector, d.track_id) for d in accepted]
+            self.last_accepted_frame = frame_index
         return accepted, context, qr, barcode, ocr, evidence
 
 
