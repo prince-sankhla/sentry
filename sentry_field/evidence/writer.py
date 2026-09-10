@@ -15,7 +15,7 @@ class EvidenceWriter:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def record_detection(
+    def _write_event(
         self,
         frame,
         *,
@@ -62,3 +62,64 @@ class EvidenceWriter:
             json.dump(event.to_dict(), handle, indent=2)
 
         return event
+
+    def record_detection(
+        self,
+        frame,
+        *,
+        capability: str,
+        observation: str,
+        confidence: float,
+        bbox: list[int] | None = None,
+        gps: dict[str, float] | None = None,
+        mission_id: str | None = None,
+        requirement_id: str | None = None,
+        source: str | None = None,
+        detector: str | None = None,
+        track_id: str | None = None,
+        evidence_quality: str = "raw_detection",
+        metadata: dict | None = None,
+    ) -> EvidenceEvent:
+        return self._write_event(
+            frame,
+            capability=capability,
+            observation=observation,
+            confidence=confidence,
+            bbox=bbox,
+            gps=gps,
+            mission_id=mission_id,
+            requirement_id=requirement_id,
+            source=source,
+            detector=detector,
+            track_id=track_id,
+            evidence_quality=evidence_quality,
+            metadata=metadata,
+        )
+
+    def record_observation(
+        self,
+        frame,
+        *,
+        capability: str,
+        observation: str,
+        gps: dict[str, float] | None = None,
+        mission_id: str | None = None,
+        requirement_id: str | None = None,
+        source: str | None = None,
+        detector: str | None = None,
+        evidence_quality: str = "identity_observation",
+        metadata: dict | None = None,
+    ) -> EvidenceEvent:
+        return self._write_event(
+            frame,
+            capability=capability,
+            observation=observation,
+            confidence=1.0,
+            gps=gps,
+            mission_id=mission_id,
+            requirement_id=requirement_id,
+            source=source,
+            detector=detector,
+            evidence_quality=evidence_quality,
+            metadata=metadata,
+        )
