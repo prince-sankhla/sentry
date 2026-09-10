@@ -159,9 +159,9 @@ class FieldScanner:
             return "cpu"
 
     def _warmup_models(self) -> None:
-        sample = None
         try:
-            sample = __import__("numpy").zeros((self.config.inference_size, self.config.inference_size, 3), dtype="uint8")
+            import numpy as np
+            sample = np.zeros((self.config.inference_size, self.config.inference_size, 3), dtype=np.uint8)
             for model, imgsz in (
                 (self.pothole_model, self.config.inference_size),
                 (self.road_distress_model, self.config.inference_size),
@@ -301,8 +301,10 @@ class FieldScanner:
         accepted: list[Detection] = []
         context: list[Detection] = []
         evidence: list[dict[str, Any]] = []
+        did_inference = False
 
         if self.context_model is not None and frame_index % max(1, self.config.context_every_n_frames) == 0:
+            did_inference = True
             try:
                 context = _parse_result(self.context_model.predict(frame, imgsz=256, conf=self.config.context_confidence, verbose=False, device=self.device, half=self.use_half)[0], "context_model")
             except Exception as exc:
@@ -320,6 +322,10 @@ class FieldScanner:
         cadence = max(1, self.config.every_n_frames)
         pothole_phase = 0
         crack_phase = 1 % cadence
+        if self.pothole_model is not None and frame_index % cadence == pothole_phase:
+            did_inference = True
+        if self.road_distress_model is not None and frame_index % cadence == crack_phase:
+            did_inference = True
         for detection in self._specialized(frame, self.pothole_model, "pothole_model", frame_index, pothole_phase):
             detection.label = self._normalise_world_label(detection.label) or detection.label.strip().lower()
             add(detection, "specialized")
@@ -327,10 +333,8 @@ class FieldScanner:
             detection.label = self._normalise_world_label(detection.label) or "road crack"
             add(detection, "specialized")
 
-        # Open-vocabulary inference is deliberately less frequent than the
-        # specialised models because it is the widest/heaviest detector. It
-        # remains enabled for the capability families that need it.
         if self.world_model is not None and frame_index % max(1, self.config.world_every_n_frames) == 0:
+            did_inference = True
             try:
                 result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False, device=self.device, half=self.use_half)[0]
                 allowed = {item.lower() for item in WORLD_EVIDENCE_CLASSES}
@@ -362,12 +366,9 @@ class FieldScanner:
                 if event:
                     evidence.append(event)
 
-        # Reuse the last inference result between heavyweight inference ticks.
-        # This keeps the live stream visually continuous without pretending a
-        # new model prediction happened on every displayed camera frame.
         if not accepted and self.last_accepted and frame_index - self.last_accepted_frame <= max(1, cadence * 2):
             accepted = [Detection(d.label, d.confidence, list(d.bbox), d.detector, d.track_id) for d in self.last_accepted]
-        if accepted and (frame_index == self.last_accepted_frame or accepted != self.last_accepted):
+        if did_inference:
             self.last_accepted = [Detection(d.label, d.confidence, list(d.bbox), d.detector, d.track_id) for d in accepted]
             self.last_accepted_frame = frame_index
         return accepted, context, qr, barcode, ocr, evidence
