@@ -14,18 +14,14 @@ router = APIRouter(prefix="/api/investigations", tags=["investigations"])
 
 @router.get("/field-tender-leads")
 def field_tender_leads(db: Session = Depends(get_db)) -> dict:
-    """Return stable, database-backed direct tender leads for the investigator landing page."""
+    """Return stable, database-backed physical-verification candidates."""
     items = direct_field_tender_leads(db)
     return {"items": items, "total": len(items)}
 
 
 _POTHOLE_TERMS = (
-    "%pothole%",
-    "%pot hole%",
-    "%road surface distress%",
-    "%surface distress%",
-    "%potholes repair%",
-    "%pothole repair%",
+    "%pothole%", "%pot hole%", "%road surface distress%", "%surface distress%",
+    "%potholes repair%", "%pothole repair%",
 )
 
 
@@ -40,13 +36,7 @@ def tender_recommendations(
     field_limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Return separate recommendation buckets sourced from the live tender database.
-
-    Field-ready records are identified by the explicit FIELD: reference convention.
-    Pothole recommendations are keyword-matched over the live tender title,
-    description and reference; a tender may intentionally appear in both buckets
-    when it is both pothole-relevant and field-verification-ready.
-    """
+    """Return the unified physical queue plus a pothole-focused compatibility bucket."""
     field_items = direct_field_tender_leads(db)[:field_limit]
 
     rows = db.execute(
@@ -58,30 +48,40 @@ def tender_recommendations(
         .limit(pothole_limit)
     ).scalars().all()
 
-    seen: set[str] = set()
     pothole_items: list[dict] = []
+    seen: set[str] = set()
     for tender in rows:
         key = str(tender.id)
         if key in seen:
             continue
         seen.add(key)
-        pothole_items.append(
-            {
-                "tender_id": key,
-                "reference_number": tender.reference_number,
-                "title": tender.title,
-                "procuring_entity": tender.procuring_entity,
-                "category": tender.category,
-                "source_name": tender.source_name,
-                "source_url": tender.source_url,
-                "field_ready": bool((tender.reference_number or "").upper().startswith("FIELD:")),
-                "pothole_relevant": True,
-                "reasons": [
-                    "Tender text explicitly references pothole / road-surface distress work",
-                    "Open the exact tender investigation before any physical escalation",
-                ],
-            }
-        )
+        capabilities = []
+        text = " ".join(str(value or "").lower() for value in (tender.title, tender.description, tender.reference_number, tender.category))
+        if "pothole" in text or "pot hole" in text:
+            capabilities.append("pothole")
+        if any(term in text for term in ("road crack", "surface distress", "damaged road", "road repair")):
+            capabilities.append("road_crack")
+        if any(term in text for term in ("drain", "drainage", "culvert", "sewer", "manhole")):
+            capabilities.append("drain")
+        if "asset_text" not in capabilities:
+            capabilities.append("asset_text")
+        pothole_items.append({
+            "tender_id": key,
+            "reference_number": tender.reference_number,
+            "title": tender.title,
+            "procuring_entity": tender.procuring_entity,
+            "category": tender.category,
+            "source_name": tender.source_name,
+            "source_url": tender.source_url,
+            "investigation_type": "tender",
+            "field_ready": True,
+            "pothole_relevant": True,
+            "auto_capabilities": capabilities,
+            "reasons": [
+                "Tender text references pothole / road-surface distress work",
+                "Open the exact tender investigation before physical escalation",
+            ],
+        })
 
     return {
         "field_ready": [
@@ -89,7 +89,6 @@ def tender_recommendations(
                 **item,
                 "title": item.get("title") or item.get("tender_title") or item.get("subject") or "",
                 "field_ready": True,
-                "pothole_relevant": False,
             }
             for item in field_items
         ],
