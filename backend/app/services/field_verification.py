@@ -82,6 +82,12 @@ def _plan_payload(tender: Tender, profile: dict) -> dict:
     if not requirements:
         raise HTTPException(422, "Physical verification profile has no executable requirements")
     return {
+        "id": str(tender.id),
+        "reference_number": tender.reference_number,
+        "title": tender.title,
+        "source_record_id": tender.source_record_id,
+        "source_url": tender.source_url,
+        "procuring_entity": tender.procuring_entity,
         "tender": {
             "id": str(tender.id),
             "reference_number": tender.reference_number,
