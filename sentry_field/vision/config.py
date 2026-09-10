@@ -10,9 +10,9 @@ EVIDENCE_DIR = ROOT / "field_evidence"
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
-    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "256"))
+    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "224"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
-    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
+    every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "2"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
     mission_id: str | None = os.getenv("SENTRY_MISSION_ID") or None
@@ -22,12 +22,12 @@ class VisionConfig:
     road_distress_model: Path = MODEL_DIR / "road_distress" / "best.pt"
     context_model: Path = MODEL_DIR / "context" / "yolo11n.pt"
     context_confidence: float = float(os.getenv("SENTRY_CONTEXT_CONFIDENCE", "0.45"))
-    context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "60"))
+    context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "90"))
     person_overlap_threshold: float = 0.15
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
     world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.30"))
-    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "15"))
-    world_inference_size: int = 320
+    world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "8"))
+    world_inference_size: int = int(os.getenv("SENTRY_WORLD_INFERENCE_SIZE", "256"))
     world_prompts: tuple[str, ...] = (
         "pothole", "road crack", "streetlight", "solar streetlight", "CCTV camera",
         "road sign", "signboard", "road barrier", "drain", "manhole cover", "solar panel",
@@ -35,12 +35,16 @@ class VisionConfig:
     )
     qr_enabled: bool = True
     ocr_enabled: bool = True
-    qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "30"))
-    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "60"))
+    qr_every_n_frames: int = int(os.getenv("SENTRY_QR_EVERY_N_FRAMES", "45"))
+    ocr_every_n_frames: int = int(os.getenv("SENTRY_OCR_EVERY_N_FRAMES", "120"))
     ocr_min_confidence: float = 0.55
     tracking_enabled: bool = True
     track_iou_threshold: float = 0.35
     track_ttl_seconds: float = 2.5
+    device: str = os.getenv("SENTRY_VISION_DEVICE", "auto")
+    half: bool = os.getenv("SENTRY_VISION_HALF", "auto").lower() != "false"
+    stream_max_width: int = int(os.getenv("SENTRY_STREAM_MAX_WIDTH", "960"))
+    jpeg_quality: int = int(os.getenv("SENTRY_STREAM_JPEG_QUALITY", "72"))
 
 
 DEFAULT_CONFIG = VisionConfig()
@@ -91,4 +95,8 @@ def build_config(*, source=None, confidence=None, every_n_frames=None, mission_i
         tracking_enabled=DEFAULT_CONFIG.tracking_enabled,
         track_iou_threshold=DEFAULT_CONFIG.track_iou_threshold,
         track_ttl_seconds=DEFAULT_CONFIG.track_ttl_seconds,
+        device=DEFAULT_CONFIG.device,
+        half=DEFAULT_CONFIG.half,
+        stream_max_width=DEFAULT_CONFIG.stream_max_width,
+        jpeg_quality=DEFAULT_CONFIG.jpeg_quality,
     )
