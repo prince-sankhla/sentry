@@ -23,7 +23,7 @@ export default async function FieldPage({ searchParams }: PageProps) {
           tenderKey={tenderKey || undefined}
           requirementId={requirementId || undefined}
         />
-        <FieldEvidenceMap />
+        <FieldEvidenceMap tenderKey={tenderKey || undefined} />
       </div>
     </PageShell>
   );
