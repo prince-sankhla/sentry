@@ -11,20 +11,16 @@ from app.services.procurement_scope import INTERNATIONAL_PROCUREMENT_SOURCES
 
 router = APIRouter(prefix="/api/investigations", tags=["investigations"])
 
-
 @router.get("/field-tender-leads")
 def field_tender_leads(db: Session = Depends(get_db)) -> dict:
     items = direct_field_tender_leads(db)
     return {"items": items, "total": len(items)}
 
-
 _POTHOLE_TERMS = ("%pothole%", "%pot hole%", "%road surface distress%", "%surface distress%", "%potholes repair%", "%pothole repair%")
-
 
 def _pothole_match():
     fields = (Tender.title, Tender.description, Tender.reference_number)
     return or_(*[field.ilike(term) for field in fields for term in _POTHOLE_TERMS])
-
 
 @router.get("/tender-recommendations")
 def tender_recommendations(
@@ -33,12 +29,8 @@ def tender_recommendations(
     db: Session = Depends(get_db),
 ) -> dict:
     field_items = direct_field_tender_leads(db)[:field_limit]
-    rows = db.execute(
-        select(Tender).where(Tender.deleted_at.is_(None)).where(Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES)).where(_pothole_match())
-        .order_by(Tender.published_date.desc().nullslast(), Tender.created_at.desc(), Tender.id.desc()).limit(pothole_limit)
-    ).scalars().all()
-    seen: set[str] = set()
-    pothole_items: list[dict] = []
+    rows = db.execute(select(Tender).where(Tender.deleted_at.is_(None)).where(Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES)).where(_pothole_match()).order_by(Tender.published_date.desc().nullslast(), Tender.created_at.desc(), Tender.id.desc()).limit(pothole_limit)).scalars().all()
+    seen: set[str] = set(); pothole_items: list[dict] = []
     for tender in rows:
         key = str(tender.id)
         if key in seen: continue
