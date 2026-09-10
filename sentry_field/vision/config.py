@@ -70,7 +70,7 @@ def build_config(*, source=None, confidence=None, every_n_frames=None, mission_i
         source=source or DEFAULT_CONFIG.source,
         inference_size=DEFAULT_CONFIG.inference_size,
         confidence=DEFAULT_CONFIG.confidence if confidence is None else max(0.05, min(0.99, confidence)),
-        every_n_frames=DEFAULT_CONFIG.every_n_frames if every_n_frames is None else max(1, every_n_frames),
+        every_n_frames=DEFAULT_CONFIG.every_n_frames if every_n_frames is None else max(2, every_n_frames),
         evidence_cooldown_seconds=DEFAULT_CONFIG.evidence_cooldown_seconds,
         evidence_dir=DEFAULT_CONFIG.evidence_dir,
         mission_id=mission_id or DEFAULT_CONFIG.mission_id,
