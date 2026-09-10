@@ -108,15 +108,20 @@ class FieldScanner:
         self.config = config
         self.selected = set(config.selected_capabilities or CAPABILITY_ALIASES.values())
         self.current_gps: dict[str, Any] | None = None
-        self.context_model = self._load_optional(config.context_model)
-        self.pothole_model = self._load_optional(config.pothole_model) if "pothole" in self.selected else None
-        self.road_distress_model = self._load_optional(config.road_distress_model) if "road_crack" in self.selected else None
+        self.model_errors: dict[str, str] = {}
+        self.context_model = self._load_optional(config.context_model, "context_model")
+        self.pothole_model = self._load_optional(config.pothole_model, "pothole_model") if "pothole" in self.selected else None
+        self.road_distress_model = self._load_optional(config.road_distress_model, "road_distress_model") if "road_crack" in self.selected else None
         world_caps = {"pothole", "road_crack", "streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}
-        self.world_model = self._load_world(config.world_model) if self.selected.intersection(world_caps) else None
+        self.world_model = self._load_world(config.world_model, "open_vocabulary") if self.selected.intersection(world_caps) else None
         if self.world_model is not None:
             prompts = [prompt for prompt in config.world_prompts if self._prompt_enabled(prompt)]
             if prompts:
-                self.world_model.set_classes(prompts)
+                try:
+                    self.world_model.set_classes(prompts)
+                except Exception as exc:
+                    self.model_errors["open_vocabulary"] = f"Could not configure open-vocabulary prompts: {exc}"
+                    self.world_model = None
         self.qr_detector = cv2.QRCodeDetector()
         self.writer = EvidenceWriter(config.evidence_dir)
         self.tracker = SimpleTrackStore(config.track_iou_threshold, config.track_ttl_seconds)
@@ -128,24 +133,37 @@ class FieldScanner:
                 import pytesseract  # type: ignore
                 self.pytesseract = pytesseract
                 self.ocr_available = True
-            except ImportError:
-                pass
+            except ImportError as exc:
+                self.model_errors["ocr"] = f"OCR backend unavailable: {exc}"
         self.barcode_decode = None
         try:
             from pyzbar.pyzbar import decode as barcode_decode  # type: ignore
             self.barcode_decode = barcode_decode
-        except ImportError:
-            pass
+        except ImportError as exc:
+            self.model_errors["barcode"] = f"Barcode backend unavailable: {exc}"
 
-    @staticmethod
-    def _load_optional(path: Path):
-        return YOLO(str(path)) if Path(path).exists() else None
-
-    @staticmethod
-    def _load_world(path: Path):
-        if YOLOWorld is None or not Path(path).exists():
+    def _load_optional(self, path: Path, name: str):
+        if not Path(path).exists():
+            self.model_errors[name] = f"Model file missing: {path}"
             return None
-        return YOLOWorld(str(path))
+        try:
+            return YOLO(str(path))
+        except Exception as exc:
+            self.model_errors[name] = f"Model load failed: {exc}"
+            return None
+
+    def _load_world(self, path: Path, name: str):
+        if YOLOWorld is None:
+            self.model_errors[name] = "YOLOWorld is unavailable in installed Ultralytics build"
+            return None
+        if not Path(path).exists():
+            self.model_errors[name] = f"Model file missing: {path}"
+            return None
+        try:
+            return YOLOWorld(str(path))
+        except Exception as exc:
+            self.model_errors[name] = f"Model load failed: {exc}"
+            return None
 
     def _prompt_enabled(self, prompt: str) -> bool:
         mapping = {
@@ -189,6 +207,25 @@ class FieldScanner:
         self.last_evidence_at[track_id] = now
         return event.to_dict()
 
+    def _save_identity_evidence(self, frame: Any, capability: str, value: str, detector: str) -> dict[str, Any]:
+        key = f"identity:{capability}"
+        now = time.monotonic()
+        if now - self.last_evidence_at.get(key, 0.0) < self.config.evidence_cooldown_seconds:
+            return {}
+        event = self.writer.record_observation(
+            frame,
+            capability=capability,
+            observation=f"{capability} detected: {value[:160]}",
+            gps=self.current_gps,
+            mission_id=self.config.mission_id,
+            requirement_id=self.config.requirement_id,
+            source=self.config.source,
+            detector=detector,
+            metadata={"value": value[:200]},
+        )
+        self.last_evidence_at[key] = now
+        return event.to_dict()
+
     def _qr_scan(self, frame: Any) -> str | None:
         try:
             value, _, _ = self.qr_detector.detectAndDecode(frame)
@@ -221,8 +258,12 @@ class FieldScanner:
     def _specialized(self, frame: Any, model: Any, detector_name: str, frame_index: int) -> list[Detection]:
         if model is None or frame_index % max(1, self.config.every_n_frames) != 0:
             return []
-        result = model(frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False)[0]
-        return _parse_result(result, detector_name)
+        try:
+            result = model(frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False)[0]
+            return _parse_result(result, detector_name)
+        except Exception as exc:
+            self.model_errors[detector_name] = f"Inference failed: {exc}"
+            return []
 
     def scan(self, frame: Any, frame_index: int, gps: dict[str, Any] | None = None):
         self.current_gps = gps
@@ -231,7 +272,10 @@ class FieldScanner:
         evidence: list[dict[str, Any]] = []
 
         if self.context_model is not None and frame_index % max(1, self.config.context_every_n_frames) == 0:
-            context = _parse_result(self.context_model(frame, imgsz=320, conf=self.config.context_confidence, verbose=False)[0], "context_model")
+            try:
+                context = _parse_result(self.context_model(frame, imgsz=320, conf=self.config.context_confidence, verbose=False)[0], "context_model")
+            except Exception as exc:
+                self.model_errors["context_model"] = f"Inference failed: {exc}"
 
         def add(detection: Detection, quality: str) -> None:
             track_id, is_new = self.tracker.assign(detection.label, detection.bbox, time.monotonic())
@@ -243,7 +287,7 @@ class FieldScanner:
                     evidence.append(event)
 
         for detection in self._specialized(frame, self.pothole_model, "pothole_model", frame_index):
-            detection.label = self._normalise_world_label(detection.label) or detection.label.strip()
+            detection.label = self._normalise_world_label(detection.label) or detection.label.strip().lower()
             add(detection, "specialized")
         for detection in self._specialized(frame, self.road_distress_model, "road_distress_model", frame_index):
             detection.label = self._normalise_world_label(detection.label) or "road crack"
@@ -253,28 +297,36 @@ class FieldScanner:
         # capabilities whenever a specialised weight is unavailable, and also
         # provides the common roadside asset detector family.
         if self.world_model is not None and frame_index % max(1, self.config.world_every_n_frames) == 0:
-            result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False)[0]
-            allowed = {item.lower() for item in WORLD_EVIDENCE_CLASSES}
-            specialised_missing = {
-                capability
-                for capability, model in (("pothole", self.pothole_model), ("road_crack", self.road_distress_model))
-                if capability in self.selected and model is None
-            }
-            for detection in _parse_result(result, "open_vocabulary"):
-                raw = detection.label.lower()
-                if raw not in allowed and not any(alias in raw for alias in WORLD_CANONICAL):
-                    continue
-                canonical = self._normalise_world_label(raw)
-                if canonical is None:
-                    continue
-                if canonical not in self.selected and not (canonical in specialised_missing):
-                    continue
-                detection.label = canonical.replace("_", " ")
-                add(detection, "open_vocabulary_fallback" if canonical in specialised_missing else "open_vocabulary")
+            try:
+                result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False)[0]
+                allowed = {item.lower() for item in WORLD_EVIDENCE_CLASSES}
+                specialised_missing = {
+                    capability
+                    for capability, model in (("pothole", self.pothole_model), ("road_crack", self.road_distress_model))
+                    if capability in self.selected and model is None
+                }
+                for detection in _parse_result(result, "open_vocabulary"):
+                    raw = detection.label.lower()
+                    if raw not in allowed and not any(alias in raw for alias in WORLD_CANONICAL):
+                        continue
+                    canonical = self._normalise_world_label(raw)
+                    if canonical is None:
+                        continue
+                    if canonical not in self.selected and canonical not in specialised_missing:
+                        continue
+                    detection.label = canonical.replace("_", " ")
+                    add(detection, "open_vocabulary_fallback" if canonical in specialised_missing else "open_vocabulary")
+            except Exception as exc:
+                self.model_errors["open_vocabulary"] = f"Inference failed: {exc}"
 
         qr = self._qr_scan(frame) if "asset_qr" in self.selected and frame_index % max(1, self.config.qr_every_n_frames) == 0 else None
         barcode = self._barcode_scan(frame) if "asset_barcode" in self.selected and frame_index % max(1, self.config.qr_every_n_frames) == 0 else None
         ocr = self._ocr_scan(frame) if "asset_text" in self.selected and frame_index % max(1, self.config.ocr_every_n_frames) == 0 else None
+        for capability, value, detector in (("asset_qr", qr, "qr"), ("asset_barcode", barcode, "barcode"), ("asset_text", ocr, "ocr")):
+            if value:
+                event = self._save_identity_evidence(frame, capability, value, detector)
+                if event:
+                    evidence.append(event)
         return accepted, context, qr, barcode, ocr, evidence
 
 
