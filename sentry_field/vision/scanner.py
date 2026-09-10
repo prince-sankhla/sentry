@@ -157,6 +157,17 @@ class FieldScanner:
         target = mapping.get(prompt.lower(), prompt.lower())
         return target in self.selected or target == "__context__"
 
+    @staticmethod
+    def _normalise_world_label(label: str) -> str | None:
+        raw = label.strip().lower()
+        canonical = WORLD_CANONICAL.get(raw)
+        if canonical:
+            return canonical
+        for alias, mapped in WORLD_CANONICAL.items():
+            if raw == alias or alias in raw:
+                return mapped
+        return None
+
     def _save_detection(self, frame: Any, detection: Detection, track_id: str, quality: str) -> dict[str, Any]:
         now = time.monotonic()
         if now - self.last_evidence_at.get(track_id, 0.0) < self.config.evidence_cooldown_seconds:
@@ -232,22 +243,34 @@ class FieldScanner:
                     evidence.append(event)
 
         for detection in self._specialized(frame, self.pothole_model, "pothole_model", frame_index):
+            detection.label = self._normalise_world_label(detection.label) or detection.label.strip()
             add(detection, "specialized")
         for detection in self._specialized(frame, self.road_distress_model, "road_distress_model", frame_index):
+            detection.label = self._normalise_world_label(detection.label) or "road crack"
             add(detection, "specialized")
 
+        # The open-vocabulary detector is the universal fallback for physical
+        # capabilities whenever a specialised weight is unavailable, and also
+        # provides the common roadside asset detector family.
         if self.world_model is not None and frame_index % max(1, self.config.world_every_n_frames) == 0:
             result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False)[0]
             allowed = {item.lower() for item in WORLD_EVIDENCE_CLASSES}
+            specialised_missing = {
+                capability
+                for capability, model in (("pothole", self.pothole_model), ("road_crack", self.road_distress_model))
+                if capability in self.selected and model is None
+            }
             for detection in _parse_result(result, "open_vocabulary"):
                 raw = detection.label.lower()
-                if raw not in allowed:
+                if raw not in allowed and not any(alias in raw for alias in WORLD_CANONICAL):
                     continue
-                canonical = WORLD_CANONICAL.get(raw, raw)
-                if canonical not in self.selected and not (canonical == "utility_pole" and "streetlight" in self.selected):
+                canonical = self._normalise_world_label(raw)
+                if canonical is None:
+                    continue
+                if canonical not in self.selected and not (canonical in specialised_missing):
                     continue
                 detection.label = canonical.replace("_", " ")
-                add(detection, "open_vocabulary")
+                add(detection, "open_vocabulary_fallback" if canonical in specialised_missing else "open_vocabulary")
 
         qr = self._qr_scan(frame) if "asset_qr" in self.selected and frame_index % max(1, self.config.qr_every_n_frames) == 0 else None
         barcode = self._barcode_scan(frame) if "asset_barcode" in self.selected and frame_index % max(1, self.config.qr_every_n_frames) == 0 else None
