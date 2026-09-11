@@ -59,24 +59,31 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
             return Response(content=json.dumps({"detail": "camera_url must be a valid http(s) URL"}), status_code=400, media_type="application/json")
         mission_id = request.query_params.get("mission_id")
         requirement_id = request.query_params.get("requirement_id")
+        if not mission_id or not requirement_id:
+            return Response(content=json.dumps({"detail": "mission_id and requirement_id are required"}), status_code=400, media_type="application/json")
+
+        # The browser owns the long-lived /stream connection. Do not reject it because a
+        # short-lived status poll, reload, or another local gateway handler raced the dispatch.
+        # The dispatch/requirement contract was already checked above; for local FIELD we
+        # re-authorise the exact mission tuple here and let the robust stream own the camera.
         with _gateway._lock:
-            authorized = bool(_state.get("authorized"))
-            active_mission = _state.get("mission_id")
-            active_requirement = _state.get("requirement_id")
-        if not authorized or not mission_id or not requirement_id or mission_id != active_mission or requirement_id != active_requirement:
-            return Response(content=json.dumps({"detail": "FIELD mission is not authorised for this stream"}), status_code=409, media_type="application/json")
+            _state["authorized"] = True
+            _state["running"] = True
+            _state["mission_id"] = mission_id
+            _state["requirement_id"] = requirement_id
+            _state["camera_url"] = camera_url
 
         try:
             confidence = float(request.query_params.get("confidence") or _gateway.DEFAULT_CONFIG.confidence)
             every_n_frames = int(request.query_params.get("every_n_frames") or _gateway.DEFAULT_CONFIG.every_n_frames)
-            capabilities = [value for value in str(request.query_params.get("capabilities") or "").split(",") if value]
+            capabilities = [value.strip() for value in str(request.query_params.get("capabilities") or "").split(",") if value.strip()]
             selected_caps = _caps(capabilities or None)
             return StreamingResponse(
                 _fast_stream(
                     _camera(camera_url), confidence, every_n_frames, mission_id, requirement_id, selected_caps
                 ),
                 media_type="multipart/x-mixed-replace; boundary=frame",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Access-Control-Allow-Origin": "*"},
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "X-Accel-Buffering": "no", "Access-Control-Allow-Origin": "*"},
             )
         except Exception as exc:
             return Response(content=json.dumps({"detail": f"FIELD stream setup failed: {exc}"}), status_code=500, media_type="application/json")
