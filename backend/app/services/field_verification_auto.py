@@ -18,8 +18,8 @@ CAPABILITY_LABELS = {
 }
 
 RULES = (
-    ("pothole", ("pothole", "pot hole")),
-    ("road_crack", ("road crack", "crack in road", "surface crack", "cracks")),
+    ("pothole", ("pothole", "pot hole", "patch repair")),
+    ("road_crack", ("road crack", "crack in road", "surface crack", "cracks", "patch repair")),
     ("drain", ("drain", "drainage", "sewer", "manhole", "culvert", "desilting", "sewage")),
     ("streetlight", ("street light", "streetlight", "led light", "led street", "light pole", "lighting", "ccms")),
     ("cctv_camera", ("cctv", "camera system", "surveillance", "video analytic")),
