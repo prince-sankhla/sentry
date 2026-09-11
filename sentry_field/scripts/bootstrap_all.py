@@ -11,6 +11,8 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "models" / "field"
 
+REQUIRED_ULTRALYTICS = "8.4.146"
+
 # Public prototype weights. Large binaries stay out of git and are fetched locally.
 MODELS = {
     "pothole": (
@@ -43,7 +45,6 @@ MODELS = {
 REQUIRED_PACKAGES = {
     "torch": "torch",
     "torchvision": "torchvision",
-    "ultralytics": "ultralytics",
     "cv2": "opencv-python",
     "numpy": "numpy",
     "pandas": "pandas",
@@ -58,6 +59,21 @@ def ensure_package(module: str, package: str) -> None:
         return
     print(f"Installing package: {package}")
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+
+def ensure_ultralytics() -> None:
+    try:
+        import ultralytics
+        from packaging.version import Version
+        installed = Version(str(ultralytics.__version__))
+        required = Version(REQUIRED_ULTRALYTICS)
+        if installed >= required:
+            print(f"OK package: ultralytics=={installed}")
+            return
+        print(f"Upgrading Ultralytics {installed} -> >= {REQUIRED_ULTRALYTICS} for YOLO26 support")
+    except Exception:
+        print(f"Installing Ultralytics >= {REQUIRED_ULTRALYTICS}")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", f"ultralytics>={REQUIRED_ULTRALYTICS}"])
 
 
 def download(url: str, destination: Path, retries: int = 3) -> None:
@@ -97,6 +113,7 @@ def main() -> None:
     print(f"Project root: {ROOT}")
 
     print("\n[1/2] Python dependencies")
+    ensure_ultralytics()
     for module, package in REQUIRED_PACKAGES.items():
         ensure_package(module, package)
 
