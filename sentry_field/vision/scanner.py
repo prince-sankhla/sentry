@@ -19,6 +19,8 @@ from .config import CAPABILITY_ALIASES, DEFAULT_CONFIG, VisionConfig
 
 WORLD_CANONICAL = {
     "pothole": "pothole",
+    "potholes": "pothole",
+    "pothole detection": "pothole",
     "streetlight": "streetlight",
     "solar streetlight": "streetlight",
     "cctv camera": "cctv_camera",
@@ -32,6 +34,9 @@ WORLD_CANONICAL = {
     "guardrail": "road_barrier",
     "utility pole": "utility_pole",
     "road crack": "road_crack",
+    "road cracks": "road_crack",
+    "surface crack": "road_crack",
+    "surface distress": "road_crack",
 }
 
 
@@ -56,7 +61,14 @@ def _parse_result(result: Any, detector: str) -> list[Detection]:
     for index in range(len(result.boxes)):
         cls_id = int(result.boxes.cls[index].item())
         label = str(names.get(cls_id, cls_id)) if isinstance(names, dict) else str(cls_id)
-        out.append(Detection(label=label, confidence=float(result.boxes.conf[index].item()), bbox=_box(result.boxes.xyxy[index].tolist()), detector=detector))
+        out.append(
+            Detection(
+                label=label,
+                confidence=float(result.boxes.conf[index].item()),
+                bbox=_box(result.boxes.xyxy[index].tolist()),
+                detector=detector,
+            )
+        )
     return out
 
 
@@ -290,7 +302,30 @@ class FieldScanner:
         if model is None or frame_index % cadence != phase % cadence:
             return []
         try:
-            result = model.predict(frame, imgsz=self.config.inference_size, conf=self.config.confidence, verbose=False, device=self.device, half=self.use_half)[0]
+            result = model.predict(
+                frame,
+                imgsz=self.config.inference_size,
+                conf=self.config.confidence,
+                verbose=False,
+                device=self.device,
+                half=self.use_half,
+            )[0]
+            detections = _parse_result(result, detector_name)
+            if detections or self.config.confidence <= 0.20:
+                return detections
+
+            # One low-threshold recovery pass prevents a borderline pothole
+            # from disappearing solely because the operator picked a higher
+            # UI threshold. Camera delivery remains unaffected by this retry.
+            fallback_conf = max(0.15, min(0.30, self.config.confidence * 0.60))
+            result = model.predict(
+                frame,
+                imgsz=self.config.inference_size,
+                conf=fallback_conf,
+                verbose=False,
+                device=self.device,
+                half=self.use_half,
+            )[0]
             return _parse_result(result, detector_name)
         except Exception as exc:
             self.model_errors[detector_name] = f"Inference failed: {exc}"
@@ -306,7 +341,17 @@ class FieldScanner:
         if self.context_model is not None and frame_index % max(1, self.config.context_every_n_frames) == 0:
             did_inference = True
             try:
-                context = _parse_result(self.context_model.predict(frame, imgsz=256, conf=self.config.context_confidence, verbose=False, device=self.device, half=self.use_half)[0], "context_model")
+                context = _parse_result(
+                    self.context_model.predict(
+                        frame,
+                        imgsz=256,
+                        conf=self.config.context_confidence,
+                        verbose=False,
+                        device=self.device,
+                        half=self.use_half,
+                    )[0],
+                    "context_model",
+                )
             except Exception as exc:
                 self.model_errors["context_model"] = f"Inference failed: {exc}"
 
@@ -326,17 +371,26 @@ class FieldScanner:
             did_inference = True
         if self.road_distress_model is not None and frame_index % cadence == crack_phase:
             did_inference = True
-        for detection in self._specialized(frame, self.pothole_model, "pothole_model", frame_index, pothole_phase):
-            detection.label = self._normalise_world_label(detection.label) or detection.label.strip().lower()
+
+        for detection in self._specialized(self.config.source and frame or frame, self.pothole_model, "pothole_model", frame_index, pothole_phase):
+            detection.label = "pothole"
             add(detection, "specialized")
+
         for detection in self._specialized(frame, self.road_distress_model, "road_distress_model", frame_index, crack_phase):
-            detection.label = self._normalise_world_label(detection.label) or "road crack"
+            detection.label = "road crack"
             add(detection, "specialized")
 
         if self.world_model is not None and frame_index % max(1, self.config.world_every_n_frames) == 0:
             did_inference = True
             try:
-                result = self.world_model.predict(frame, imgsz=self.config.world_inference_size, conf=self.config.world_confidence, verbose=False, device=self.device, half=self.use_half)[0]
+                result = self.world_model.predict(
+                    frame,
+                    imgsz=self.config.world_inference_size,
+                    conf=self.config.world_confidence,
+                    verbose=False,
+                    device=self.device,
+                    half=self.use_half,
+                )[0]
                 allowed = {item.lower() for item in WORLD_EVIDENCE_CLASSES}
                 specialised_missing = {
                     capability
