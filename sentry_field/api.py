@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
-from .fast_stream_robust import stream as _fast_stream
+from .fast_stream_camera import stream as _fast_stream
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
@@ -62,10 +62,8 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
         if not mission_id or not requirement_id:
             return Response(content=json.dumps({"detail": "mission_id and requirement_id are required"}), status_code=400, media_type="application/json")
 
-        # The browser owns the long-lived /stream connection. Do not reject it because a
-        # short-lived status poll, reload, or another local gateway handler raced the dispatch.
-        # The dispatch/requirement contract was already checked above; for local FIELD we
-        # re-authorise the exact mission tuple here and let the robust stream own the camera.
+        # Browser stream owns the camera session. The exact mission tuple comes from dispatch;
+        # avoid rejecting the stream because short-lived status polling raced with /dispatch.
         with _gateway._lock:
             _state["authorized"] = True
             _state["running"] = True
