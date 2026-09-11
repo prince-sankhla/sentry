@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 from urllib.parse import urlparse
-from urllib.request import ProxyHandler, Request as UrlRequest, build_opener
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
+from .fast_stream import stream as _fast_stream
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
@@ -29,111 +29,8 @@ def _valid_http_camera_url(value: str) -> bool:
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-class _MjpegCapture:
-    """DroidCam/HTTP MJPEG capture that avoids OpenCV URL backends and proxy settings."""
-
-    def __init__(self, source: str) -> None:
-        import cv2
-
-        self.source = source
-        self.response = None
-        self.buffer = bytearray()
-        self.closed = False
-        self._cv2 = cv2
-        try:
-            opener = build_opener(ProxyHandler({}))
-            request = UrlRequest(
-                source,
-                headers={
-                    "Accept": "multipart/x-mixed-replace,image/jpeg,*/*",
-                    "Cache-Control": "no-cache",
-                    "Pragma": "no-cache",
-                    "Connection": "keep-alive",
-                    "User-Agent": "SENTRY-FIELD/0.9",
-                },
-                method="GET",
-            )
-            self.response = opener.open(request, timeout=None)
-            content_type = str(self.response.headers.get("Content-Type") or "").lower()
-            if "multipart" not in content_type and "image/jpeg" not in content_type:
-                self.release()
-        except Exception:
-            self.release()
-
-    def isOpened(self) -> bool:  # noqa: N802
-        return self.response is not None and not self.closed
-
-    def set(self, *_args) -> bool:
-        return True
-
-    def _read_chunk(self) -> bool:
-        if not self.response:
-            return False
-        try:
-            chunk = self.response.read(16384)
-        except Exception:
-            return False
-        if not chunk:
-            return False
-        self.buffer.extend(chunk)
-        return True
-
-    def read(self):
-        if not self.isOpened():
-            return False, None
-        while not self.closed:
-            start = self.buffer.find(b"\xff\xd8")
-            if start < 0:
-                if not self._read_chunk():
-                    return False, None
-                continue
-            if start > 0:
-                del self.buffer[:start]
-            end = self.buffer.find(b"\xff\xd9", 2)
-            if end < 0:
-                if len(self.buffer) > 4_000_000:
-                    del self.buffer[:-1_000_000]
-                if not self._read_chunk():
-                    return False, None
-                continue
-            frame_bytes = bytes(self.buffer[: end + 2])
-            del self.buffer[: end + 2]
-            import numpy as np
-
-            frame = self._cv2.imdecode(np.frombuffer(frame_bytes, dtype=np.uint8), self._cv2.IMREAD_COLOR)
-            if frame is None:
-                continue
-            return True, frame
-        return False, None
-
-    def release(self) -> None:
-        self.closed = True
-        response = self.response
-        self.response = None
-        if response is not None:
-            try:
-                response.close()
-            except Exception:
-                pass
-
-
-def _patched_gateway_stream(camera_url: str, confidence: float, every_n_frames: int, mission_id: str | None, requirement_id: str | None, capabilities: list[str]):
-    from .fast_stream import stream as fast_stream
-
-    # fast_stream owns capture/inference concurrency and reconnect handling.
-    import cv2
-
-    original_capture = cv2.VideoCapture
-    cv2.VideoCapture = _MjpegCapture
-    try:
-        yield from fast_stream(camera_url, confidence, every_n_frames, mission_id, requirement_id, capabilities)
-    finally:
-        cv2.VideoCapture = original_capture
-
-
 @app.middleware("http")
 async def canonical_contract_validation(request: Request, call_next) -> Response:
-    """Validate public FIELD contracts before the camera/vision stream starts."""
     if request.method == "POST" and request.url.path == "/dispatch":
         body = await request.body()
         try:
@@ -175,11 +72,11 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
             capabilities = [value for value in str(request.query_params.get("capabilities") or "").split(",") if value]
             selected_caps = _caps(capabilities or None)
             return StreamingResponse(
-                _patched_gateway_stream(
+                _fast_stream(
                     _camera(camera_url), confidence, every_n_frames, mission_id, requirement_id, selected_caps
                 ),
                 media_type="multipart/x-mixed-replace; boundary=frame",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Access-Control-Allow-Origin": "*"},
             )
         except Exception as exc:
             return Response(content=json.dumps({"detail": f"FIELD stream setup failed: {exc}"}), status_code=500, media_type="application/json")
