@@ -313,10 +313,6 @@ class FieldScanner:
             detections = _parse_result(result, detector_name)
             if detections or self.config.confidence <= 0.20:
                 return detections
-
-            # One low-threshold recovery pass prevents a borderline pothole
-            # from disappearing solely because the operator picked a higher
-            # UI threshold. Camera delivery remains unaffected by this retry.
             fallback_conf = max(0.15, min(0.30, self.config.confidence * 0.60))
             result = model.predict(
                 frame,
@@ -372,7 +368,7 @@ class FieldScanner:
         if self.road_distress_model is not None and frame_index % cadence == crack_phase:
             did_inference = True
 
-        for detection in self._specialized(self.config.source and frame or frame, self.pothole_model, "pothole_model", frame_index, pothole_phase):
+        for detection in self._specialized(frame, self.pothole_model, "pothole_model", frame_index, pothole_phase):
             detection.label = "pothole"
             add(detection, "specialized")
 
