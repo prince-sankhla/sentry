@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import time
 from urllib.parse import urlparse
-from urllib.request import Request as UrlRequest, urlopen
+from urllib.request import ProxyHandler, Request as UrlRequest, build_opener
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
@@ -30,7 +31,7 @@ def _valid_http_camera_url(value: str) -> bool:
 
 
 class _MjpegCapture:
-    """Open a DroidCam/HTTP MJPEG stream without relying on OpenCV's URL backend."""
+    """Persistent DroidCam/HTTP MJPEG reader with reconnect-safe socket handling."""
 
     def __init__(self, source: str) -> None:
         import cv2
@@ -39,25 +40,51 @@ class _MjpegCapture:
         self.response = None
         self.buffer = bytearray()
         self.closed = False
+        self._cv2 = cv2
+        self._opener = build_opener(ProxyHandler({}))
+        self._consecutive_failures = 0
+        self._open()
+
+    def _open(self) -> bool:
+        if self.closed:
+            return False
         try:
+            self._close_response()
             request = UrlRequest(
-                source,
+                self.source,
                 headers={
                     "Accept": "multipart/x-mixed-replace,image/jpeg,*/*",
                     "Cache-Control": "no-cache",
-                    "User-Agent": "SENTRY-FIELD/0.8",
+                    "Connection": "keep-alive",
+                    "User-Agent": "SENTRY-FIELD/0.9",
                 },
                 method="GET",
             )
-            self.response = urlopen(request, timeout=10)
+            # DroidCam is an intentionally long-lived MJPEG response. The
+            # request itself needs a connect timeout, but the response socket
+            # must not inherit a 10s read timeout or the camera feed gets
+            # torn down while the phone is still serving frames.
+            self.response = self._opener.open(request, timeout=8)
             content_type = str(self.response.headers.get("Content-Type") or "").lower()
             if "multipart" not in content_type and "image/jpeg" not in content_type:
-                self.release()
-                return
-            self._cv2 = cv2
+                self._close_response()
+                return False
+            self._disable_read_timeout()
+            self._consecutive_failures = 0
+            return True
+        except Exception as exc:
+            self._close_response()
+            _set(last_error=f"Camera connection failed: {exc}")
+            return False
+
+    def _disable_read_timeout(self) -> None:
+        """Remove urllib's connect timeout from the long-lived MJPEG socket."""
+        response = self.response
+        try:
+            sock = response.fp.raw._sock  # type: ignore[attr-defined]
+            sock.settimeout(None)
         except Exception:
-            self.release()
-            self._cv2 = cv2
+            pass
 
     def isOpened(self) -> bool:  # noqa: N802
         return self.response is not None and not self.closed
@@ -69,8 +96,9 @@ class _MjpegCapture:
         if not self.response:
             return False
         try:
-            chunk = self.response.read(65536)
-        except Exception:
+            chunk = self.response.read(16384)
+        except Exception as exc:
+            _set(last_error=f"Camera read interrupted: {exc}")
             return False
         if not chunk:
             return False
@@ -80,33 +108,51 @@ class _MjpegCapture:
     def read(self):
         if not self.isOpened():
             return False, None
+
         while not self.closed:
             start = self.buffer.find(b"\xff\xd8")
             if start < 0:
-                if not self._read_chunk():
-                    return False, None
-                continue
+                if self._read_chunk():
+                    continue
+                if self._reconnect():
+                    continue
+                return False, None
+
             if start > 0:
                 del self.buffer[:start]
+
             end = self.buffer.find(b"\xff\xd9", 2)
             if end < 0:
                 if len(self.buffer) > 8_000_000:
                     del self.buffer[:-1_000_000]
-                if not self._read_chunk():
-                    return False, None
-                continue
+                if self._read_chunk():
+                    continue
+                if self._reconnect():
+                    continue
+                return False, None
+
             frame_bytes = bytes(self.buffer[: end + 2])
             del self.buffer[: end + 2]
-            import numpy as np
-
-            frame = self._cv2.imdecode(np.frombuffer(frame_bytes, dtype=np.uint8), self._cv2.IMREAD_COLOR)
+            frame = self._cv2.imdecode(
+                __import__("numpy").frombuffer(frame_bytes, dtype=__import__("numpy").uint8),
+                self._cv2.IMREAD_COLOR,
+            )
             if frame is None:
                 continue
+            self._consecutive_failures = 0
             return True, frame
+
         return False, None
 
-    def release(self) -> None:
-        self.closed = True
+    def _reconnect(self) -> bool:
+        self._consecutive_failures += 1
+        if self.closed or self._consecutive_failures > 6:
+            return False
+        self.buffer.clear()
+        time.sleep(min(0.25 * self._consecutive_failures, 1.0))
+        return self._open()
+
+    def _close_response(self) -> None:
         response = self.response
         self.response = None
         if response is not None:
@@ -114,6 +160,10 @@ class _MjpegCapture:
                 response.close()
             except Exception:
                 pass
+
+    def release(self) -> None:
+        self.closed = True
+        self._close_response()
 
 
 def _patched_gateway_stream(*args, **kwargs):
