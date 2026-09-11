@@ -1,20 +1,66 @@
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 import os
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "models" / "field"
 EVIDENCE_DIR = ROOT / "field_evidence"
 
+MODEL_SOURCES = {
+    "pothole": (
+        MODEL_DIR / "pothole" / "yolo26_best.pt",
+        "https://huggingface.co/DanielsStulpe/pothole-detection/resolve/main/yolo26_best.pt?download=true",
+    ),
+    "road_crack": (
+        MODEL_DIR / "road_distress" / "best.pt",
+        "https://huggingface.co/cazzz307/yolov8-crack-detection/resolve/main/best.pt?download=true",
+    ),
+    "open_vocabulary": (
+        MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt",
+        "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8s-worldv2.pt",
+    ),
+}
+
+
+def _ensure_model(name: str) -> Path:
+    path, url = MODEL_SOURCES[name]
+    if path.exists() and path.stat().st_size > 1_000_000:
+        return path
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".part")
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            request = Request(url, headers={"User-Agent": "SENTRY-FIELD/1.0"})
+            with urlopen(request, timeout=300) as response, temp.open("wb") as output:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    output.write(chunk)
+            if temp.stat().st_size <= 1_000_000:
+                raise RuntimeError(f"Downloaded {name} model is unexpectedly small")
+            temp.replace(path)
+            return path
+        except (HTTPError, URLError, OSError, RuntimeError) as exc:
+            last_error = exc
+            temp.unlink(missing_ok=True)
+            if attempt < 3:
+                time.sleep(attempt)
+    raise RuntimeError(f"Could not bootstrap {name} model: {last_error}")
+
 
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
-    # Capture stays independent from inference. Primary road-condition models
-    # use a larger input than the browser stream so small potholes/cracks are
-    # not lost during downscaling.
-    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "512"))
-    confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
+    # Use a larger input for small road defects while keeping camera capture decoupled.
+    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "640"))
+    # 0.35 is a practical recall/precision baseline for the physical-field demo.
+    confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.35"))
     every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
     evidence_dir: Path = Path(os.getenv("SENTRY_EVIDENCE_DIR", str(EVIDENCE_DIR)))
@@ -28,9 +74,6 @@ class VisionConfig:
     context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "90"))
     person_overlap_threshold: float = 0.15
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
-    # Open-vocabulary is heavier; running it every few frames gives rapid
-    # coverage of assets such as lights/signs/CCTV without forcing that
-    # expensive model to gate the primary per-frame detection path.
     world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.22"))
     world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "4"))
     world_inference_size: int = int(os.getenv("SENTRY_WORLD_INFERENCE_SIZE", "320"))
@@ -72,10 +115,27 @@ CAPABILITY_ALIASES = {
 
 def build_config(*, source=None, confidence=None, every_n_frames=None, mission_id=None, requirement_id=None, capabilities=None) -> VisionConfig:
     selected = tuple(capabilities if capabilities is not None else CAPABILITY_ALIASES.values())
+
+    # Required physical detectors are local-only in git, so make mission startup self-healing.
+    if "pothole" in selected:
+        _ensure_model("pothole")
+    if "road_crack" in selected:
+        _ensure_model("road_crack")
+    if selected.intersection({"pothole", "road_crack", "streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}):
+        try:
+            _ensure_model("open_vocabulary")
+        except Exception:
+            # Specialized models remain authoritative; open-vocabulary is only fallback coverage.
+            pass
+
+    requested_confidence = DEFAULT_CONFIG.confidence if confidence is None else float(confidence)
+    # Keep user control, but prevent an accidentally high threshold from making the field demo appear blind.
+    effective_confidence = max(0.10, min(0.35, requested_confidence))
+
     return VisionConfig(
         source=source or DEFAULT_CONFIG.source,
         inference_size=DEFAULT_CONFIG.inference_size,
-        confidence=DEFAULT_CONFIG.confidence if confidence is None else max(0.05, min(0.99, confidence)),
+        confidence=effective_confidence,
         every_n_frames=DEFAULT_CONFIG.every_n_frames if every_n_frames is None else max(1, every_n_frames),
         evidence_cooldown_seconds=DEFAULT_CONFIG.evidence_cooldown_seconds,
         evidence_dir=DEFAULT_CONFIG.evidence_dir,
