@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from packaging.version import Version
+
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "models" / "field"
 
+MIN_ULTRALYTICS = Version("8.4.146")
 MODELS = {
     "pothole": MODEL_DIR / "pothole" / "yolo26_best.pt",
     "context": MODEL_DIR / "context" / "yolo11n.pt",
@@ -24,6 +27,11 @@ try:
     print(f"PyTorch: {torch.__version__}")
     print(f"Ultralytics: {ultralytics.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()}")
+    if Version(str(ultralytics.__version__)) < MIN_ULTRALYTICS:
+        raise RuntimeError(
+            f"Ultralytics {ultralytics.__version__} is too old for the configured YOLO26 pothole model; "
+            f"install >= {MIN_ULTRALYTICS} with: python -m pip install -U ultralytics>={MIN_ULTRALYTICS}"
+        )
 except Exception as exc:
     raise SystemExit(f"Vision dependency check failed: {exc}") from exc
 
@@ -50,7 +58,7 @@ if required_failed:
     raise SystemExit(
         "Required field models are missing/broken: "
         + ", ".join(required_failed)
-        + ". Run: python sentry_field/scripts/bootstrap_all.py"
+        + ". Run: python sentry_field\\scripts\\bootstrap_all.py"
     )
 
 if failed:
