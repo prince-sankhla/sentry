@@ -38,9 +38,6 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
   const potholeById = new Map(pothole.map((item) => [item.tender_id || item.reference_number || item.title, item]));
   const unifiedMap = new Map<string, TenderRecommendation>();
 
-  // Registered field tenders stay first-class. Pothole discovery records are
-  // promoted into the same queue so real DB tenders are directly runnable even
-  // when they do not yet have a hand-authored FIELD profile.
   for (const item of fieldReady) {
     const key = item.tender_id || item.reference_number || item.title;
     const potholeMatch = potholeById.get(key);
@@ -64,7 +61,7 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
     });
   }
 
-  const fieldQueue = [...unifiedMap.values()];
+  const potholeQueue = [...unifiedMap.values()].filter((item) => item.pothole_relevant).slice(0, 10);
 
   const renderCards = (items: TenderRecommendation[], emptyLabel: string) => {
     if (items.length === 0) return <div className="mt-4 rounded-xl border border-border bg-bg/20 p-4 text-sm text-muted">{emptyLabel}</div>;
@@ -78,8 +75,8 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[.13em] text-faint">
-                    {item.field_ready ? <span className="rounded-full bg-accent/10 px-2 py-1 text-accent">Physical verification</span> : null}
-                    {item.pothole_relevant ? <span className="rounded-full bg-surface-2 px-2 py-1 text-text">Pothole / road distress</span> : null}
+                    <span className="rounded-full bg-accent/10 px-2 py-1 text-accent">Physical verification</span>
+                    <span className="rounded-full bg-surface-2 px-2 py-1 text-text">Pothole / road distress</span>
                   </div>
                   <div className="mt-3 line-clamp-2 text-sm font-semibold leading-5 text-text">{item.title}</div>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
@@ -100,7 +97,7 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
               {item.reasons?.length ? <div className="mt-4 space-y-1 text-[11px] leading-5 text-muted">{item.reasons.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}</div> : null}
               <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-faint">
                 <span className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> field-capable</span>
-                {item.pothole_relevant ? <span className="inline-flex items-center gap-1"><Siren className="h-3.5 w-3.5" /> road inspection</span> : null}
+                <span className="inline-flex items-center gap-1"><Siren className="h-3.5 w-3.5" /> road inspection</span>
                 <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> exact tender</span>
                 {item.machine ? <span>{item.machine}</span> : null}
                 <span className="ml-auto text-accent">Open investigation →</span>
@@ -117,12 +114,12 @@ export function PhysicalTenderRecommendations({ fieldReady, pothole }: { fieldRe
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-accent"><Camera className="h-3.5 w-3.5" /> SENTRY FIELD / PHYSICAL VERIFICATION</div>
-          <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-text">All field-verification tenders</h2>
-          <p className="mt-1 max-w-4xl text-sm leading-6 text-muted">One queue for every tender that can be investigated physically. Registered field profiles and real DB pothole / road-distress tenders are unified here, with automatic capabilities and direct investigation handoff.</p>
+          <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-text">Pothole / road-distress verification queue</h2>
+          <p className="mt-1 max-w-4xl text-sm leading-6 text-muted">Real procurement records matching pothole, pot-hole, road-surface distress or patch-repair work. Every card opens the exact tender investigation and then hands off into SENTRY FIELD with automatic inspection capabilities.</p>
         </div>
-        <span className="shrink-0 text-[11px] text-faint">{fieldQueue.length} field-capable tenders</span>
+        <span className="shrink-0 text-[11px] text-faint">{potholeQueue.length} pothole tenders</span>
       </div>
-      {renderCards(fieldQueue, "No physical-verification tender records are currently available.")}
+      {renderCards(potholeQueue, "No pothole / road-distress tender records are currently available.")}
     </section>
   );
 }
