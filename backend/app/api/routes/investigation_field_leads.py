@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import or_, select
+from sqlalchemy import and_, not_, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -25,6 +25,9 @@ def _pothole_match():
     fields = (Tender.title, Tender.description, Tender.reference_number)
     return or_(*[field.ilike(term) for field in fields for term in _POTHOLE_TERMS])
 
+def _exclude_non_pothole_false_positives():
+    return not_(Tender.title.ilike("%drain cover%"))
+
 @router.get("/tender-recommendations")
 def tender_recommendations(
     pothole_limit: int = Query(100, ge=1, le=200),
@@ -36,7 +39,7 @@ def tender_recommendations(
         select(Tender)
         .where(Tender.deleted_at.is_(None))
         .where(Tender.source_name.notin_(INTERNATIONAL_PROCUREMENT_SOURCES))
-        .where(_pothole_match())
+        .where(and_(_pothole_match(), _exclude_non_pothole_false_positives()))
         .order_by(Tender.published_date.desc().nullslast(), Tender.created_at.desc(), Tender.id.desc())
         .limit(pothole_limit)
     ).scalars().all()
