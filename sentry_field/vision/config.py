@@ -29,7 +29,6 @@ def _ensure_model(name: str) -> Path:
     path, url = MODEL_SOURCES[name]
     if path.exists() and path.stat().st_size > 1_000_000:
         return path
-
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(path.suffix + ".part")
     last_error: Exception | None = None
@@ -57,9 +56,7 @@ def _ensure_model(name: str) -> Path:
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
-    # Use a larger input for small road defects while keeping camera capture decoupled.
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "640"))
-    # 0.35 is a practical recall/precision baseline for the physical-field demo.
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.35"))
     every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
@@ -113,23 +110,20 @@ CAPABILITY_ALIASES = {
 }
 
 
-def build_config(*, source=None, confidence=None, every_n_frames=None, mission_id=None, requirement_id=None, capabilities=None) -> VisionConfig:
+def build_config(*, source=None, confidence=None, every_n_frames=None, mission_id=None, requirement_id=None, capabilities=None, bootstrap_models=True) -> VisionConfig:
     selected = tuple(capabilities if capabilities is not None else CAPABILITY_ALIASES.values())
-
-    # Required physical detectors are local-only in git, so make mission startup self-healing.
-    if "pothole" in selected:
-        _ensure_model("pothole")
-    if "road_crack" in selected:
-        _ensure_model("road_crack")
-    if selected.intersection({"pothole", "road_crack", "streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}):
-        try:
-            _ensure_model("open_vocabulary")
-        except Exception:
-            # Specialized models remain authoritative; open-vocabulary is only fallback coverage.
-            pass
+    if bootstrap_models:
+        if "pothole" in selected:
+            _ensure_model("pothole")
+        if "road_crack" in selected:
+            _ensure_model("road_crack")
+        if selected.intersection({"pothole", "road_crack", "streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}):
+            try:
+                _ensure_model("open_vocabulary")
+            except Exception:
+                pass
 
     requested_confidence = DEFAULT_CONFIG.confidence if confidence is None else float(confidence)
-    # Keep user control, but prevent an accidentally high threshold from making the field demo appear blind.
     effective_confidence = max(0.10, min(0.35, requested_confidence))
 
     return VisionConfig(
