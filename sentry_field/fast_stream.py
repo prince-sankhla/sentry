@@ -78,8 +78,6 @@ class _MjpegCapture:
         if self.closed:
             return False
         self.failures += 1
-        if self.failures > 8:
-            return False
         time.sleep(min(0.15 * self.failures, 1.0))
         return self._open()
 
@@ -140,12 +138,14 @@ def stream(
     requirement_id: str | None,
     capabilities: list[str],
 ) -> Generator[bytes, None, None]:
-    """Low-latency FIELD stream: camera capture is independent from AI inference."""
+    """Low-latency FIELD stream with camera delivery independent from model startup/inference."""
     import cv2
+    from .vision.config import _ensure_model, build_config
     from .vision.scanner import FieldScanner
-    from .vision.config import build_config
     from . import api_v2 as gateway
 
+    # Do not download model weights on the request path. The browser should receive
+    # camera frames immediately while the vision stack warms up in the background.
     config = build_config(
         source=camera_url,
         confidence=confidence,
@@ -153,10 +153,13 @@ def stream(
         mission_id=mission_id,
         requirement_id=requirement_id,
         capabilities=capabilities,
+        bootstrap_models=False,
     )
 
     cap_lock = Lock()
+    scanner_lock = Lock()
     shared: dict[str, Any] = {"frame": None, "seq": 0, "closed": False, "error": None}
+    scanner_state: dict[str, Any] = {"scanner": None, "error": "Vision models warming up…"}
 
     def capture_loop() -> None:
         capture = _MjpegCapture(camera_url) if _valid_http_camera_url(camera_url) else cv2.VideoCapture(camera_url)
@@ -180,8 +183,7 @@ def stream(
             if not ok or frame is None:
                 shared["error"] = "Camera frame read failed; reconnecting"
                 if isinstance(capture, _MjpegCapture):
-                    if not capture._reconnect():
-                        time.sleep(0.5)
+                    capture._reconnect()
                 else:
                     capture.release()
                     time.sleep(0.25)
@@ -194,52 +196,65 @@ def stream(
                 shared["seq"] += 1
         capture.release()
 
-    Thread(target=capture_loop, daemon=True, name="sentry-field-camera").start()
-
-    scanner: FieldScanner | None = None
-    scanner_error: str | None = None
-    try:
+    def vision_loop() -> None:
         try:
+            selected = set(capabilities)
+            if "pothole" in selected:
+                _ensure_model("pothole")
+            if "road_crack" in selected:
+                _ensure_model("road_crack")
+            if selected.intersection({"pothole", "road_crack", "streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}):
+                try:
+                    _ensure_model("open_vocabulary")
+                except Exception:
+                    pass
             scanner = FieldScanner(config)
+            with scanner_lock:
+                scanner_state["scanner"] = scanner
+                scanner_state["error"] = None
         except Exception as exc:
-            scanner_error = f"Vision models unavailable: {exc}"
+            with scanner_lock:
+                scanner_state["error"] = f"Vision models unavailable: {exc}"
 
-        with gateway._lock:
-            gateway._state["stop_token"] += 1
-            token = gateway._state["stop_token"]
-        gateway._set(
-            running=True,
-            authorized=True,
-            camera_url=camera_url,
-            last_error=scanner_error,
-            mission_id=mission_id,
-            requirement_id=requirement_id,
-            capabilities=capabilities,
-            confidence=config.confidence,
-            every_n_frames=config.every_n_frames,
-        )
-        gateway._events.clear()
-        gateway._events.appendleft({
-            "type": "dispatch",
-            "mission_id": mission_id,
-            "requirement_id": requirement_id,
-            "tender_id": gateway._state.get("tender_id"),
-            "capabilities": capabilities,
-            "observed_at": time.time(),
-        })
+    Thread(target=capture_loop, daemon=True, name="sentry-field-camera").start()
+    Thread(target=vision_loop, daemon=True, name="sentry-field-vision-bootstrap").start()
 
-        last_seq = 0
-        last_infer_seq = -1
-        latest_frame = None
-        latest_detections: list[Any] = []
-        latest_persisted: list[dict[str, Any]] = []
-        seen_evidence_keys: set[str] = set()
-        idx = 0
-        display_frames = 0
-        display_started = time.monotonic()
-        capture_fps = 0.0
-        last_emit = 0.0
+    with gateway._lock:
+        gateway._state["stop_token"] += 1
+        token = gateway._state["stop_token"]
+    gateway._set(
+        running=True,
+        authorized=True,
+        camera_url=camera_url,
+        last_error="Vision models warming up…",
+        mission_id=mission_id,
+        requirement_id=requirement_id,
+        capabilities=capabilities,
+        confidence=config.confidence,
+        every_n_frames=config.every_n_frames,
+    )
+    gateway._events.clear()
+    gateway._events.appendleft({
+        "type": "dispatch",
+        "mission_id": mission_id,
+        "requirement_id": requirement_id,
+        "tender_id": gateway._state.get("tender_id"),
+        "capabilities": capabilities,
+        "observed_at": time.time(),
+    })
 
+    last_seq = 0
+    latest_frame = None
+    latest_detections: list[Any] = []
+    latest_persisted: list[dict[str, Any]] = []
+    seen_evidence_keys: set[str] = set()
+    idx = 0
+    display_frames = 0
+    display_started = time.monotonic()
+    capture_fps = 0.0
+    last_emit = 0.0
+
+    try:
         while True:
             with gateway._lock:
                 if gateway._state["stop_token"] != token or not gateway._state["authorized"]:
@@ -258,73 +273,74 @@ def stream(
             idx += 1
             latest_frame = frame.copy()
 
-            if seq != last_infer_seq and (seq % max(1, every_n_frames) == 0 or last_infer_seq < 0):
-                last_infer_seq = seq
+            with scanner_lock:
+                scanner = scanner_state["scanner"]
+                scanner_error = scanner_state["error"]
+
+            if scanner is not None:
                 try:
                     current_gps = dict(gateway._state.get("gps") or {})
-                    if scanner is not None:
-                        detections, _context, qr, barcode, ocr, persisted = scanner.scan(latest_frame, idx, gps=current_gps)
-                        latest_detections = detections
-                        filtered_persisted: list[dict[str, Any]] = []
-                        for item in persisted:
-                            capability = str(item.get("capability") or "evidence")
-                            track_id = str(item.get("track_id") or "").strip()
-                            if not track_id:
-                                matching = next((d for d in latest_detections if str(getattr(d, "label", "")).lower().replace(" ", "_") == capability.lower().replace(" ", "_")), None)
-                                track_id = str(getattr(matching, "track_id", "") or "").strip()
-                            evidence_key = f"{capability}:{track_id}" if track_id else f"{capability}:single"
-                            if evidence_key in seen_evidence_keys:
-                                continue
-                            seen_evidence_keys.add(evidence_key)
-                            item = dict(item)
-                            item["track_id"] = track_id or None
-                            filtered_persisted.append(item)
-                        latest_persisted = filtered_persisted
-                    else:
-                        latest_detections = []
-                        latest_persisted = []
-                    scanner_error = None
+                    detections, _context, qr, barcode, ocr, persisted = scanner.scan(latest_frame, idx, gps=current_gps)
+                    latest_detections = detections
+                    filtered_persisted: list[dict[str, Any]] = []
+                    for item in persisted:
+                        capability = str(item.get("capability") or "evidence")
+                        track_id = str(item.get("track_id") or "").strip()
+                        if not track_id:
+                            matching = next((d for d in latest_detections if str(getattr(d, "label", "")).lower().replace(" ", "_") == capability.lower().replace(" ", "_")), None)
+                            track_id = str(getattr(matching, "track_id", "") or "").strip()
+                        evidence_key = f"{capability}:{track_id}" if track_id else f"{capability}:single"
+                        if evidence_key in seen_evidence_keys:
+                            continue
+                        seen_evidence_keys.add(evidence_key)
+                        item = dict(item)
+                        item["track_id"] = track_id or None
+                        filtered_persisted.append(item)
+                    latest_persisted = filtered_persisted
+                    if scanner_error and scanner_error.startswith("Vision models warming up"):
+                        scanner_error = None
+                    gateway._set(last_error=scanner_error)
+                    for detection in latest_detections:
+                        gateway._events.appendleft({
+                            "type": "detection",
+                            "capability": detection.label.lower().replace(" ", "_"),
+                            "observation": f"{detection.label} observed in field camera frame",
+                            "confidence": round(float(detection.confidence), 3),
+                            "bbox": detection.bbox,
+                            "detector": detection.detector,
+                            "track_id": detection.track_id,
+                            "observed_at": time.time(),
+                            "mission_id": mission_id,
+                            "requirement_id": requirement_id,
+                            "tender_id": gateway._state.get("tender_id"),
+                            "machine_id": gateway._state.get("machine_id"),
+                            "gps": dict(gateway._state.get("gps") or {}),
+                        })
+                    for item in latest_persisted:
+                        event = dict(item)
+                        event["type"] = "evidence"
+                        event["frame_url"] = gateway._frame_url(event)
+                        event["tender_id"] = gateway._state.get("tender_id")
+                        event["machine_id"] = gateway._state.get("machine_id")
+                        event["gps"] = dict(gateway._state.get("gps") or {})
+                        gateway._events.appendleft(event)
+                    ids = [value for value in (qr, barcode, ocr) if value]
+                    if ids:
+                        gateway._events.appendleft({
+                            "type": "identity",
+                            "value": " | ".join(ids)[:200],
+                            "detector": "qr/barcode/ocr",
+                            "observed_at": time.time(),
+                            "mission_id": mission_id,
+                            "requirement_id": requirement_id,
+                            "tender_id": gateway._state.get("tender_id"),
+                            "gps": dict(gateway._state.get("gps") or {}),
+                        })
                 except Exception as exc:
                     scanner_error = f"Vision inference failed: {exc}"
                     gateway._set(last_error=scanner_error)
-
-                for detection in latest_detections:
-                    gateway._events.appendleft({
-                        "type": "detection",
-                        "capability": detection.label.lower().replace(" ", "_"),
-                        "observation": f"{detection.label} observed in field camera frame",
-                        "confidence": round(float(detection.confidence), 3),
-                        "bbox": detection.bbox,
-                        "detector": detection.detector,
-                        "track_id": detection.track_id,
-                        "observed_at": time.time(),
-                        "mission_id": mission_id,
-                        "requirement_id": requirement_id,
-                        "tender_id": gateway._state.get("tender_id"),
-                        "machine_id": gateway._state.get("machine_id"),
-                        "gps": dict(gateway._state.get("gps") or {}),
-                    })
-                for item in latest_persisted:
-                    event = dict(item)
-                    event["type"] = "evidence"
-                    event["frame_url"] = gateway._frame_url(event)
-                    event["tender_id"] = gateway._state.get("tender_id")
-                    event["machine_id"] = gateway._state.get("machine_id")
-                    event["gps"] = dict(gateway._state.get("gps") or {})
-                    gateway._events.appendleft(event)
-
-                ids = [value for value in (qr, barcode, ocr) if value]
-                if ids:
-                    gateway._events.appendleft({
-                        "type": "identity",
-                        "value": " | ".join(ids)[:200],
-                        "detector": "qr/barcode/ocr",
-                        "observed_at": time.time(),
-                        "mission_id": mission_id,
-                        "requirement_id": requirement_id,
-                        "tender_id": gateway._state.get("tender_id"),
-                        "gps": dict(gateway._state.get("gps") or {}),
-                    })
+            elif scanner_error:
+                gateway._set(last_error=scanner_error)
 
             display = latest_frame.copy()
             for detection in latest_detections:
@@ -344,9 +360,10 @@ def stream(
                 scale = max_width / float(display.shape[1])
                 display = cv2.resize(display, (max_width, max(1, int(round(display.shape[0] * scale)))), interpolation=cv2.INTER_AREA)
             cv2.rectangle(display, (0, 0), (min(display.shape[1], 1000), 44), (15, 18, 25), -1)
-            cv2.putText(display, f"SENTRY FIELD | CAPTURE {capture_fps:.1f} FPS | AI {len(latest_detections)} findings", (14, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (255, 255, 255), 2)
+            status_text = f"SENTRY FIELD | CAPTURE {capture_fps:.1f} FPS | AI {len(latest_detections)} findings"
+            cv2.putText(display, status_text, (14, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (255, 255, 255), 2)
             if capture_error or scanner_error:
-                cv2.putText(display, "STREAM RECOVERING / AI DEGRADED", (14, 54), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 200, 255), 2)
+                cv2.putText(display, "VISION WARMING / STREAM RECOVERING", (14, 54), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 200, 255), 2)
             ok, encoded = cv2.imencode(".jpg", display, [int(cv2.IMWRITE_JPEG_QUALITY), int(config.jpeg_quality), int(cv2.IMWRITE_JPEG_OPTIMIZE), 0])
             if ok:
                 now = time.monotonic()
