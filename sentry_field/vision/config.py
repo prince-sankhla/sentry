@@ -10,10 +10,10 @@ EVIDENCE_DIR = ROOT / "field_evidence"
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
-    # Keep the primary detectors on every frame so a new object is surfaced
-    # as soon as it enters the camera view. The lightweight 224px inference
-    # size keeps the laptop path responsive.
-    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "224"))
+    # Capture stays independent from inference. Primary road-condition models
+    # use a larger input than the browser stream so small potholes/cracks are
+    # not lost during downscaling.
+    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "512"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.65"))
     every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
@@ -31,9 +31,9 @@ class VisionConfig:
     # Open-vocabulary is heavier; running it every few frames gives rapid
     # coverage of assets such as lights/signs/CCTV without forcing that
     # expensive model to gate the primary per-frame detection path.
-    world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.30"))
+    world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.22"))
     world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "4"))
-    world_inference_size: int = int(os.getenv("SENTRY_WORLD_INFERENCE_SIZE", "256"))
+    world_inference_size: int = int(os.getenv("SENTRY_WORLD_INFERENCE_SIZE", "320"))
     world_prompts: tuple[str, ...] = (
         "pothole", "road crack", "streetlight", "solar streetlight", "CCTV camera",
         "road sign", "signboard", "road barrier", "drain", "manhole cover", "solar panel",
