@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
-from .fast_stream_camera import stream as _fast_stream
+from .raw_camera_stream import stream as _fast_stream
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
@@ -62,11 +62,10 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
         if not mission_id or not requirement_id:
             return Response(content=json.dumps({"detail": "mission_id and requirement_id are required"}), status_code=400, media_type="application/json")
 
-        # Browser stream owns the camera session. The exact mission tuple comes from dispatch;
-        # avoid rejecting the stream because short-lived status polling raced with /dispatch.
+        # /dispatch creates the mission contract. The browser's long-lived stream owns
+        # the camera session and must not be invalidated by status polling/reloads.
         with _gateway._lock:
             _state["authorized"] = True
-            _state["running"] = True
             _state["mission_id"] = mission_id
             _state["requirement_id"] = requirement_id
             _state["camera_url"] = camera_url
@@ -81,7 +80,12 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
                     _camera(camera_url), confidence, every_n_frames, mission_id, requirement_id, selected_caps
                 ),
                 media_type="multipart/x-mixed-replace; boundary=frame",
-                headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "X-Accel-Buffering": "no", "Access-Control-Allow-Origin": "*"},
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "X-Accel-Buffering": "no",
+                    "Access-Control-Allow-Origin": "*",
+                },
             )
         except Exception as exc:
             return Response(content=json.dumps({"detail": f"FIELD stream setup failed: {exc}"}), status_code=500, media_type="application/json")
