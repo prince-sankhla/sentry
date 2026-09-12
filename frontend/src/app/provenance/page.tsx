@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleDot, FlaskConical, GitBranch, LockKeyhole, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
-import ReactFlow, { Background, Controls, type Edge, type Node } from "@xyflow/react";
+import { ReactFlow, Background, Controls, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.trim() || "http://127.0.0.1:8000";
