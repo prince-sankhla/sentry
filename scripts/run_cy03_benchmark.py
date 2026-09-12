@@ -1,9 +1,13 @@
 """Generate machine-readable CY-03 benchmark predictions.
 
-Usage: python scripts/run_cy03_benchmark.py > cy03_predictions.json
+Usage from repository root: python scripts/run_cy03_benchmark.py > cy03_predictions.json
 No artifact is executed; only deterministic text/hash cases are verified.
 """
 import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from app.provenance.engine import build_demo_case, verify_case
 
