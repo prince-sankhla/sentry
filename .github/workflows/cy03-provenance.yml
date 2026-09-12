@@ -1,0 +1,30 @@
+name: CY-03 Provenance Verification
+
+on:
+  push:
+    paths:
+      - "backend/app/provenance/**"
+      - "backend/app/api/routes/provenance.py"
+      - "backend/tests/test_provenance_cy03.py"
+      - "scripts/run_cy03_benchmark.py"
+      - ".github/workflows/cy03-provenance.yml"
+  pull_request:
+    paths:
+      - "backend/app/provenance/**"
+      - "backend/app/api/routes/provenance.py"
+      - "backend/tests/test_provenance_cy03.py"
+      - "scripts/run_cy03_benchmark.py"
+      - ".github/workflows/cy03-provenance.yml"
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: PYTHONPATH=backend pytest -q backend/tests/test_provenance_cy03.py
+      - run: PYTHONPATH=backend python scripts/run_cy03_benchmark.py > cy03_predictions.json
+      - run: python -m json.tool cy03_predictions.json > /dev/null
