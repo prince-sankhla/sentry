@@ -46,6 +46,7 @@ _SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
 )
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
+_TENDER_REF_RE = re.compile(r"^[A-Z0-9]+(?::|/|-)[A-Z0-9][A-Z0-9_./:-]{4,}$", re.IGNORECASE)
 
 
 def expand_terms(query: str) -> list[str]:
@@ -101,13 +102,17 @@ def relevance_score(query: str) -> ColumnElement:
 
 
 def matches(query: str, *, min_similarity: float = 0.15) -> ColumnElement:
-    """Boolean predicate: FTS match OR fuzzy trigram OR company-name match.
+    """Boolean predicate: exact tender refs are strict; other queries use broad recall.
 
-    Combines three recall paths so a record is found whether the query matches
-    the tender text, a fuzzy/typo variant of the title/buyer, or an awarded
-    company name — while staying index-backed (GIN fts + trigram).
+    Combines recall paths for normal topical/entity searches, while a procurement
+    reference such as ``EPROC_ODISHA:2026_CERWI_132929_1`` is matched as an exact
+    reference so tokenized FTS cannot accidentally pull unrelated records that
+    merely share words such as ``odisha`` or ``2026``.
     """
     q = query.strip()
+    if _TENDER_REF_RE.match(q):
+        return Tender.reference_number.ilike(q)
+
     like = f"%{q}%"
     company_tender_ids = (
         select(Award.tender_id).join(Company, Award.company_id == Company.id).where(Company.name.ilike(like))
@@ -214,7 +219,7 @@ def entity_relevance_score(query: str, *, aliases: list[str] | None = None) -> C
     """Precision relevance: exact supplier/buyer/title reference ranks highest.
 
     Builds an explainable additive score so the strongest entity match sorts
-    first: awarded-supplier match > buyer match > title match > fuzzy title.
+    first: awarded-supplier match > buyer match > title > reference > fuzzy title.
     """
     from sqlalchemy import Integer
 
