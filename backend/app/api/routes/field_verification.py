@@ -17,6 +17,70 @@ from app.services.field_verification_auto import (
 router = APIRouter(prefix="/api/investigations", tags=["field-verification"])
 
 
+def _field_catalog_profile(key: str) -> dict | None:
+    repo_root = Path(__file__).resolve().parents[4]
+    catalog = repo_root / "sentry_field" / "data" / "demo_tenders.json"
+    try:
+        rows = json.loads(catalog.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(rows, list):
+        return None
+    return next(
+        (
+            row
+            for row in rows
+            if str(row.get("id")) == key or str(row.get("tender_id")) == key
+        ),
+        None,
+    )
+
+
+def _hydrate_field_profile(db: Session, profile: dict) -> Tender | None:
+    """Materialize a missing FIELD demo profile into the existing core tender table.
+
+    This is idempotent: an existing source_record_id/reference_number is reused.
+    It keeps FIELD on the same core SENTRY tender model instead of introducing a
+    parallel persistence path just for physical-verification demos.
+    """
+    source_record_id = str(profile.get("tender_id") or "").strip()
+    reference_number = str(profile.get("reference_number") or "").strip()
+    if not source_record_id and not reference_number:
+        return None
+
+    query = db.query(Tender).filter(Tender.deleted_at.is_(None))
+    tender = None
+    if source_record_id:
+        tender = query.filter(Tender.source_record_id == source_record_id).first()
+    if tender is None and reference_number:
+        tender = query.filter(Tender.reference_number == reference_number).first()
+
+    description = (
+        f"SENTRY FIELD demo profile. Official source: {profile.get('source_name') or ''}. "
+        f"Contract location: {profile.get('contract_location') or ''}. "
+        f"Field demo site: {profile.get('demo_site') or ''}. "
+        f"Verification policy: {profile.get('verification_notes') or ''}"
+    )
+
+    if tender is None:
+        tender = Tender(reference_number=reference_number or source_record_id)
+        db.add(tender)
+
+    tender.title = str(profile.get("title") or "SENTRY FIELD physical verification")[:500]
+    tender.description = description
+    tender.procuring_entity = profile.get("source_name")
+    tender.category = profile.get("category")
+    tender.geography = str(profile.get("contract_location") or "")[:100]
+    tender.source_name = profile.get("source_name")
+    tender.source_record_id = source_record_id or None
+    tender.source_url = profile.get("source_url")
+    tender.currency = "INR"
+    db.flush()
+    db.commit()
+    db.refresh(tender)
+    return tender
+
+
 def _resolve_tender_id(db: Session, key: str) -> UUID:
     """Accept core UUIDs and SENTRY FIELD catalog keys without changing the FIELD UI."""
     try:
@@ -32,20 +96,7 @@ def _resolve_tender_id(db: Session, key: str) -> UUID:
     if direct is not None:
         return direct.id
 
-    # FIELD demo profiles intentionally have their own UI-safe keys (FIELD-*).
-    # Resolve those keys to the corresponding core tender using the existing
-    # seeded source_record_id/reference_number rather than creating another data path.
-    repo_root = Path(__file__).resolve().parents[4]
-    catalog = repo_root / "sentry_field" / "data" / "demo_tenders.json"
-    try:
-        rows = json.loads(catalog.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        rows = []
-
-    profile = next(
-        (row for row in rows if str(row.get("id")) == key or str(row.get("tender_id")) == key),
-        None,
-    )
+    profile = _field_catalog_profile(key)
     if profile:
         source_record_id = str(profile.get("tender_id") or "").strip()
         reference_number = str(profile.get("reference_number") or "").strip()
@@ -59,9 +110,15 @@ def _resolve_tender_id(db: Session, key: str) -> UUID:
             if matched is not None:
                 return matched.id
 
+        # The FIELD catalog is part of the checked-in SENTRY product, so hydrate
+        # the missing profile into the existing core tender store on first use.
+        hydrated = _hydrate_field_profile(db, profile)
+        if hydrated is not None:
+            return hydrated.id
+
     raise HTTPException(
         404,
-        "FIELD tender is not mapped to a core SENTRY tender. Run scripts/seed_field_demo_tenders.py first.",
+        "FIELD tender could not be resolved to a core SENTRY tender.",
     )
 
 
