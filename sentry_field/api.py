@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
-from .fast_stream_socket import stream as _fast_stream
+from .raw_camera_stream import stream as _fast_stream
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
