@@ -98,6 +98,46 @@ class DatabaseRecordSource:
             # Prozorro) into an entity investigation unless explicitly requested.
             statement = statement.where(Tender.source_name.notin_(_INTERNATIONAL_SOURCES))
 
+        # An exact tender investigation is often a single imported notice. For a
+        # useful evidence packet, add a small, bounded peer context from the SAME
+        # official source and SAME procuring entity. The exact subject remains first;
+        # peer records are related procurement context, never broad keyword matches.
+        is_exact_tender = precision and normalized_query.casefold().startswith((
+            "eproc_", "cppp:", "gem:", "tender:",
+        ))
+        if is_exact_tender and limit > 1:
+            exact_statement = (
+                select(Tender)
+                .where(Tender.reference_number.ilike(normalized_query))
+                .options(
+                    selectinload(Tender.awards).joinedload(Award.company),
+                    selectinload(Tender.documents),
+                )
+                .limit(1)
+            )
+            if source_names:
+                exact_statement = exact_statement.where(Tender.source_name.in_(source_names))
+            if indian_only:
+                exact_statement = exact_statement.where(Tender.source_name.notin_(_INTERNATIONAL_SOURCES))
+            exact = self.session.scalars(exact_statement).unique().first()
+            if exact is not None:
+                related_statement = (
+                    select(Tender)
+                    .where(
+                        Tender.id != exact.id,
+                        Tender.source_name == exact.source_name,
+                        Tender.procuring_entity == exact.procuring_entity,
+                    )
+                    .options(
+                        selectinload(Tender.awards).joinedload(Award.company),
+                        selectinload(Tender.documents),
+                    )
+                    .order_by(Tender.published_date.desc().nullslast(), Tender.created_at.desc())
+                    .limit(max(limit - 1, 0))
+                )
+                related = list(self.session.scalars(related_statement).unique())
+                return [self._to_record(exact), *[self._to_record(tender) for tender in related]]
+
         return [self._to_record(tender) for tender in self.session.scalars(statement).unique()]
 
     def _to_record(self, tender: Tender) -> NormalizedProcurementRecord:
