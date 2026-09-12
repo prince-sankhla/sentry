@@ -56,7 +56,6 @@ def _ensure_model(name: str) -> Path:
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
-    # 416 is a practical CPU-friendly size for road defects; camera delivery is decoupled.
     inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "416"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.25"))
     every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
@@ -113,16 +112,16 @@ CAPABILITY_ALIASES = {
 
 def build_config(*, source=None, confidence=None, every_n_frames=None, mission_id=None, requirement_id=None, capabilities=None, bootstrap_models=True) -> VisionConfig:
     selected = tuple(capabilities if capabilities is not None else CAPABILITY_ALIASES.values())
+    selected_set = set(selected)
     specialized = {"pothole", "road_crack"}
     world_caps = {"streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}
 
     if bootstrap_models:
-        if "pothole" in selected:
+        if "pothole" in selected_set:
             _ensure_model("pothole")
-        if "road_crack" in selected:
+        if "road_crack" in selected_set:
             _ensure_model("road_crack")
-        # Open-vocabulary is only needed when an asset capability has no dedicated detector.
-        if selected.intersection(world_caps):
+        if selected_set.intersection(world_caps):
             try:
                 _ensure_model("open_vocabulary")
             except Exception:
@@ -131,12 +130,9 @@ def build_config(*, source=None, confidence=None, every_n_frames=None, mission_i
     requested_confidence = DEFAULT_CONFIG.confidence if confidence is None else float(confidence)
     effective_confidence = max(0.10, min(0.35, requested_confidence))
 
-    # Context inference adds substantial CPU cost and is not required for specialized road-defect missions.
-    needs_context = not bool(selected.intersection(specialized))
+    needs_context = not bool(selected_set.intersection(specialized))
     context_model = DEFAULT_CONFIG.context_model if needs_context else Path("__disabled_context__.pt")
-
-    # Never run YOLO-World on pothole/road-crack missions when the specialized model exists.
-    needs_world = bool(selected.intersection(world_caps))
+    needs_world = bool(selected_set.intersection(world_caps))
     world_model = DEFAULT_CONFIG.world_model if needs_world else Path("__disabled_world__.pt")
 
     return VisionConfig(
@@ -160,8 +156,8 @@ def build_config(*, source=None, confidence=None, every_n_frames=None, mission_i
         world_every_n_frames=DEFAULT_CONFIG.world_every_n_frames,
         world_inference_size=DEFAULT_CONFIG.world_inference_size,
         world_prompts=DEFAULT_CONFIG.world_prompts,
-        qr_enabled="asset_qr" in selected,
-        ocr_enabled="asset_text" in selected,
+        qr_enabled="asset_qr" in selected_set,
+        ocr_enabled="asset_text" in selected_set,
         qr_every_n_frames=DEFAULT_CONFIG.qr_every_n_frames,
         ocr_every_n_frames=DEFAULT_CONFIG.ocr_every_n_frames,
         ocr_min_confidence=DEFAULT_CONFIG.ocr_min_confidence,
