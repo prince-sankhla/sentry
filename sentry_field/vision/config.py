@@ -56,7 +56,7 @@ def _ensure_model(name: str) -> Path:
 @dataclass(frozen=True)
 class VisionConfig:
     source: str = os.getenv("SENTRY_CAMERA_URL", "http://127.0.0.1:4747/video")
-    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "416"))
+    inference_size: int = int(os.getenv("SENTRY_INFERENCE_SIZE", "640"))
     confidence: float = float(os.getenv("SENTRY_CONFIDENCE", "0.25"))
     every_n_frames: int = int(os.getenv("SENTRY_POTHOLE_EVERY_N_FRAMES", "1"))
     evidence_cooldown_seconds: float = float(os.getenv("SENTRY_EVIDENCE_COOLDOWN_SECONDS", "3.0"))
@@ -71,9 +71,9 @@ class VisionConfig:
     context_every_n_frames: int = int(os.getenv("SENTRY_CONTEXT_EVERY_N_FRAMES", "90"))
     person_overlap_threshold: float = 0.15
     world_model: Path = MODEL_DIR / "open_vocabulary" / "yolov8s-worldv2.pt"
-    world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.22"))
+    world_confidence: float = float(os.getenv("SENTRY_WORLD_CONFIDENCE", "0.16"))
     world_every_n_frames: int = int(os.getenv("SENTRY_WORLD_EVERY_N_FRAMES", "4"))
-    world_inference_size: int = int(os.getenv("SENTRY_WORLD_INFERENCE_SIZE", "320"))
+    world_inference_size: int = int(os.getenv("SENTRY_WORLD_INFERENCE_SIZE", "416"))
     world_prompts: tuple[str, ...] = (
         "pothole", "road crack", "streetlight", "solar streetlight", "CCTV camera",
         "road sign", "signboard", "road barrier", "drain", "manhole cover", "solar panel",
@@ -114,7 +114,9 @@ def build_config(*, source=None, confidence=None, every_n_frames=None, mission_i
     selected = tuple(capabilities if capabilities is not None else CAPABILITY_ALIASES.values())
     selected_set = set(selected)
     specialized = {"pothole", "road_crack"}
-    world_caps = {"streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}
+    # Pothole/road-crack missions keep the dedicated detector as primary, but also
+    # enable the same scanner's open-vocabulary fallback for low-recall cases.
+    world_caps = {"pothole", "road_crack", "streetlight", "cctv_camera", "signboard", "road_barrier", "drain", "solar_panel", "manhole_cover", "utility_pole"}
 
     if bootstrap_models:
         if "pothole" in selected_set:
@@ -128,7 +130,11 @@ def build_config(*, source=None, confidence=None, every_n_frames=None, mission_i
                 pass
 
     requested_confidence = DEFAULT_CONFIG.confidence if confidence is None else float(confidence)
-    effective_confidence = max(0.10, min(0.35, requested_confidence))
+    if selected_set.intersection(specialized):
+        # Keep field defect missions recall-oriented while retaining a bounded UI input.
+        effective_confidence = max(0.10, min(0.22, requested_confidence))
+    else:
+        effective_confidence = max(0.10, min(0.35, requested_confidence))
 
     needs_context = not bool(selected_set.intersection(specialized))
     context_model = DEFAULT_CONFIG.context_model if needs_context else Path("__disabled_context__.pt")
