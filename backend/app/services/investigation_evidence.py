@@ -51,6 +51,69 @@ _SOURCE_AUTHORITY: dict[str, int] = {
     "web": 14,
 }
 
+# Stable public entry points for official procurement portals. These are used
+# only when the captured URL is a known session-scoped NIC/GePNIC link.
+_OFFICIAL_PORTAL_BASES: dict[str, str] = {
+    "cppp": "https://eprocure.gov.in/eprocure/app",
+    "gem": "https://gem.gov.in",
+    "eproc_odisha": "https://tendersodisha.gov.in/nicgep/app",
+    "odisha": "https://tendersodisha.gov.in/nicgep/app",
+    "rajasthan": "https://eproc.rajasthan.gov.in",
+    "maharashtra": "https://mahatenders.gov.in",
+    "karnataka": "https://kppp.karnataka.gov.in",
+    "kerala": "https://etenders.kerala.gov.in",
+    "tamil_nadu": "https://tntenders.gov.in",
+    "gujarat": "https://tender.nprocure.com",
+    "delhi": "https://govtprocurement.delhi.gov.in",
+    "west_bengal": "https://wbtenders.gov.in",
+    "andhra_pradesh": "https://tender.apeprocurement.gov.in",
+    "telangana": "https://tender.telangana.gov.in",
+    "punjab": "https://eproc.punjab.gov.in",
+    "haryana": "https://etenders.hry.nic.in",
+    "uttar_pradesh": "https://etender.up.nic.in",
+}
+
+# NIC GePNIC listing/download links commonly contain these session-specific
+# parameters. Such URLs are not durable after a portal/session restart.
+_EPHEMERAL_URL_MARKERS = (
+    "session=",
+    "sp=",
+    "FrontEndListTendersbyDate",
+    "DirectLink",
+    "%24DirectLink",
+)
+
+
+def _is_ephemeral_url(url: str | None) -> bool:
+    if not url:
+        return False
+    lowered = url.lower()
+    return any(marker.lower() in lowered for marker in _EPHEMERAL_URL_MARKERS)
+
+
+def _official_portal_url(source_name: str | None) -> str | None:
+    key = (source_name or "").strip().casefold()
+    if key in _OFFICIAL_PORTAL_BASES:
+        return _OFFICIAL_PORTAL_BASES[key]
+    for source_key, url in _OFFICIAL_PORTAL_BASES.items():
+        if source_key in key or key in source_key:
+            return url
+    return None
+
+
+def _stable_source_url(source_name: str | None, captured_url: str | None) -> str | None:
+    """Return a durable official portal URL for user-facing evidence links.
+
+    The captured URL remains available in the underlying procurement record for
+    provenance, but session-scoped government deep links must not be exposed as
+    clickable permanent links in the evidence ledger.
+    """
+    if not captured_url:
+        return None
+    if not _is_ephemeral_url(captured_url):
+        return captured_url
+    return _official_portal_url(source_name) or captured_url
+
 
 def _authority(source_name: str) -> int:
     key = (source_name or "").lower().strip()
@@ -147,13 +210,19 @@ def citation_from_record(
     tender = record.tender
     meta = tender.metadata
     doc = _document_for(record)
+    # User-facing source URL is normalised to a durable official portal when the
+    # original capture was a session-scoped NIC/GePNIC deep link. The raw URL is
+    # still retained by the underlying procurement record for audit provenance.
+    source_url = _stable_source_url(meta.source_name, meta.source_url)
+    # Session-scoped document URLs are not presented as permanent PDF links.
+    document_url = doc.url if doc and not _is_ephemeral_url(doc.url) else None
 
     cit = ReasoningCitation(
         label=tender.title or tender.reference_number,
         source_name=meta.source_name,
         source_record_id=meta.source_record_id,
-        source_url=meta.source_url,
-        document_url=doc.url if doc else None,
+        source_url=source_url,
+        document_url=document_url,
         document_type=(doc.document_type if doc else None),
         retrieved_at=meta.retrieved_at,
         published_date=tender.published_date.isoformat() if tender.published_date else None,
@@ -184,8 +253,8 @@ def build_evidence_ledger(pkg: InvestigationPackage) -> list[ReasoningCitation]:
         seen.add(key)
         # Verifiable evidence (has a source URL) is scored higher than
         # index-only records that can't be opened directly.
-        has_url = bool(meta.source_url)
-        has_doc = bool(_document_for(record))
+        has_url = bool(_stable_source_url(meta.source_name, meta.source_url))
+        has_doc = bool(_document_for(record) and not _is_ephemeral_url(_document_for(record).url))
         confidence = 0.9 if (has_url and has_doc) else 0.75 if has_url else 0.5
         ledger.append(citation_from_record(record, confidence=confidence))
     # Strongest, most-verifiable evidence first — the analyst reads primary before weak.
