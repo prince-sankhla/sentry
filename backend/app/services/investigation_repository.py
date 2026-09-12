@@ -53,17 +53,25 @@ class DatabaseRecordSource:
         if not query.strip():
             return []
 
+        # UI/deep-link investigations intentionally use the human-friendly
+        # ``TENDER:<reference>`` envelope, while live tender rows store the
+        # canonical database reference without that envelope. Normalize it once
+        # here so precision retrieval remains exact without duplicating rows in DB.
+        normalized_query = query.strip()
+        if normalized_query.casefold().startswith("tender:"):
+            normalized_query = normalized_query[len("tender:"):].strip()
+
         if precision:
             # Precision retrieval for entity investigations: a record must
             # DIRECTLY reference the entity (awarded supplier / buyer / title /
             # reference or a known alias) — no synonym-expanded FTS, which is
             # what mixes in unrelated procurements. Precision before recall.
-            where_clause = entity_matches(query, aliases=aliases)
-            relevance = entity_relevance_score(query, aliases=aliases)
+            where_clause = entity_matches(normalized_query, aliases=aliases)
+            relevance = entity_relevance_score(normalized_query, aliases=aliases)
         else:
             # Ranked retrieval: full-text + fuzzy trigram + synonym expansion.
-            where_clause = matches(query)
-            relevance = relevance_score(query)
+            where_clause = matches(normalized_query)
+            relevance = relevance_score(normalized_query)
 
         statement = (
             select(Tender)
