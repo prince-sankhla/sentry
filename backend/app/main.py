@@ -26,6 +26,7 @@ from app.api.routes import (  # noqa: E402
     live_ingestion,
     monitoring,
     profiles,
+    provenance,
     search,
     statistics,
     supplier_kundali,
@@ -92,3 +93,4 @@ app.include_router(profiles.router)
 app.include_router(web.router)
 app.include_router(web_archive.router)
 app.include_router(web_context.router)
+app.include_router(provenance.router)
