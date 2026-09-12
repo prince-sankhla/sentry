@@ -71,13 +71,14 @@ def _row_metadata(row: Any) -> dict[str, Any]:
         "observation_count": row["observation_count"],
         "evidence_count": row["evidence_count"],
         "gps_evidence_count": row["gps_evidence_count"],
+        "observations": row["observations"] or [],
     }
 
 
 def _latest_verification(db: Session, tender_id: UUID) -> dict[str, Any] | None:
     _ensure_store(db)
     row = db.execute(text("""
-        SELECT id::text, version, mission_id, status, submitted_at, updated_at,
+        SELECT id::text, version, mission_id, status, submitted_at, updated_at, observations,
                jsonb_array_length(observations) AS observation_count,
                COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
                COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
@@ -92,7 +93,7 @@ def _latest_verification(db: Session, tender_id: UUID) -> dict[str, Any] | None:
 def _verification_history(db: Session, tender_id: UUID) -> list[dict[str, Any]]:
     _ensure_store(db)
     rows = db.execute(text("""
-        SELECT id::text, version, mission_id, status, submitted_at, updated_at,
+        SELECT id::text, version, mission_id, status, submitted_at, updated_at, observations,
                jsonb_array_length(observations) AS observation_count,
                COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
                COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
