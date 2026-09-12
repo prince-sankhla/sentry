@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/ui/page";
 import { FieldMissionConsoleLive } from "@/components/field/field_mission_console_live";
 import { FieldEvidenceMap } from "@/components/field/field_evidence_map";
+import { HistoricalFieldEvidence } from "@/components/field/historical_field_evidence";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function FieldPage({ searchParams }: PageProps) {
           requirementId={requirementId || undefined}
         />
         <FieldEvidenceMap tenderKey={tenderKey || undefined} />
+        <HistoricalFieldEvidence tenderKey={tenderKey || undefined} />
       </div>
     </PageShell>
   );
