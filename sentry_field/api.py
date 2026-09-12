@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from . import api_v2 as _gateway
 from .api_robust import FIELD_API_PORT, app
-from .raw_camera_stream import stream as _fast_stream
+from .field_stream import stream as _field_stream
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
@@ -62,19 +62,18 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
         if not mission_id or not requirement_id:
             return Response(content=json.dumps({"detail": "mission_id and requirement_id are required"}), status_code=400, media_type="application/json")
 
-        with _gateway._lock:
-            _state["authorized"] = True
-            _state["mission_id"] = mission_id
-            _state["requirement_id"] = requirement_id
-            _state["camera_url"] = camera_url
-
         try:
             confidence = float(request.query_params.get("confidence") or _gateway.DEFAULT_CONFIG.confidence)
             every_n_frames = int(request.query_params.get("every_n_frames") or _gateway.DEFAULT_CONFIG.every_n_frames)
             capabilities = [value.strip() for value in str(request.query_params.get("capabilities") or "").split(",") if value.strip()]
             selected_caps = _caps(capabilities or None)
+            with _gateway._lock:
+                _state["authorized"] = True
+                _state["mission_id"] = mission_id
+                _state["requirement_id"] = requirement_id
+                _state["camera_url"] = camera_url
             return StreamingResponse(
-                _fast_stream(
+                _field_stream(
                     _camera(camera_url), confidence, every_n_frames, mission_id, requirement_id, selected_caps
                 ),
                 media_type="multipart/x-mixed-replace; boundary=frame",
@@ -86,6 +85,7 @@ async def canonical_contract_validation(request: Request, call_next) -> Response
                 },
             )
         except Exception as exc:
+            _set(running=False, last_error=f"FIELD stream setup failed: {exc}")
             return Response(content=json.dumps({"detail": f"FIELD stream setup failed: {exc}"}), status_code=500, media_type="application/json")
 
     return await call_next(request)
