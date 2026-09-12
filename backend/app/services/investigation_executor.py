@@ -97,9 +97,12 @@ class InvestigationExecutor:
         except Exception:
             return None
 
-    # Investigation types that name a specific entity — retrieval for these must
-    # be precise (directly reference the entity), not topical/synonym-broad.
-    _ENTITY_TYPES = {"company", "supplier", "buyer", "director", "ministry", "contract"}
+    # Investigation types that name a specific entity or procurement record —
+    # retrieval for these must be precise (directly reference the subject), not
+    # topical/synonym-broad. A TENDER investigation is especially strict: its
+    # query is a source-qualified tender reference and must never widen into
+    # unrelated records that merely share words such as a state or year.
+    _ENTITY_TYPES = {"company", "supplier", "buyer", "director", "ministry", "contract", "tender"}
 
     def _entity_aliases(self) -> list[str]:
         """Canonical entity names for the subject, used to widen precision recall.
@@ -146,10 +149,9 @@ class InvestigationExecutor:
         """One search per step. Against the DB (source of truth) we query the
         whole store; file-backed connectors are still queried per source.
 
-        For entity-type investigations we use precision retrieval so unrelated
+        For entity/tender investigations we use precision retrieval so unrelated
         procurements (matched only by shared/topical words) are never mixed into
-        the package. A precision pass that returns nothing falls back to the
-        broad pass so recall is preserved when an entity has sparse data.
+        the package. A precision pass never falls back to broad search.
         """
         from app.services.investigation_repository import DatabaseRecordSource
 
@@ -159,14 +161,13 @@ class InvestigationExecutor:
         if isinstance(self.record_source, DatabaseRecordSource):
             scaled = limit_per_connector * max(len(connectors), 1)
             if precision:
-                # Entity investigations retrieve ONLY records that directly
-                # reference the resolved entity (its canonical name + verified
-                # aliases), and ONLY from Indian sources. We deliberately do NOT
-                # fall back to broad synonym search when this is empty: an entity
-                # with no Indian procurement record yields an empty package (→
-                # "insufficient evidence"), never a contaminated one full of
-                # unrelated buyers/suppliers/foreign projects that merely share a
-                # topical word. Correctness over recall.
+                # Entity/tender investigations retrieve ONLY records that directly
+                # reference the resolved entity or exact tender reference, and ONLY
+                # from Indian sources. We deliberately do NOT fall back to broad
+                # synonym search when this is empty: an entity or tender with no
+                # Indian procurement record yields an empty package (→ insufficient
+                # evidence), never a contaminated one full of unrelated buyers,
+                # suppliers, or foreign projects that merely share a topical word.
                 aliases = self._entity_aliases()
                 return self.record_source.search(
                     query, source_names=None, limit=scaled, precision=True,
@@ -434,7 +435,7 @@ def _build_timeline(pkg: InvestigationPackage) -> list[InvestigationTimelineEven
                     event_date=award.award_date,
                     source_name=award.metadata.source_name,
                     source_record_id=award.metadata.source_record_id,
-                    related_tender=tender.reference_number,
+                    related_tender=award.tender_reference_number,
                     related_entity=award.company_name,
                 )
             )
