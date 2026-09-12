@@ -9,3 +9,5 @@ rapidfuzz
 sqlalchemy
 tenacity
 uvicorn[standard]
+cryptography
+pytest
