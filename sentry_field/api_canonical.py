@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+import json
+from urllib.parse import urlparse
+
+from fastapi.responses import Response, StreamingResponse
+from starlette.requests import Request
+
+from . import api_v2 as _gateway
+from .field_stream import stream as _field_stream
+
+app = _gateway.app
+FIELD_API_PORT = _gateway.FIELD_API_PORT
+_state = _gateway._state
+_events = _gateway._events
+_load_demo_tenders = _gateway._load_demo_tenders
+_find_tender = _gateway._find_tender
+_set = _gateway._set
+_snapshot = _gateway._snapshot
+_frame_url = _gateway._frame_url
+_camera = _gateway._camera
+_caps = _gateway._caps
+
+
+def _valid_http_camera_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+@app.middleware("http")
+async def sentry_field_canonical_gateway(request: Request, call_next):
+    if request.method == "POST" and request.url.path == "/dispatch":
+        body = await request.body()
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            payload = None
+        if isinstance(payload, dict):
+            tender_id = str(payload.get("tender_id") or "").strip()
+            requirement_id = str(payload.get("requirement_id") or "").strip()
+            capability = str(payload.get("capability") or "").strip()
+            if tender_id and requirement_id and capability:
+                tender_rows = _load_demo_tenders()
+                tender = next((row for row in tender_rows if str(row.get("id")) == tender_id or str(row.get("tender_id")) == tender_id), None)
+                if tender is not None:
+                    requirement = next((item for item in tender.get("requirements") or [] if str(item.get("id")) == requirement_id), None)
+                    if requirement is not None and str(requirement.get("capability") or "") != capability:
+                        return Response(content=json.dumps({"detail": "Capability does not match the selected tender requirement"}), status_code=400, media_type="application/json")
+        request._body = body
+
+    if request.method == "GET" and request.url.path == "/stream":
+        camera_url = str(request.query_params.get("camera_url") or "").strip()
+        mission_id = request.query_params.get("mission_id")
+        requirement_id = request.query_params.get("requirement_id")
+        if not _valid_http_camera_url(camera_url):
+            return Response(content=json.dumps({"detail": "camera_url must be a valid http(s) URL"}), status_code=400, media_type="application/json")
+        if not mission_id or not requirement_id:
+            return Response(content=json.dumps({"detail": "mission_id and requirement_id are required"}), status_code=400, media_type="application/json")
+
+        try:
+            confidence = float(request.query_params.get("confidence") or _gateway.DEFAULT_CONFIG.confidence)
+            every_n_frames = int(request.query_params.get("every_n_frames") or _gateway.DEFAULT_CONFIG.every_n_frames)
+            capabilities = [value.strip() for value in str(request.query_params.get("capabilities") or "").split(",") if value.strip()]
+            selected_caps = _caps(capabilities or None)
+            with _gateway._lock:
+                _state["authorized"] = True
+                _state["mission_id"] = mission_id
+                _state["requirement_id"] = requirement_id
+                _state["camera_url"] = camera_url
+            return StreamingResponse(
+                _field_stream(_camera(camera_url), confidence, every_n_frames, mission_id, requirement_id, selected_caps),
+                media_type="multipart/x-mixed-replace; boundary=frame",
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "X-Accel-Buffering": "no",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+        except Exception as exc:
+            _set(running=False, last_error=f"FIELD stream setup failed: {exc}")
+            return Response(content=json.dumps({"detail": f"FIELD stream setup failed: {exc}"}), status_code=500, media_type="application/json")
+
+    return await call_next(request)
+
+
+__all__ = ["app", "FIELD_API_PORT"]
