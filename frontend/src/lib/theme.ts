@@ -109,38 +109,37 @@ export const tooltipStyle = {
 /**
  * Relationship-graph node treatment.
  *
- * Monochrome by design, matching the landing-page hero graph: every node is
- * the same graphite chip and type is read from its icon, not its hue. Emerald
- * is reserved for selection, focus and path highlight — so the one coloured
- * thing on screen is always the thing you're looking at.
+ * These values intentionally use CSS custom properties rather than frozen
+ * hex literals. React Flow writes them into inline SVG/DOM styles, and CSS
+ * variables change immediately when the global SENTRY theme switches.
  */
 export const GRAPH = {
   node: {
-    fill: "#1D232E",
-    fillHover: "#232A36",
-    border: "#333B48",
-    icon: "#8D98A7",
-    label: "#F5F7FA",
-    sublabel: "#8D98A7"
+    fill: "var(--sentry-graph-node-fill)",
+    fillHover: "var(--sentry-graph-node-hover)",
+    border: "var(--sentry-graph-node-border)",
+    icon: "var(--sentry-graph-node-icon)",
+    label: "var(--sentry-graph-node-label)",
+    sublabel: "var(--sentry-graph-node-sublabel)"
   },
   /** selected / searched / on the highlighted path */
   highlight: {
-    fill: "#132A26",
-    border: PALETTE.accent,
-    icon: PALETTE.accent,
-    glow: "rgba(16,185,129,0.28)"
+    fill: "var(--sentry-graph-highlight-fill)",
+    border: "var(--color-accent)",
+    icon: "var(--color-accent)",
+    glow: "var(--sentry-graph-highlight-glow)"
   },
   /** de-emphasised when a selection is active */
   dimmed: {
-    fill: "#171A21",
-    border: "#262C37",
-    icon: "#4A5462",
-    label: "#626C7A"
+    fill: "var(--sentry-graph-dim-fill)",
+    border: "var(--sentry-graph-dim-border)",
+    icon: "var(--sentry-graph-dim-icon)",
+    label: "var(--sentry-graph-dim-label)"
   },
   edge: {
-    default: "#333B48",
-    dimmed: "#232A36",
-    highlight: PALETTE.accent,
+    default: "var(--sentry-graph-edge)",
+    dimmed: "var(--sentry-graph-edge-dimmed)",
+    highlight: "var(--color-accent)",
     /** risk-bearing relationships keep a status tint */
     risk: RISK.high
   }
@@ -149,23 +148,29 @@ export const GRAPH = {
 /* ----------------------------------------------------------------- geography */
 
 /**
- * Choropleth ramp for the India map: empty graphite → deep emerald.
- * Sequential and perceptually ordered, so density reads without a legend.
+ * CSS-variable driven choropleth palette. The values can be consumed directly
+ * by SVG and therefore follow the same global light/dark switch as the rest of
+ * the application.
  */
 export const MAP = {
-  empty: "#171A21",
-  scale: ["#1B2A2A", "#1C3A34", "#1B5344", "#137256", "#10B981"] as const,
-  stroke: "#0F1115",
-  hover: PALETTE.accentHi,
-  pressed: PALETTE.accent,
-  marker: PALETTE.accentHi,
-  markerStroke: "#0F1115"
+  empty: "var(--sentry-map-empty)",
+  scale: [
+    "var(--sentry-map-1)",
+    "var(--sentry-map-2)",
+    "var(--sentry-map-3)",
+    "var(--sentry-map-4)",
+    "var(--sentry-map-5)"
+  ] as const,
+  stroke: "var(--sentry-map-stroke)",
+  hover: "var(--color-accent-hi)",
+  pressed: "var(--color-accent)",
+  marker: "var(--color-accent-hi)",
+  markerStroke: "var(--sentry-map-marker-stroke)"
 } as const;
 
 /**
  * Interpolate the choropleth ramp. `t` is clamped to 0–1.
- * Returns `MAP.empty` for t <= 0 so "no data" stays visually distinct
- * from "lowest bucket".
+ * CSS `color-mix()` keeps the returned SVG fill responsive to the active theme.
  */
 export function mapColor(t: number): string {
   if (!Number.isFinite(t) || t <= 0) return MAP.empty;
@@ -173,7 +178,11 @@ export function mapColor(t: number): string {
   const scale = MAP.scale;
   const pos = clamped * (scale.length - 1);
   const i = Math.min(scale.length - 2, Math.floor(pos));
-  return mix(scale[i], scale[i + 1], pos - i);
+  const fraction = pos - i;
+  if (fraction <= 0.001) return scale[i];
+  if (fraction >= 0.999) return scale[i + 1];
+  const nextPct = Math.round(fraction * 100);
+  return `color-mix(in srgb, ${scale[i]} ${100 - nextPct}%, ${scale[i + 1]} ${nextPct}%)`;
 }
 
 /** Linear RGB mix between two hex colours. */
