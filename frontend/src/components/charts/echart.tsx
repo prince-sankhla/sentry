@@ -48,8 +48,8 @@ const LIGHT_COLOR_MAP: Record<string, string> = {
   "#4A5462": "#66737A",
   "#7C8AA0": "#687A84",
   "#4AA3A8": "#327F84",
-  ""rgba(15,17,21,0.96)"": "rgba(255,255,255,0.98)",
-  ""rgba(0,0,0,0.85)"": "rgba(26,43,49,0.14)"
+  "rgba(15,17,21,0.96)": "rgba(255,255,255,0.98)",
+  "rgba(0,0,0,0.85)": "rgba(26,43,49,0.14)"
 };
 
 function isLightTheme(): boolean {
