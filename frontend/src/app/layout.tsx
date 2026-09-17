@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AppShell } from "@/components/layout/app-shell";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import "@xyflow/react/dist/style.css";
 import "./globals.css";
+import "./theme.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
@@ -19,13 +21,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  colorScheme: "dark"
+  colorScheme: "dark light"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
-      <body><AppShell>{children}</AppShell></body>
+      <body>
+        <AppShell>{children}</AppShell>
+        <ThemeToggle />
+      </body>
     </html>
   );
 }
