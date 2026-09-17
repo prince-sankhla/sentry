@@ -226,3 +226,68 @@ html.sentry-light textarea {
 html.sentry-light ::placeholder {
   color: var(--color-faint);
 }
+
+/* React Flow's built-in controls/minimap ship with their own neutral colours,
+   so theme them here instead of changing the third-party package. */
+html.sentry-light .react-flow__controls {
+  box-shadow: 0 8px 20px rgba(26, 43, 49, 0.08);
+}
+
+html.sentry-light .react-flow__controls-button {
+  background: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text) !important;
+  fill: var(--color-text) !important;
+}
+
+html.sentry-light .react-flow__controls-button:hover {
+  background: var(--color-surface-2) !important;
+}
+
+html.sentry-light .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+html.sentry-light .react-flow__minimap {
+  background: var(--color-bg-2) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: 0 8px 20px rgba(26, 43, 49, 0.08);
+}
+
+html.sentry-light .react-flow__minimap-mask {
+  fill: rgba(230, 237, 239, 0.78) !important;
+}
+
+html.sentry-light .react-flow__minimap-node {
+  fill: #8ea4aa !important;
+  stroke: #ffffff !important;
+}
+
+html.sentry-light .react-flow__background-pattern path {
+  stroke: var(--color-border) !important;
+}
+
+/* Hard-coded SVG/marketing artwork: presentation attributes are overridden
+   only in light mode, leaving the dark artwork untouched by default. */
+html.sentry-light svg [fill="#0f1115"],
+html.sentry-light svg [fill="#171a21"],
+html.sentry-light svg [fill="#1d232e"],
+html.sentry-light svg [fill="#232a36"] {
+  fill: #ffffff !important;
+}
+
+html.sentry-light svg [stroke="#0f1115"],
+html.sentry-light svg [stroke="#262c37"],
+html.sentry-light svg [stroke="#333b48"] {
+  stroke: var(--color-border) !important;
+}
+
+html.sentry-light svg [fill="#f5f7fa"],
+html.sentry-light svg [fill="#8d98a7"],
+html.sentry-light svg [fill="#626c7a"] {
+  fill: var(--color-text) !important;
+}
+
+html.sentry-light [class*="text-[#8dd9bd]"] {
+  color: #047857 !important;
+}
