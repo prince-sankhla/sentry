@@ -14,6 +14,10 @@ function applyTheme(theme: Theme) {
   root.style.colorScheme = theme;
 }
 
+function announceTheme(theme: Theme) {
+  window.dispatchEvent(new CustomEvent("sentry:theme-change", { detail: theme }));
+}
+
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("dark");
 
@@ -22,6 +26,7 @@ export function ThemeToggle() {
     const next: Theme = stored === "light" ? "light" : "dark";
     setTheme(next);
     applyTheme(next);
+    announceTheme(next);
   }, []);
 
   function toggleTheme() {
@@ -29,7 +34,7 @@ export function ThemeToggle() {
     setTheme(next);
     window.localStorage.setItem(STORAGE_KEY, next);
     applyTheme(next);
-    window.dispatchEvent(new CustomEvent("sentry:theme-change", { detail: next }));
+    announceTheme(next);
   }
 
   const isLight = theme === "light";
