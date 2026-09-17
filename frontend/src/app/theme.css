@@ -3,6 +3,35 @@
    entire design system to a white, paper-like workspace while preserving the
    existing emerald brand and status colors. */
 
+/* Canvas/SVG variables. They mirror the dark design tokens until the light
+   class is applied, so React Flow and react-simple-maps switch without a
+   component remount. */
+:root {
+  --sentry-graph-node-fill: #1d232e;
+  --sentry-graph-node-hover: #232a36;
+  --sentry-graph-node-border: #333b48;
+  --sentry-graph-node-icon: #8d98a7;
+  --sentry-graph-node-label: #f5f7fa;
+  --sentry-graph-node-sublabel: #8d98a7;
+  --sentry-graph-highlight-fill: #132a26;
+  --sentry-graph-highlight-glow: rgba(16, 185, 129, 0.28);
+  --sentry-graph-dim-fill: #171a21;
+  --sentry-graph-dim-border: #262c37;
+  --sentry-graph-dim-icon: #4a5462;
+  --sentry-graph-dim-label: #626c7a;
+  --sentry-graph-edge: #333b48;
+  --sentry-graph-edge-dimmed: #232a36;
+
+  --sentry-map-empty: #171a21;
+  --sentry-map-1: #1b2a2a;
+  --sentry-map-2: #1c3a34;
+  --sentry-map-3: #1b5344;
+  --sentry-map-4: #137256;
+  --sentry-map-5: #10b981;
+  --sentry-map-stroke: #0f1115;
+  --sentry-map-marker-stroke: #0f1115;
+}
+
 html.sentry-light {
   color-scheme: light;
 
@@ -49,6 +78,31 @@ html.sentry-light {
     0 28px 60px rgba(26, 43, 49, 0.08);
   --shadow-glow: 0 0 0 1px rgba(5, 150, 105, 0.18),
     0 10px 30px rgba(5, 150, 105, 0.12);
+
+  /* React Flow / map tokens */
+  --sentry-graph-node-fill: #ffffff;
+  --sentry-graph-node-hover: #f2f6f7;
+  --sentry-graph-node-border: #c8d3d6;
+  --sentry-graph-node-icon: #66737a;
+  --sentry-graph-node-label: #182126;
+  --sentry-graph-node-sublabel: #66737a;
+  --sentry-graph-highlight-fill: #e7f7f1;
+  --sentry-graph-highlight-glow: rgba(5, 150, 105, 0.18);
+  --sentry-graph-dim-fill: #f2f6f7;
+  --sentry-graph-dim-border: #dfe6e8;
+  --sentry-graph-dim-icon: #8a969b;
+  --sentry-graph-dim-label: #8a969b;
+  --sentry-graph-edge: #b7c5c9;
+  --sentry-graph-edge-dimmed: #dfe6e8;
+
+  --sentry-map-empty: #f2f6f7;
+  --sentry-map-1: #e8f4ef;
+  --sentry-map-2: #d5ebe2;
+  --sentry-map-3: #b9dfd0;
+  --sentry-map-4: #78c8ad;
+  --sentry-map-5: #059669;
+  --sentry-map-stroke: #c8d3d6;
+  --sentry-map-marker-stroke: #ffffff;
 }
 
 html.sentry-light body {
@@ -120,8 +174,7 @@ html.sentry-light .shimmer::after {
   );
 }
 
-/* Common legacy hard-coded utility classes used by a few older screens.
-   Token-driven screens do not need these rules. */
+/* Common legacy hard-coded utility classes used by older screens. */
 html.sentry-light .bg-black,
 html.sentry-light .bg-black\/20,
 html.sentry-light .bg-black\/30,
@@ -130,21 +183,28 @@ html.sentry-light .bg-black\/50,
 html.sentry-light .bg-gray-950,
 html.sentry-light .bg-slate-950,
 html.sentry-light .bg-zinc-950,
-html.sentry-light .bg-neutral-950 {
+html.sentry-light .bg-neutral-950,
+html.sentry-light [class*="bg-[#10131a]"],
+html.sentry-light [class*="bg-[#0b0e13]"],
+html.sentry-light [class*="bg-[#171a21]"] {
   background-color: var(--color-bg) !important;
 }
 
 html.sentry-light .text-white,
 html.sentry-light .text-white\/90,
 html.sentry-light .text-white\/80,
-html.sentry-light .text-white\/70 {
+html.sentry-light .text-white\/70,
+html.sentry-light [class*="text-[#8d98a7]"],
+html.sentry-light [class*="text-[#626c7a]"] {
   color: var(--color-text) !important;
 }
 
 html.sentry-light .border-white\/5,
 html.sentry-light .border-white\/10,
 html.sentry-light .border-white\/15,
-html.sentry-light .border-white\/20 {
+html.sentry-light .border-white\/20,
+html.sentry-light [class*="border-[#262c37]"],
+html.sentry-light [class*="border-[#333b48]"] {
   border-color: var(--color-border) !important;
 }
 
