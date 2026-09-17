@@ -1,0 +1,168 @@
+/* SENTRY light mode
+   Dark mode remains the default. Add `sentry-light` to <html> to switch the
+   entire design system to a white, paper-like workspace while preserving the
+   existing emerald brand and status colors. */
+
+html.sentry-light {
+  color-scheme: light;
+
+  --color-bg: #ffffff;
+  --color-bg-2: #f7f9fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f2f6f7;
+  --color-elevated: #ffffff;
+
+  --color-border: #dfe6e8;
+  --color-border-strong: #c8d3d6;
+  --color-border-accent: rgba(16, 185, 129, 0.28);
+
+  --color-text: #182126;
+  --color-muted: #66737a;
+  --color-faint: #8a969b;
+
+  --color-accent: #059669;
+  --color-accent-hi: #10b981;
+  --color-accent-lo: #047857;
+
+  --color-copper: #059669;
+  --color-amber: #a97825;
+  --color-steel: #5d737a;
+  --color-cyan: #327f84;
+
+  --color-success: #27865e;
+  --color-warning: #a97825;
+  --color-danger: #c4473f;
+  --color-info: #5d737a;
+
+  --color-risk-low: #5d737a;
+  --color-risk-med: #a97825;
+  --color-risk-high: #c4473f;
+  --color-risk-crit: #96263d;
+
+  --shadow-elev: 0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 5px rgba(26, 43, 49, 0.08),
+    0 16px 36px rgba(26, 43, 49, 0.07);
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 16px 40px rgba(26, 43, 49, 0.07);
+  --shadow-float: 0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 8px 20px rgba(26, 43, 49, 0.08),
+    0 28px 60px rgba(26, 43, 49, 0.08);
+  --shadow-glow: 0 0 0 1px rgba(5, 150, 105, 0.18),
+    0 10px 30px rgba(5, 150, 105, 0.12);
+}
+
+html.sentry-light body {
+  background:
+    radial-gradient(1100px 560px at 85% -10%, rgba(16, 185, 129, 0.045), transparent 58%),
+    radial-gradient(900px 600px at -6% 106%, rgba(16, 185, 129, 0.018), transparent 55%),
+    linear-gradient(rgba(15, 23, 28, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 28, 0.025) 1px, transparent 1px),
+    var(--color-bg);
+  background-size: auto, auto, 56px 56px, 56px 56px, auto;
+  background-attachment: fixed;
+  color: var(--color-text);
+}
+
+html.sentry-light * {
+  scrollbar-color: #c8d3d6 transparent;
+}
+
+html.sentry-light *::-webkit-scrollbar-thumb {
+  background: #d3dde0;
+  background-clip: padding-box;
+}
+
+html.sentry-light *::-webkit-scrollbar-thumb:hover {
+  background: #b9c7cb;
+  background-clip: padding-box;
+}
+
+/* Utilities from globals.css that intentionally use fixed dark colours. */
+html.sentry-light .panel {
+  background: linear-gradient(180deg, #ffffff, #f7f9fb);
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-panel);
+}
+
+html.sentry-light .glass {
+  background: linear-gradient(
+    158deg,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(247, 249, 251, 0.88) 100%
+  );
+  border-color: var(--color-border);
+}
+
+html.sentry-light .grid-field {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 28, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 28, 0.04) 1px, transparent 1px);
+}
+
+html.sentry-light .emerald-wash {
+  background: radial-gradient(
+    ellipse 60% 50% at 60% 45%,
+    rgba(16, 185, 129, 0.08),
+    transparent 70%
+  );
+}
+
+html.sentry-light .shimmer {
+  background: var(--color-surface-2);
+}
+
+html.sentry-light .shimmer::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.8),
+    transparent
+  );
+}
+
+/* Common legacy hard-coded utility classes used by a few older screens.
+   Token-driven screens do not need these rules. */
+html.sentry-light .bg-black,
+html.sentry-light .bg-black\/20,
+html.sentry-light .bg-black\/30,
+html.sentry-light .bg-black\/40,
+html.sentry-light .bg-black\/50,
+html.sentry-light .bg-gray-950,
+html.sentry-light .bg-slate-950,
+html.sentry-light .bg-zinc-950,
+html.sentry-light .bg-neutral-950 {
+  background-color: var(--color-bg) !important;
+}
+
+html.sentry-light .text-white,
+html.sentry-light .text-white\/90,
+html.sentry-light .text-white\/80,
+html.sentry-light .text-white\/70 {
+  color: var(--color-text) !important;
+}
+
+html.sentry-light .border-white\/5,
+html.sentry-light .border-white\/10,
+html.sentry-light .border-white\/15,
+html.sentry-light .border-white\/20 {
+  border-color: var(--color-border) !important;
+}
+
+html.sentry-light .bg-white\/5,
+html.sentry-light .bg-white\/10,
+html.sentry-light .bg-white\/15,
+html.sentry-light .bg-white\/20 {
+  background-color: rgba(15, 23, 28, 0.035) !important;
+}
+
+html.sentry-light input,
+html.sentry-light select,
+html.sentry-light textarea {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+html.sentry-light ::placeholder {
+  color: var(--color-faint);
+}
