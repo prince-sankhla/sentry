@@ -29,6 +29,7 @@ export function ThemeToggle() {
     setTheme(next);
     window.localStorage.setItem(STORAGE_KEY, next);
     applyTheme(next);
+    window.dispatchEvent(new CustomEvent("sentry:theme-change", { detail: next }));
   }
 
   const isLight = theme === "light";
