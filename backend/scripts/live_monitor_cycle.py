@@ -9,16 +9,15 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-# Allow `python backend/scripts/live_monitor_cycle.py` from repo root.
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from app.connectors.common.envelope import build_envelope, write_envelope
+from app.connectors.common.http import BaseHttpDownloader
 from app.connectors.cppp.connector import CPPPSourceConnector
 from app.connectors.gem.connector import GeMSourceConnector
-from app.connectors.common.http import BaseHttpDownloader
 from app.db.session import SessionLocal
 from app.importers.generic import GenericConnectorImporter
 from app.schemas.investigation_executor import (
@@ -26,12 +25,13 @@ from app.schemas.investigation_executor import (
     InvestigationCompanyResult,
     InvestigationDocumentResult,
     InvestigationPackage,
-    InvestigationPlan,
     InvestigationProcurementRecord,
     InvestigationSourceMetadata,
     InvestigationTenderResult,
 )
+from app.schemas.investigation_planner import InvestigationPlan
 from app.services.investigation_indicators import build_indicators
+from app.services.live_gem_ingestion import LiveGeMIngestion
 from app.services.risk_engine import assess_risk_v2
 
 CPPP_FEED_URL = "https://www.eprocure.gov.in/eprocure/app?page=Home&service=page"
@@ -106,9 +106,8 @@ def discover_links(html: str, *, source: str) -> list[str]:
                 continue
             if not label and not TENDER_ID_RE.search(url):
                 continue
-        else:
-            if not GEM_BID_RE.search(f"{url} {label}"):
-                continue
+        elif not GEM_BID_RE.search(f"{url} {label}"):
+            continue
         seen.add(url)
         results.append(url)
         if len(results) >= MAX_LINKS_PER_SOURCE:
@@ -129,10 +128,10 @@ def fetch(url: str) -> tuple[str, dict[str, str]]:
 
 def normalize(source: str, url: str, html: str, retrieved_at: datetime):
     if source == "cppp":
-        record_id_match = TENDER_ID_RE.search(html) or TENDER_ID_RE.search(url)
-        if not record_id_match:
+        match = TENDER_ID_RE.search(html) or TENDER_ID_RE.search(url)
+        if not match:
             raise ValueError("No CPPP tender id")
-        record_id = record_id_match.group(0)
+        record_id = match.group(0)
         envelope = build_envelope(
             source_name="cppp",
             source_record_id=record_id,
@@ -142,15 +141,16 @@ def normalize(source: str, url: str, html: str, retrieved_at: datetime):
         )
         return envelope, CPPPSourceConnector().normalize(envelope)
 
-    bid_match = GEM_BID_RE.search(html) or GEM_BID_RE.search(url)
-    if not bid_match:
+    match = GEM_BID_RE.search(html) or GEM_BID_RE.search(url)
+    if not match:
         raise ValueError("No GeM bid number")
-    record_id = bid_match.group(0).upper()
+    record_id = match.group(0).upper()
+    flat = LiveGeMIngestion()._build_flat_record(html, record_id)
     envelope = build_envelope(
         source_name="gem",
         source_record_id=record_id,
         source_url=url,
-        data={"detail_html": html},
+        data=flat,
         retrieved_at=retrieved_at,
     )
     return envelope, GeMSourceConnector().normalize(envelope)
@@ -165,7 +165,7 @@ def to_package(records) -> InvestigationPackage:
             retrieved_at=m.retrieved_at,
         )
 
-    out: list[InvestigationProcurementRecord] = []
+    package_records: list[InvestigationProcurementRecord] = []
     for record in records:
         t = record.tender
         pr = InvestigationProcurementRecord(
@@ -179,40 +179,40 @@ def to_package(records) -> InvestigationPackage:
                 estimated_value=t.estimated_value,
                 currency=t.currency,
                 metadata=meta(t.metadata),
-            )
+            ),
+            companies=[
+                InvestigationCompanyResult(
+                    name=c.name,
+                    registration_number=c.registration_number,
+                    company_identifier=c.registration_number,
+                    metadata=meta(c.metadata),
+                )
+                for c in record.companies
+            ],
+            awards=[
+                InvestigationAwardResult(
+                    tender_reference_number=a.tender_reference_number,
+                    company_name=a.company_name,
+                    company_registration_number=a.company_registration_number,
+                    company_identifier=a.company_registration_number,
+                    award_date=a.award_date,
+                    award_value=a.award_value,
+                    currency=a.currency,
+                    metadata=meta(a.metadata),
+                )
+                for a in record.awards
+            ],
+            documents=[
+                InvestigationDocumentResult(
+                    title=d.title,
+                    url=d.url,
+                    document_type=d.document_type,
+                    metadata=meta(d.metadata),
+                )
+                for d in record.documents
+            ],
         )
-        pr.companies = [
-            InvestigationCompanyResult(
-                name=c.name,
-                registration_number=c.registration_number,
-                company_identifier=c.registration_number,
-                metadata=meta(c.metadata),
-            )
-            for c in record.companies
-        ]
-        pr.awards = [
-            InvestigationAwardResult(
-                tender_reference_number=a.tender_reference_number,
-                company_name=a.company_name,
-                company_registration_number=a.company_registration_number,
-                company_identifier=a.company_registration_number,
-                award_date=a.award_date,
-                award_value=a.award_value,
-                currency=a.currency,
-                metadata=meta(a.metadata),
-            )
-            for a in record.awards
-        ]
-        pr.documents = [
-            InvestigationDocumentResult(
-                title=d.title,
-                url=d.url,
-                document_type=d.document_type,
-                metadata=meta(d.metadata),
-            )
-            for d in record.documents
-        ]
-        out.append(pr)
+        package_records.append(pr)
 
     package = InvestigationPackage(
         plan=InvestigationPlan(
@@ -223,7 +223,7 @@ def to_package(records) -> InvestigationPackage:
             modules=["retrieval", "risk"],
             steps=[],
         ),
-        records=out,
+        records=package_records,
     )
     package.indicators = build_indicators(package)
     package.risk_assessment_v2 = assess_risk_v2(package)
@@ -231,12 +231,13 @@ def to_package(records) -> InvestigationPackage:
 
 
 def flagged_references(package: InvestigationPackage) -> set[str]:
-    refs = set()
-    for indicator in package.risk_assessment_v2.indicators:
-        refs.update(getattr(indicator, "related_tenders", []) or [])
-    if refs:
+    refs: set[str] = set()
+    assessment = package.risk_assessment_v2
+    if assessment is None or not assessment.indicators:
         return refs
-    return {record.tender.reference_number for record in package.records if package.risk_assessment_v2.indicators}
+    for indicator in assessment.indicators:
+        refs.update(getattr(indicator, "related_tenders", []) or [])
+    return refs or {r.tender.reference_number for r in package.records}
 
 
 def main() -> int:
@@ -268,7 +269,7 @@ def main() -> int:
                 stats["failed"] += 1
 
     if not candidates:
-        print(stats)
+        print({**stats, "status": "ok", "message": "No candidate records discovered."})
         return 0
 
     package = to_package([record for _, record in candidates])
@@ -284,7 +285,7 @@ def main() -> int:
         for envelope, record in candidates:
             if record.tender.reference_number not in keep:
                 continue
-            source = envelope["source_name"]
+            source = str(envelope["source_name"])
             with TemporaryDirectory(prefix=f"sentry-monitor-{source}-") as tmp:
                 path = Path(tmp) / f"{envelope['source_record_id']}.json"
                 write_envelope(path, envelope)
