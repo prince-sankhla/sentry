@@ -1,6 +1,5 @@
 import { InvestigationWebResearch } from "@/components/intel/investigation-web-research";
 import { InvestigationPhases } from "@/components/intel/investigation-phases";
-import { FieldVerificationCloseout } from "@/components/intel/field-verification-closeout";
 import { InvestigationWorkspace } from "../investigation-workspace";
 
 export const dynamic = "force-dynamic";
@@ -19,19 +18,10 @@ export default async function InvestigatePage({ searchParams }: PageProps) {
   const explicitQuery = (params.q ?? "").trim();
   const caseQuery = CASE_TO_QUERY[(params.case ?? "").trim()] ?? "";
   const initialQuery = explicitQuery || caseQuery;
-  const landing = !initialQuery;
-  const physicalReference = initialQuery.replace(/^TENDER:/i, "").trim();
 
   return (
     <>
       <InvestigationPhases active="intelligence" completed={[]} />
-
-      {initialQuery ? <PhysicalVerificationHandoff initialQuery={physicalReference} /> : null}
-      {initialQuery ? <FieldVerificationResult reference={physicalReference} /> : null}
-      {initialQuery ? <FieldVerificationCloseout tenderKey={physicalReference} /> : null}
-
-      {landing ? <PhysicalTenderRecommendationsLoader /> : null}
-      <RealAuditCaseLauncher />
       {initialQuery ? <InvestigationWebResearch initialQuery={initialQuery} /> : null}
       <InvestigationWorkspace initialQuery={initialQuery} />
     </>
