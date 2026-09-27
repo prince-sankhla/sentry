@@ -43,6 +43,6 @@ export default async function RootRoute({ params, searchParams }: { params: Prom
     case "red-flags": return <RedFlagsPage />; case "reports": return <ReportsPage {...(props as any)} />; case "research": return <ResearchPage {...(props as any)} />;
     case "review": if (parts[1] === "inbox") return <ReviewInboxPage />; return <ReviewPage {...(props as any)} />; case "risk": return <RiskPage {...(props as any)} />; case "settings": return <SettingsPage />;
     case "tenders": if (parts.length === 2) return <TenderDetailPage params={Promise.resolve({ tenderId: parts[1] })} />; return <TendersPage {...(props as any)} />;
-    case "timeline": return <TimelinePage {...(props as any)} />; case "verification": return <VerificationPage {...(props as any) />; default: notFound();
+    case "timeline": return <TimelinePage {...(props as any)} />; case "verification": return <VerificationPage {...(props as any)} />; default: notFound();
   }
 }
