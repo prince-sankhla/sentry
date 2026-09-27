@@ -1,7 +1,9 @@
-import { PageShell } from "@/components/ui/page";
+import { PageHeader, PageShell } from "@/components/ui/page";
 import { FieldMissionConsoleLive } from "@/components/field/field_mission_console_live";
 import { FieldEvidenceMap } from "@/components/field/field_evidence_map";
 import { HistoricalFieldEvidence } from "@/components/field/historical_field_evidence";
+import { FieldTenderQueue } from "@/components/field/field-tender-queue";
+import { FieldVerificationCloseout } from "@/components/intel/field-verification-closeout";
 import { FieldVerificationCloseout } from "@/components/intel/field-verification-closeout";
 
 export const dynamic = "force-dynamic";
