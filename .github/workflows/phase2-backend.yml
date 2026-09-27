@@ -24,4 +24,4 @@ jobs:
       - name: Install backend dependencies and pytest
         run: pip install -r backend/requirements.txt pytest
       - name: Run Phase 2 contract tests
-        run: pytest -q backend/tests/test_phase2_field_verification.py sentry_field/tests/test_phase2_dispatch.py
+        run: pytest -q backend/tests/test_phase2_field_verification.py backend/tests/test_field_end_to_end.py sentry_field/tests/test_phase2_dispatch.py
