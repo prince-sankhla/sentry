@@ -2,6 +2,7 @@ import { PageShell } from "@/components/ui/page";
 import { FieldMissionConsoleLive } from "@/components/field/field_mission_console_live";
 import { FieldEvidenceMap } from "@/components/field/field_evidence_map";
 import { HistoricalFieldEvidence } from "@/components/field/historical_field_evidence";
+import { FieldVerificationCloseout } from "@/components/intel/field-verification-closeout";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function FieldPage({ searchParams }: PageProps) {
         />
         <FieldEvidenceMap tenderKey={tenderKey || undefined} />
         <HistoricalFieldEvidence tenderKey={tenderKey || undefined} />
+        <FieldVerificationCloseout tenderKey={tenderKey || undefined} />
       </div>
     </PageShell>
   );
