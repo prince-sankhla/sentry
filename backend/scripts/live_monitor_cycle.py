@@ -168,51 +168,52 @@ def to_package(records) -> InvestigationPackage:
     package_records: list[InvestigationProcurementRecord] = []
     for record in records:
         t = record.tender
-        pr = InvestigationProcurementRecord(
-            tender=InvestigationTenderResult(
-                reference_number=t.reference_number,
-                title=t.title,
-                description=t.description,
-                procuring_entity=t.procuring_entity,
-                published_date=t.published_date,
-                closing_date=t.closing_date,
-                estimated_value=t.estimated_value,
-                currency=t.currency,
-                metadata=meta(t.metadata),
-            ),
-            companies=[
-                InvestigationCompanyResult(
-                    name=c.name,
-                    registration_number=c.registration_number,
-                    company_identifier=c.registration_number,
-                    metadata=meta(c.metadata),
-                )
-                for c in record.companies
-            ],
-            awards=[
-                InvestigationAwardResult(
-                    tender_reference_number=a.tender_reference_number,
-                    company_name=a.company_name,
-                    company_registration_number=a.company_registration_number,
-                    company_identifier=a.company_registration_number,
-                    award_date=a.award_date,
-                    award_value=a.award_value,
-                    currency=a.currency,
-                    metadata=meta(a.metadata),
-                )
-                for a in record.awards
-            ],
-            documents=[
-                InvestigationDocumentResult(
-                    title=d.title,
-                    url=d.url,
-                    document_type=d.document_type,
-                    metadata=meta(d.metadata),
-                )
-                for d in record.documents
-            ],
+        package_records.append(
+            InvestigationProcurementRecord(
+                tender=InvestigationTenderResult(
+                    reference_number=t.reference_number,
+                    title=t.title,
+                    description=t.description,
+                    procuring_entity=t.procuring_entity,
+                    published_date=t.published_date,
+                    closing_date=t.closing_date,
+                    estimated_value=t.estimated_value,
+                    currency=t.currency,
+                    metadata=meta(t.metadata),
+                ),
+                companies=[
+                    InvestigationCompanyResult(
+                        name=c.name,
+                        registration_number=c.registration_number,
+                        company_identifier=c.registration_number,
+                        metadata=meta(c.metadata),
+                    )
+                    for c in record.companies
+                ],
+                awards=[
+                    InvestigationAwardResult(
+                        tender_reference_number=a.tender_reference_number,
+                        company_name=a.company_name,
+                        company_registration_number=a.company_registration_number,
+                        company_identifier=a.company_registration_number,
+                        award_date=a.award_date,
+                        award_value=a.award_value,
+                        currency=a.currency,
+                        metadata=meta(a.metadata),
+                    )
+                    for a in record.awards
+                ],
+                documents=[
+                    InvestigationDocumentResult(
+                        title=d.title,
+                        url=d.url,
+                        document_type=d.document_type,
+                        metadata=meta(d.metadata),
+                    )
+                    for d in record.documents
+                ],
+            )
         )
-        package_records.append(pr)
 
     package = InvestigationPackage(
         plan=InvestigationPlan(
@@ -231,13 +232,13 @@ def to_package(records) -> InvestigationPackage:
 
 
 def flagged_references(package: InvestigationPackage) -> set[str]:
-    refs: set[str] = set()
     assessment = package.risk_assessment_v2
     if assessment is None or not assessment.indicators:
-        return refs
+        return set()
+    refs: set[str] = set()
     for indicator in assessment.indicators:
         refs.update(getattr(indicator, "related_tenders", []) or [])
-    return refs or {r.tender.reference_number for r in package.records}
+    return refs
 
 
 def main() -> int:
