@@ -10,16 +10,24 @@ on:
 jobs:
   poll:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Poll official Indian procurement sources
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install monitor dependencies
+        working-directory: backend
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Poll official procurement sources and persist only flagged records
         env:
-          MONITOR_URL: https://sentry-platform-evaluation.vercel.app/api/monitoring/poll
-          SENTRY_MONITOR_TOKEN: ${{ secrets.SENTRY_MONITOR_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
-          test -n "$SENTRY_MONITOR_TOKEN"
-          curl --fail-with-body --silent --show-error \
-            --request POST "$MONITOR_URL" \
-            --header "Authorization: Bearer $SENTRY_MONITOR_TOKEN" \
-            --header "Content-Type: application/json" \
-            --data '{}'
+          test -n "$DATABASE_URL" || { echo "Missing GitHub Actions secret: DATABASE_URL"; exit 1; }
+          python backend/scripts/live_monitor_cycle.py
