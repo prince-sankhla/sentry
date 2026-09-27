@@ -182,9 +182,12 @@ export function FieldVerificationCloseout({ tenderKey }: { tenderKey?: string })
               {report.verification_context.dispatch_reason}
             </p>
           </div>
-          <div className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-bg/25 px-3 py-1.5 text-xs font-semibold text-text">
-            <Icon className="h-3.5 w-3.5" />
-            {copy?.title || report.outcome}
+          <div className="shrink-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-bg/25 px-3 py-1.5 text-xs font-semibold text-text">
+              <Icon className="h-3.5 w-3.5" />
+              {copy?.title || report.outcome}
+            </div>
+            <p className="mt-2 max-w-md text-xs leading-5 text-muted lg:text-right">{copy?.detail}</p>
           </div>
         </div>
 
