@@ -5,12 +5,13 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.tender import Tender
+from app.schemas.field_verification import FieldObservation, FieldReanalysisRequest, FieldRequirement
+from app.services.field_verification_report import build_field_verification_report
 
 router = APIRouter(prefix="/api/investigations", tags=["field-reanalysis"])
 
@@ -130,7 +131,7 @@ def _save_verification(db: Session, tender_id: UUID, request: FieldReanalysisReq
     return {
         "id": row["id"],
         "version": row["version"],
-        "status": "verified",
+        "status": lifecycle_state,
         "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,
         "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
         "supersedes_version": latest["version"] if latest else None,
@@ -274,3 +275,4 @@ def field_verification_status(tender_id: UUID, db: Session = Depends(get_db)) ->
         "deletion_allowed": False,
         "update_allowed": True,
     }
+\n\n\ndef _resolve_tender_identifier(db: Session, identifier: str) -> Tender:\n    value = identifier.strip()\n    try:\n        tender_id = UUID(value)\n    except ValueError:\n        tender_id = None\n\n    if tender_id is not None:\n        tender = db.get(Tender, tender_id)\n        if tender is not None and tender.deleted_at is None:\n            return tender\n\n    rows = (\n        db.query(Tender)\n        .filter(\n            Tender.deleted_at.is_(None),\n            or_(Tender.reference_number == value, Tender.source_record_id == value),\n        )\n        .all()\n    )\n    if not rows:\n        raise HTTPException(404, "Tender not found")\n    if len(rows) > 1:\n        raise HTTPException(409, "Tender identifier is not unique")\n    return rows[0]\n\n\n@router.get("/tenders/{tender_key}/field-verification-report")\ndef field_verification_report(tender_key: str, db: Session = Depends(get_db)) -> dict[str, Any]:\n    tender = _resolve_tender_identifier(db, tender_key)\n    _ensure_store(db)\n    row = db.execute(text("""\n        SELECT id::text, version, mission_id, status, submitted_at, updated_at,\n               requirements, observations, result\n        FROM field_verifications\n        WHERE tender_id = :tender_id\n        ORDER BY version DESC\n        LIMIT 1\n    """), {"tender_id": str(tender.id)}).mappings().first()\n    if row is None:\n        raise HTTPException(404, "No FIELD verification has been submitted for this tender")\n\n    result = row["result"] or {}\n    report = result.get("report")\n    if report is None:\n        legacy_request = FieldReanalysisRequest(\n            tender_id=str(tender.id),\n            mission_id=row["mission_id"],\n            requirements=[FieldRequirement.model_validate(item) for item in (row["requirements"] or [])],\n            observations=[FieldObservation.model_validate(item) for item in (row["observations"] or [])],\n        )\n        report = build_field_verification_report(\n            legacy_request, result, verification_version=row["version"]\n        )\n\n    return {\n        "tender": {\n            "id": str(tender.id),\n            "reference_number": tender.reference_number,\n            "title": tender.title,\n            "procuring_entity": tender.procuring_entity,\n            "source_url": tender.source_url,\n        },\n        "verification": {\n            "id": row["id"],\n            "version": row["version"],\n            "status": row["status"],\n            "mission_id": row["mission_id"],\n            "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,\n            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,\n        },\n        "report": report,\n    }\n
