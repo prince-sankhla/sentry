@@ -14,7 +14,7 @@ from urllib.parse import urlencode, urljoin
 import httpx
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from app.connectors.common.envelope import build_envelope
+from app.connectors.common.envelope import _extract_nic_documents, build_envelope
 
 SOURCE_NAME = "cppp"
 
@@ -136,6 +136,7 @@ class CPPPDownloader:
             source_url=source_url,
             retrieved_at=datetime.now(UTC),
             content_type="text/html",
+            documents=_extract_nic_documents(detail_html, self.base_url),
             data={"detail_html": detail_html},
         )
         with output_path.open("w", encoding="utf-8") as file:

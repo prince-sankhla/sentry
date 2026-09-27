@@ -20,7 +20,7 @@ class StateEProcDownloader(CPPPDownloader):
         import json
         from datetime import UTC, datetime
 
-        from app.connectors.common.envelope import build_envelope
+        from app.connectors.common.envelope import _extract_nic_documents, build_envelope
 
         envelope = build_envelope(
             source_name=self.portal.name,
@@ -28,6 +28,7 @@ class StateEProcDownloader(CPPPDownloader):
             source_url=source_url,
             retrieved_at=datetime.now(UTC),
             content_type="text/html",
+            documents=_extract_nic_documents(detail_html, self.base_url),
             data={"detail_html": detail_html},
         )
         with output_path.open("w", encoding="utf-8") as file:
