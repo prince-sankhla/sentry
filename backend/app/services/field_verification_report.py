@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from app.api.routes.field_reanalysis import FieldObservation, FieldReanalysisRequest, FieldRequirement
+from app.schemas.field_verification import FieldObservation, FieldReanalysisRequest, FieldRequirement
 
 
 def _observed_count(observations: list[FieldObservation], capability: str) -> int:
