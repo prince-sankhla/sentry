@@ -1,49 +1,48 @@
 # SENTRY — Automated Live Procurement Monitoring Checkpoint
 
-Status: IMPLEMENTED
+Status: IMPLEMENTED — direct GitHub Actions worker
 
 ## Delivered
 
-- Protected `POST /api/monitoring/poll` endpoint.
-- Scheduled GitHub Actions worker every 15 minutes.
+- GitHub Actions worker runs every 15 minutes.
 - Official CPPP/eProcurement listing discovery.
 - Official GeM BidPlus listing discovery with safe best-effort parsing for dynamically rendered bid listings.
-- Reuse of existing CPPP and GeM live ingestion services for normalization, provenance and idempotent persistence.
-- Monitoring UI now distinguishes database refresh cadence from upstream source polling and exposes current deterministic review signals.
-- Live Monitoring is exposed in the government/audit and researcher navigation surfaces.
+- Candidates are fetched and normalized in memory first.
+- The existing deterministic Risk Engine V2 screens the current candidate batch before persistence.
+- Only records referenced by deterministic indicators are persisted through the existing idempotent importer.
+- Unflagged candidates are discarded after screening and are not written to the canonical procurement tables.
+- No Vercel endpoint or `SENTRY_MONITOR_TOKEN` is required by the scheduled worker.
 
 ## Runtime flow
 
-Official source listing → discovered tender/bid URLs → existing live ingestion → normalized SENTRY record → deterministic screening → Monitoring review-signal feed.
+Official source listing → official detail URLs → in-memory normalization → deterministic screening → **flagged records only** → existing normalized SENTRY database + provenance.
 
 ## Schedule boundary
 
-Polling cadence is 15 minutes. This is aligned with the public source pages' stated listing propagation behaviour. It is not a sub-minute real-time feed and source-side delay or failure can affect freshness.
+Polling cadence is 15 minutes. This is aligned with the public source pages' stated listing propagation behaviour. It is not a sub-minute real-time feed and source-side delay, rate limiting, CAPTCHA, HTML changes, or source failure can affect freshness.
 
 ## Configuration required
 
-Set `SENTRY_MONITOR_TOKEN` in both:
+Set one GitHub Actions repository secret:
 
-1. GitHub Actions repository secrets.
-2. Backend deployment environment.
+`DATABASE_URL`
 
-The workflow sends the token as `Authorization: Bearer ...` to `/api/monitoring/poll`.
+The secret must be a write-capable PostgreSQL/Neon connection string for the SENTRY database. The scheduled job connects directly to the database; it does not call Vercel.
 
 ## Integrity boundaries
 
-- Only official CPPP/GeM hosts are accepted by live ingestion.
+- Only official CPPP/GeM hosts are accepted by the live fetcher.
 - Existing deterministic Risk Engine semantics are unchanged.
 - Missing evidence is not converted into positive risk.
 - Monitoring signals remain review leads, not adjudications.
 - The system does not claim that every government portal is covered; the implemented automated sources are CPPP/eProcurement and GeM BidPlus.
-- Deployment success and successful first scheduled run are not claimed from this chat because the production environment and GitHub Actions secret configuration were not independently executed here.
+- Unflagged live candidates are deliberately ephemeral for this monitoring path; flagged records retain normal SENTRY provenance and idempotency.
 
 ## References
 
-- `backend/app/services/live_monitoring.py`
-- `backend/app/api/routes/monitoring.py`
-- `backend/app/main.py`
+- `backend/scripts/live_monitor_cycle.py`
+- `backend/app/services/live_cppp_ingestion.py`
+- `backend/app/services/live_gem_ingestion.py`
 - `.github/workflows/live-procurement-monitor.yml`
 - `frontend/src/components/intel/live-monitoring.tsx`
-- `frontend/src/components/layout/app-shell.tsx`
 - `docs/LIVE_MONITORING_SETUP.md`
