@@ -79,9 +79,9 @@ export default async function TendersPage({ searchParams }: PageProps) {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Procurement Records"
-        title="Tenders"
-        subtitle="Search and sort tender records by title, procuring entity, value, or publication date."
+        eyebrow="All Procurement"
+        title="All Tenders"
+        subtitle="The complete tender record list. Review flags, recommendations, and physical-verification candidates have their own dedicated workspaces."
         breadcrumb={[{ label: "Dashboard", href: "/" }, { label: "Tenders" }]}
         actions={
           <Link
