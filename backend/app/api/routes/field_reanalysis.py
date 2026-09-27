@@ -10,38 +10,20 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.tender import Tender
-from app.schemas.field_verification import FieldObservation, FieldReanalysisRequest, FieldRequirement
+from app.schemas.field_verification import (
+    FieldObservation,
+    FieldReanalysisRequest,
+    FieldRequirement,
+)
 from app.services.field_verification_report import build_field_verification_report
 
 router = APIRouter(prefix="/api/investigations", tags=["field-reanalysis"])
 
 
-class FieldRequirement(BaseModel):
-    id: str
-    capability: str
-    label: str = ""
-    expected_quantity: int = Field(default=1, ge=0)
-
-
-class FieldObservation(BaseModel):
-    capability: str = ""
-    observation: str = ""
-    confidence: float | None = Field(default=None, ge=0, le=1)
-    track_id: str | None = None
-    frame_url: str | None = None
-    gps: dict[str, Any] | None = None
-    observed_at: float | None = None
-
-
-class FieldReanalysisRequest(BaseModel):
-    tender_id: str
-    mission_id: str = Field(min_length=1, max_length=200)
-    requirements: list[FieldRequirement] = []
-    observations: list[FieldObservation] = []
-
-
 def _ensure_store(db: Session) -> None:
-    db.execute(text("""
+    db.execute(
+        text(
+            """
         CREATE TABLE IF NOT EXISTS field_verifications (
             id UUID PRIMARY KEY,
             tender_id UUID NOT NULL REFERENCES tenders(id),
@@ -56,12 +38,22 @@ def _ensure_store(db: Session) -> None:
             supersedes_id UUID NULL REFERENCES field_verifications(id),
             UNIQUE (tender_id, version)
         )
-    """))
-    db.execute(text("CREATE INDEX IF NOT EXISTS idx_field_verifications_tender ON field_verifications(tender_id)"))
+        """
+        )
+    )
+    db.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS idx_field_verifications_tender "
+            "ON field_verifications(tender_id)"
+        )
+    )
     db.commit()
 
 
 def _row_metadata(row: Any) -> dict[str, Any]:
+    payload = row["result"] or {}
+    report = payload.get("report") or {}
+    quality = report.get("evidence_quality") or {}
     return {
         "id": row["id"],
         "version": row["version"],
@@ -72,14 +64,21 @@ def _row_metadata(row: Any) -> dict[str, Any]:
         "observation_count": row["observation_count"],
         "evidence_count": row["evidence_count"],
         "gps_evidence_count": row["gps_evidence_count"],
+        "outcome": report.get("outcome"),
+        "lifecycle_state": report.get("lifecycle_state"),
+        "evidence_quality_tier": quality.get("tier"),
+        "next_action_count": len(report.get("next_actions") or []),
         "observations": row["observations"] or [],
     }
 
 
 def _latest_verification(db: Session, tender_id: UUID) -> dict[str, Any] | None:
     _ensure_store(db)
-    row = db.execute(text("""
-        SELECT id::text, version, mission_id, status, submitted_at, updated_at, observations,
+    row = db.execute(
+        text(
+            """
+        SELECT id::text, version, mission_id, status, submitted_at, updated_at,
+               observations, result,
                jsonb_array_length(observations) AS observation_count,
                COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
                COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
@@ -87,46 +86,84 @@ def _latest_verification(db: Session, tender_id: UUID) -> dict[str, Any] | None:
         WHERE tender_id = :tender_id
         ORDER BY version DESC
         LIMIT 1
-    """), {"tender_id": str(tender_id)}).mappings().first()
+        """
+        ),
+        {"tender_id": str(tender_id)},
+    ).mappings().first()
     return _row_metadata(row) if row else None
 
 
 def _verification_history(db: Session, tender_id: UUID) -> list[dict[str, Any]]:
     _ensure_store(db)
-    rows = db.execute(text("""
-        SELECT id::text, version, mission_id, status, submitted_at, updated_at, observations,
+    rows = db.execute(
+        text(
+            """
+        SELECT id::text, version, mission_id, status, submitted_at, updated_at,
+               observations, result,
                jsonb_array_length(observations) AS observation_count,
                COALESCE((result->'summary'->>'evidence_count')::int, 0) AS evidence_count,
                COALESCE((result->'summary'->>'gps_evidence_count')::int, 0) AS gps_evidence_count
         FROM field_verifications
         WHERE tender_id = :tender_id
         ORDER BY version ASC
-    """), {"tender_id": str(tender_id)}).mappings().all()
+        """
+        ),
+        {"tender_id": str(tender_id)},
+    ).mappings().all()
     return [_row_metadata(row) for row in rows]
 
 
-def _save_verification(db: Session, tender_id: UUID, request: FieldReanalysisRequest, result: dict[str, Any]) -> dict[str, Any]:
+def _save_verification(
+    db: Session,
+    tender_id: UUID,
+    request: FieldReanalysisRequest,
+    result: dict[str, Any],
+) -> dict[str, Any]:
     _ensure_store(db)
-    db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": str(tender_id)})
-    latest = db.execute(text("SELECT id, version FROM field_verifications WHERE tender_id = :tender_id ORDER BY version DESC LIMIT 1"), {"tender_id": str(tender_id)}).mappings().first()
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+        {"key": str(tender_id)},
+    )
+    latest = db.execute(
+        text(
+            "SELECT id, version FROM field_verifications "
+            "WHERE tender_id = :tender_id ORDER BY version DESC LIMIT 1"
+        ),
+        {"tender_id": str(tender_id)},
+    ).mappings().first()
     version = int(latest["version"]) + 1 if latest else 1
-    row = db.execute(text("""
+
+    report = result.get("report") or {}
+    lifecycle_state = str(report.get("lifecycle_state") or "EVIDENCE_REVIEW_REQUIRED")
+    report.setdefault("provenance", {})["verification_version"] = version
+
+    row = db.execute(
+        text(
+            """
         INSERT INTO field_verifications
           (id, tender_id, version, mission_id, status, requirements, observations, result, supersedes_id)
         VALUES
-          (:id, :tender_id, :version, :mission_id, 'verified', CAST(:requirements AS jsonb),
+          (:id, :tender_id, :version, :mission_id, :status, CAST(:requirements AS jsonb),
            CAST(:observations AS jsonb), CAST(:result AS jsonb), :supersedes_id)
         RETURNING id::text, version, submitted_at, updated_at
-    """), {
-        "id": str(uuid4()),
-        "tender_id": str(tender_id),
-        "version": version,
-        "mission_id": request.mission_id,
-        "requirements": json.dumps([item.model_dump(mode="json") for item in request.requirements]),
-        "observations": json.dumps([item.model_dump(mode="json") for item in request.observations]),
-        "result": json.dumps(result),
-        "supersedes_id": str(latest["id"]) if latest else None,
-    }).mappings().one()
+        """
+        ),
+        {
+            "id": str(uuid4()),
+            "tender_id": str(tender_id),
+            "version": version,
+            "mission_id": request.mission_id,
+            "status": lifecycle_state,
+            "requirements": json.dumps(
+                [item.model_dump(mode="json") for item in request.requirements]
+            ),
+            "observations": json.dumps(
+                [item.model_dump(mode="json") for item in request.observations]
+            ),
+            "result": json.dumps(result),
+            "supersedes_id": str(latest["id"]) if latest else None,
+        },
+    ).mappings().one()
     db.commit()
     return {
         "id": row["id"],
@@ -138,11 +175,17 @@ def _save_verification(db: Session, tender_id: UUID, request: FieldReanalysisReq
         "observation_count": len(request.observations),
         "evidence_count": result["summary"]["evidence_count"],
         "gps_evidence_count": result["summary"]["gps_evidence_count"],
+        "outcome": report.get("outcome"),
+        "lifecycle_state": lifecycle_state,
     }
 
 
 def _observed_count(observations: list[FieldObservation], capability: str) -> int:
-    rows = [item for item in observations if item.capability.strip().lower() == capability.strip().lower()]
+    rows = [
+        item
+        for item in observations
+        if item.capability.strip().lower() == capability.strip().lower()
+    ]
     unique = {item.track_id for item in rows if item.track_id}
     return len(unique) if unique else len(rows)
 
@@ -169,13 +212,18 @@ def _checks_for(capability: str) -> list[str]:
             "Reconcile visible camera positions against the approved deployment list",
             "Check commissioning/acceptance and video-analytics test records",
         ],
-        "signboard": ["Compare visible signage with the approved sign schedule and completion record"],
+        "signboard": [
+            "Compare visible signage with the approved sign schedule and completion record"
+        ],
         "solar_panel": [
             "Reconcile visible installations with the approved asset schedule",
             "Check commissioning and electrical-generation test records",
         ],
     }
-    return checks.get(capability, ["Verify the tender requirement against the approved site-wise work/asset records"])
+    return checks.get(
+        capability,
+        ["Verify the tender requirement against the approved site-wise work/asset records"],
+    )
 
 
 def _explanations_for(capability: str) -> list[str]:
@@ -185,14 +233,21 @@ def _explanations_for(capability: str) -> list[str]:
         "A current visual observation does not by itself establish non-compliance or fraud",
     ]
     if capability == "streetlight":
-        return generic + ["Electrical status requires appropriate electrical testing; RGB vision is observational"]
+        return generic + [
+            "Electrical status requires appropriate electrical testing; RGB vision is observational"
+        ]
     if capability in {"road_crack", "pothole"}:
-        return generic + ["Road-condition observations can change over time and should be reconciled with inspection dates"]
+        return generic + [
+            "Road-condition observations can change over time and should be reconciled with inspection dates"
+        ]
     return generic
 
 
 @router.post("/field-reanalysis")
-def field_reanalysis(request: FieldReanalysisRequest, db: Session = Depends(get_db)) -> dict:
+def field_reanalysis(
+    request: FieldReanalysisRequest,
+    db: Session = Depends(get_db),
+) -> dict:
     try:
         tender_id = UUID(request.tender_id)
     except ValueError as exc:
@@ -215,15 +270,17 @@ def field_reanalysis(request: FieldReanalysisRequest, db: Session = Depends(get_
         expected_total += expected
         observed_total += min(expected, observed)
         if gap > 0:
-            discrepancies.append({
-                "requirement_id": requirement.id,
-                "capability": requirement.capability,
-                "label": requirement.label or requirement.capability,
-                "expected": expected,
-                "observed": observed,
-                "gap": gap,
-                "signal": "discrepancy",
-            })
+            discrepancies.append(
+                {
+                    "requirement_id": requirement.id,
+                    "capability": requirement.capability,
+                    "label": requirement.label or requirement.capability,
+                    "expected": expected,
+                    "observed": observed,
+                    "gap": gap,
+                    "signal": "discrepancy",
+                }
+            )
         for check in _checks_for(requirement.capability):
             if check not in next_checks:
                 next_checks.append(check)
@@ -232,7 +289,13 @@ def field_reanalysis(request: FieldReanalysisRequest, db: Session = Depends(get_
                 explanations.append(explanation)
 
     evidence_count = sum(1 for item in request.observations if item.frame_url)
-    gps_count = sum(1 for item in request.observations if item.gps and item.gps.get("lat") is not None and item.gps.get("lon") is not None)
+    gps_count = sum(
+        1
+        for item in request.observations
+        if item.gps
+        and item.gps.get("lat") is not None
+        and item.gps.get("lon") is not None
+    )
     status = "discrepancy_review" if discrepancies else "no_observed_shortfall"
 
     result = {
@@ -255,14 +318,21 @@ def field_reanalysis(request: FieldReanalysisRequest, db: Session = Depends(get_
         "discrepancies": discrepancies,
         "possible_explanations": explanations[:8],
         "next_checks": next_checks[:10],
-        "guardrail": "SENTRY reports a verification discrepancy signal, not a fraud finding. Investigator review is required.",
+        "guardrail": (
+            "SENTRY reports a verification discrepancy signal, not a fraud finding. "
+            "Investigator review is required."
+        ),
     }
+    result["report"] = build_field_verification_report(request, result)
     result["verification"] = _save_verification(db, tender_id, request, result)
     return result
 
 
 @router.get("/tenders/{tender_id}/field-verification-status")
-def field_verification_status(tender_id: UUID, db: Session = Depends(get_db)) -> dict[str, Any]:
+def field_verification_status(
+    tender_id: UUID,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     tender = db.get(Tender, tender_id)
     if tender is None or tender.deleted_at is not None:
         raise HTTPException(404, "Tender not found")
@@ -275,4 +345,101 @@ def field_verification_status(tender_id: UUID, db: Session = Depends(get_db)) ->
         "deletion_allowed": False,
         "update_allowed": True,
     }
-\n\n\ndef _resolve_tender_identifier(db: Session, identifier: str) -> Tender:\n    value = identifier.strip()\n    try:\n        tender_id = UUID(value)\n    except ValueError:\n        tender_id = None\n\n    if tender_id is not None:\n        tender = db.get(Tender, tender_id)\n        if tender is not None and tender.deleted_at is None:\n            return tender\n\n    rows = (\n        db.query(Tender)\n        .filter(\n            Tender.deleted_at.is_(None),\n            or_(Tender.reference_number == value, Tender.source_record_id == value),\n        )\n        .all()\n    )\n    if not rows:\n        raise HTTPException(404, "Tender not found")\n    if len(rows) > 1:\n        raise HTTPException(409, "Tender identifier is not unique")\n    return rows[0]\n\n\n@router.get("/tenders/{tender_key}/field-verification-report")\ndef field_verification_report(tender_key: str, db: Session = Depends(get_db)) -> dict[str, Any]:\n    tender = _resolve_tender_identifier(db, tender_key)\n    _ensure_store(db)\n    row = db.execute(text("""\n        SELECT id::text, version, mission_id, status, submitted_at, updated_at,\n               requirements, observations, result\n        FROM field_verifications\n        WHERE tender_id = :tender_id\n        ORDER BY version DESC\n        LIMIT 1\n    """), {"tender_id": str(tender.id)}).mappings().first()\n    if row is None:\n        raise HTTPException(404, "No FIELD verification has been submitted for this tender")\n\n    result = row["result"] or {}\n    report = result.get("report")\n    if report is None:\n        legacy_request = FieldReanalysisRequest(\n            tender_id=str(tender.id),\n            mission_id=row["mission_id"],\n            requirements=[FieldRequirement.model_validate(item) for item in (row["requirements"] or [])],\n            observations=[FieldObservation.model_validate(item) for item in (row["observations"] or [])],\n        )\n        report = build_field_verification_report(\n            legacy_request, result, verification_version=row["version"]\n        )\n\n    return {\n        "tender": {\n            "id": str(tender.id),\n            "reference_number": tender.reference_number,\n            "title": tender.title,\n            "procuring_entity": tender.procuring_entity,\n            "source_url": tender.source_url,\n        },\n        "verification": {\n            "id": row["id"],\n            "version": row["version"],\n            "status": row["status"],\n            "mission_id": row["mission_id"],\n            "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,\n            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,\n        },\n        "report": report,\n    }\n
+
+
+def _resolve_tender_identifier(db: Session, identifier: str) -> Tender:
+    value = identifier.strip()
+    try:
+        tender_id = UUID(value)
+    except ValueError:
+        tender_id = None
+
+    if tender_id is not None:
+        tender = db.get(Tender, tender_id)
+        if tender is not None and tender.deleted_at is None:
+            return tender
+
+    rows = (
+        db.query(Tender)
+        .filter(
+            Tender.deleted_at.is_(None),
+            or_(
+                Tender.reference_number == value,
+                Tender.source_record_id == value,
+            ),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(404, "Tender not found")
+    if len(rows) > 1:
+        raise HTTPException(409, "Tender identifier is not unique")
+    return rows[0]
+
+
+@router.get("/tenders/{tender_key}/field-verification-report")
+def field_verification_report(
+    tender_key: str,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    tender = _resolve_tender_identifier(db, tender_key)
+    _ensure_store(db)
+    row = db.execute(
+        text(
+            """
+        SELECT id::text, version, mission_id, status, submitted_at, updated_at,
+               requirements, observations, result
+        FROM field_verifications
+        WHERE tender_id = :tender_id
+        ORDER BY version DESC
+        LIMIT 1
+        """
+        ),
+        {"tender_id": str(tender.id)},
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(404, "No FIELD verification has been submitted for this tender")
+
+    result = row["result"] or {}
+    report = result.get("report")
+    if report is None:
+        legacy_request = FieldReanalysisRequest(
+            tender_id=str(tender.id),
+            mission_id=row["mission_id"],
+            requirements=[
+                FieldRequirement.model_validate(item)
+                for item in (row["requirements"] or [])
+            ],
+            observations=[
+                FieldObservation.model_validate(item)
+                for item in (row["observations"] or [])
+            ],
+        )
+        report = build_field_verification_report(
+            legacy_request,
+            result,
+            verification_version=row["version"],
+        )
+
+    return {
+        "tender": {
+            "id": str(tender.id),
+            "reference_number": tender.reference_number,
+            "title": tender.title,
+            "procuring_entity": tender.procuring_entity,
+            "source_url": tender.source_url,
+        },
+        "verification": {
+            "id": row["id"],
+            "version": row["version"],
+            "status": row["status"],
+            "mission_id": row["mission_id"],
+            "submitted_at": row["submitted_at"].isoformat()
+            if row["submitted_at"]
+            else None,
+            "updated_at": row["updated_at"].isoformat()
+            if row["updated_at"]
+            else None,
+        },
+        "report": report,
+    }
