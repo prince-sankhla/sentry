@@ -39,8 +39,8 @@ const CONFIG: Record<WorkspaceRole, {
     eyebrow: "Audit workspace",
     title: "Prioritise review, then verify",
     description: "Start from review signals, inspect connected procurement records, and preserve the human decision boundary throughout assessment.",
-    primaryHref: "/risk",
-    primaryLabel: "Open review queue",
+    primaryHref: "/flagged-tenders",
+    primaryLabel: "Review flagged tenders",
     secondaryHref: "/investigations",
     secondaryLabel: "Open investigation workspace",
     steps: ["Prioritise signals", "Verify records", "Prepare human review"]

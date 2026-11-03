@@ -26,9 +26,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { RelationshipGraphExplorer } from "@/app/graph/relationship-graph";
-import { CommandCenter } from "@/app/command-center";
 import { EntitySearch, type PinnedEntity } from "@/components/search/entity-search";
-import { PriorityInvestigationQueue } from "@/components/dashboard/priority-queue";
 import { EvidenceCard, type EvidenceItem } from "@/components/intel/evidence-card";
 import { InvestigatorReview } from "@/components/intel/investigator-review";
 import {
@@ -68,6 +66,42 @@ import {
 } from "@/lib/api";
 import { bySourcePriority } from "@/lib/sources";
 import { formatCompactMoney, formatDate, formatMoneyFull } from "@/lib/format";
+
+function InvestigationEntryGuide() {
+  const router = useRouter();
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+      <div className="border-b border-border bg-bg-2/30 px-5 py-5 md:px-6">
+        <div className="text-[10px] font-semibold uppercase tracking-[.16em] text-accent">Investigation Workspace</div>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-text">Start from a procurement question</h2>
+        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted">
+          This workspace is only for investigation and evidence reasoning. Tender queues, review flags, recommendations, and physical verification live in their dedicated workspaces.
+        </p>
+      </div>
+      <div className="grid gap-px border-b border-border bg-border md:grid-cols-3">
+        {[
+          { title: "Flagged Tenders", detail: "Review tender-linked screening signals.", href: "/flagged-tenders" },
+          { title: "Recommended Tenders", detail: "Open deterministic lead recommendations.", href: "/recommended-tenders" },
+          { title: "Physical Verification", detail: "Send physical requirements to FIELD.", href: "/field" },
+        ].map((item) => (
+          <button
+            key={item.href}
+            type="button"
+            onClick={() => router.push(item.href)}
+            className="bg-surface px-5 py-4 text-left transition hover:bg-surface-2"
+          >
+            <div className="text-sm font-semibold text-text">{item.title}</div>
+            <div className="mt-1 text-xs leading-5 text-muted">{item.detail}</div>
+          </button>
+        ))}
+      </div>
+      <div className="px-5 py-4 text-xs text-faint md:px-6">
+        Search above for a buyer, supplier, tender reference, or other canonical procurement subject to begin the investigation pipeline.
+      </div>
+    </section>
+  );
+}
 
 /* ============================================================ pipeline */
 
@@ -303,14 +337,7 @@ export function InvestigationWorkspace({ initialQuery }: { initialQuery: string 
         <CaseLauncherBanner onOpen={() => launchFollowUp("Dharmagarh NAC")} />
       )}
 
-      {/* Investigator landing: where to start, before the analytics dashboard. */}
-      {!activeQuery && !running && (
-        <div className="mt-8">
-          <PriorityInvestigationQueue onOpen={launchFollowUp} />
-        </div>
-      )}
-
-      {!activeQuery && !running && <CommandCenter />}
+      {!activeQuery && !running && <InvestigationEntryGuide />}
 
       {reasoning && !running && (
         <InvestigationResults

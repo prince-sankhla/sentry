@@ -418,6 +418,7 @@ export function FieldMissionConsoleLive({
         deletion_allowed: false,
         update_allowed: true,
       }));
+      window.dispatchEvent(new Event("sentry.field.report.updated"));
       await stopMission();
       setTab("evidence");
     } catch (reason) {
